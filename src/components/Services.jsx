@@ -76,10 +76,12 @@ const Services = () => {
         >
           <div className="flex items-center justify-center gap-2 mb-3">
             <span className="diamond-bullet bg-castleton" />
-            <p className="text-castleton font-medium text-sm">Our expertise</p>
+            <p className="text-castleton font-semibold text-2xl sm:text-3xl tracking-tight">Our expertise</p>
           </div>
           <h2 className="text-4xl sm:text-5xl font-medium text-serpent mb-4">
-            Service Areas
+            <span className="text-castleton">Service</span>{' '}
+            <span className="text-serpent">Areas</span>{' '}
+            <span className="text-saffron">That Deliver</span>
           </h2>
           <p className="text-serpent text-lg max-w-2xl mx-auto font-light">
             Practical, scalable services designed to support production AI workflows and enterprise operations.
