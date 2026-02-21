@@ -732,16 +732,31 @@ function App() {
   const [signInError, setSignInError] = useState('')
   const [activeAdminTab, setActiveAdminTab] = useState('Dashboard')
   const [adminNotice, setAdminNotice] = useState('')
-  const [internAnalyticsData, setInternAnalyticsData] = useState(analyticsInterns)
+  const [internAnalyticsData, setInternAnalyticsData] = useState(() =>
+    analyticsInterns.map((intern, index) => ({
+      ...intern,
+      email: intern.email || `intern${index + 1}@lifewood.com`,
+      track: intern.track || (index % 3 === 0 ? 'AI Data Operations' : index % 3 === 1 ? 'Quality Assurance' : 'Reporting & PMO'),
+      status: intern.status || (intern.low ? 'Probation' : 'Active'),
+      mentor: intern.mentor || (index % 2 === 0 ? 'Team Lead A' : 'Team Lead B'),
+      joinDate: intern.joinDate || `2026-0${(index % 3) + 1}-${String((index % 27) + 1).padStart(2, '0')}`,
+    }))
+  )
   const [selectedAnalyticsIntern, setSelectedAnalyticsIntern] = useState(null)
+  const [analyticsSortBy, setAnalyticsSortBy] = useState('name-asc')
+  const [evaluationSortBy, setEvaluationSortBy] = useState('score-desc')
+  const [reportsSortBy, setReportsSortBy] = useState('score-desc')
   const [editingInternIndex, setEditingInternIndex] = useState(null)
   const [internForm, setInternForm] = useState({
     name: '',
-    performance: 85,
-    attendance: 90,
-    progress: 80,
-    low: false,
+    email: '',
+    track: 'AI Data Operations',
+    status: 'Active',
+    mentor: '',
+    joinDate: '',
   })
+  const [settingsSearch, setSettingsSearch] = useState('')
+  const [settingsStatusFilter, setSettingsStatusFilter] = useState('All')
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(() => {
     if (typeof window === 'undefined') return false
     return window.localStorage.getItem('lw_admin_auth') === '1'
@@ -763,7 +778,7 @@ function App() {
   }, [selectedAnalyticsIntern])
 
   useEffect(() => {
-    if (activeAdminTab !== 'Analytics' && selectedAnalyticsIntern) {
+    if (!['Analytics', 'Evaluation', 'Reports'].includes(activeAdminTab) && selectedAnalyticsIntern) {
       setSelectedAnalyticsIntern(null)
     }
   }, [activeAdminTab, selectedAnalyticsIntern])
@@ -899,6 +914,103 @@ function App() {
     ? Math.round(internAnalyticsData.reduce((sum, intern) => sum + intern.progress, 0) / totalInterns)
     : 0
 
+  const getInternBreakdown = (intern) => {
+    const activities = Math.round(intern.progress * 0.5 + intern.attendance * 0.2 + intern.performance * 0.3)
+    const tasks = Math.round(intern.progress * 0.6 + intern.performance * 0.4)
+    const quality = Math.round(intern.performance * 0.75 + intern.attendance * 0.25)
+    const collaboration = Math.round((intern.performance + intern.attendance) / 2)
+    const consistency = Math.round((intern.attendance + intern.progress) / 2)
+    const evalScore = Math.round(intern.performance * 0.4 + intern.attendance * 0.3 + intern.progress * 0.3)
+    return { activities, tasks, quality, collaboration, consistency, evalScore }
+  }
+
+  const sortInternList = (list, sortBy, scoreSelector = null) => {
+    const sorted = [...list]
+    sorted.sort((a, b) => {
+      if (sortBy === 'name-asc') return a.name.localeCompare(b.name)
+      if (sortBy === 'name-desc') return b.name.localeCompare(a.name)
+      if (sortBy === 'performance-desc') return b.performance - a.performance
+      if (sortBy === 'attendance-desc') return b.attendance - a.attendance
+      if (sortBy === 'progress-desc') return b.progress - a.progress
+      if (sortBy === 'score-asc' && scoreSelector) return scoreSelector(a) - scoreSelector(b)
+      if (sortBy === 'score-desc' && scoreSelector) return scoreSelector(b) - scoreSelector(a)
+      return 0
+    })
+    return sorted
+  }
+
+  const analyticsInternRows = useMemo(() => sortInternList(internAnalyticsData, analyticsSortBy), [internAnalyticsData, analyticsSortBy])
+  const evaluationInternRows = useMemo(
+    () => sortInternList(internAnalyticsData, evaluationSortBy, (intern) => getInternBreakdown(intern).evalScore),
+    [internAnalyticsData, evaluationSortBy]
+  )
+  const reportInternRows = useMemo(
+    () => sortInternList(internAnalyticsData, reportsSortBy, (intern) => getInternBreakdown(intern).evalScore),
+    [internAnalyticsData, reportsSortBy]
+  )
+  const evaluationInsights = useMemo(
+    () =>
+      evaluationInternRows.map((intern) => {
+        const detail = getInternBreakdown(intern)
+        const score = detail.evalScore
+        const band = score >= 92 ? 'Excellent' : score >= 85 ? 'Strong' : score >= 75 ? 'Stable' : 'Needs Support'
+        const risk =
+          score >= 90 ? 'Low Risk' : score >= 82 ? 'Watchlist' : score >= 72 ? 'Coaching Required' : 'Immediate Intervention'
+        const recommendation =
+          score >= 90
+            ? 'Keep in advanced tasks and mentorship pipeline.'
+            : score >= 82
+              ? 'Increase technical stretch tasks and weekly checkpoints.'
+              : score >= 72
+                ? 'Assign guided practice, QA shadowing, and daily follow-ups.'
+                : 'Start a two-week performance recovery plan with mentor reviews.'
+        return {
+          ...intern,
+          score,
+          band,
+          risk,
+          recommendation,
+          reviewDate: `2026-03-${String((intern.name.length % 22) + 5).padStart(2, '0')}`,
+          detail,
+        }
+      }),
+    [evaluationInternRows]
+  )
+  const reportInsights = useMemo(
+    () =>
+      reportInternRows.map((intern) => {
+        const detail = getInternBreakdown(intern)
+        const score = detail.evalScore
+        const completedTasks = Math.round((intern.progress / 100) * 42)
+        const qaPassRate = Math.round((detail.quality * 0.65 + intern.performance * 0.35))
+        const attendanceFlag = intern.attendance < 85 ? 'At Risk' : intern.attendance < 92 ? 'Watch' : 'Healthy'
+        return {
+          ...intern,
+          score,
+          completedTasks,
+          qaPassRate,
+          attendanceFlag,
+          trend: score >= 90 ? 'Rising' : score >= 80 ? 'Stable' : 'Declining',
+          detail,
+        }
+      }),
+    [reportInternRows]
+  )
+  const settingsInternRows = useMemo(() => {
+    const query = settingsSearch.trim().toLowerCase()
+    return internAnalyticsData
+      .map((intern, sourceIndex) => ({ ...intern, sourceIndex }))
+      .filter((intern) => {
+        const passSearch =
+          !query ||
+          intern.name.toLowerCase().includes(query) ||
+          (intern.email || '').toLowerCase().includes(query) ||
+          (intern.track || '').toLowerCase().includes(query)
+        const passStatus = settingsStatusFilter === 'All' || (intern.status || 'Active') === settingsStatusFilter
+        return passSearch && passStatus
+      })
+  }, [internAnalyticsData, settingsSearch, settingsStatusFilter])
+
   const pageData = useMemo(() => routeContent[currentPath], [currentPath])
   const isAdminRoute = currentPath === '/admin-dashboard'
   const activeAdminData = adminPanelContent[activeAdminTab] || adminPanelContent.Dashboard
@@ -931,10 +1043,11 @@ function App() {
   const resetInternForm = () => {
     setInternForm({
       name: '',
-      performance: 85,
-      attendance: 90,
-      progress: 80,
-      low: false,
+      email: '',
+      track: 'AI Data Operations',
+      status: 'Active',
+      mentor: '',
+      joinDate: '',
     })
     setEditingInternIndex(null)
   }
@@ -942,20 +1055,60 @@ function App() {
   const handleInternSave = (event) => {
     event.preventDefault()
     const trimmedName = internForm.name.trim()
+    const trimmedEmail = internForm.email.trim().toLowerCase()
     if (!trimmedName) {
       runAdminAction('Intern name is required')
       return
     }
+    if (!trimmedEmail || !trimmedEmail.includes('@')) {
+      runAdminAction('Valid intern email is required')
+      return
+    }
+
+    const statusBase = {
+      Active: { performance: 86, attendance: 92, progress: 88 },
+      Probation: { performance: 78, attendance: 84, progress: 80 },
+      'On Leave': { performance: 74, attendance: 68, progress: 70 },
+      Completed: { performance: 93, attendance: 95, progress: 94 },
+    }
+    const base = statusBase[internForm.status] || statusBase.Active
+    const seededOffset = Math.abs(trimmedName.length % 5) - 2
+    const metrics = {
+      performance: Math.max(45, Math.min(100, base.performance + seededOffset)),
+      attendance: Math.max(40, Math.min(100, base.attendance + seededOffset)),
+      progress: Math.max(45, Math.min(100, base.progress + seededOffset)),
+    }
+    const low = metrics.performance < 65 || metrics.attendance < 70 || metrics.progress < 65
+
     const payload = {
       name: trimmedName,
-      performance: Math.max(0, Math.min(100, Number(internForm.performance) || 0)),
-      attendance: Math.max(0, Math.min(100, Number(internForm.attendance) || 0)),
-      progress: Math.max(0, Math.min(100, Number(internForm.progress) || 0)),
-      low: !!internForm.low,
+      email: trimmedEmail,
+      track: internForm.track,
+      status: internForm.status,
+      mentor: internForm.mentor.trim() || 'Unassigned',
+      joinDate: internForm.joinDate || '2026-01-01',
+      performance: metrics.performance,
+      attendance: metrics.attendance,
+      progress: metrics.progress,
+      low,
     }
 
     if (editingInternIndex !== null) {
-      setInternAnalyticsData((prev) => prev.map((item, idx) => (idx === editingInternIndex ? payload : item)))
+      setInternAnalyticsData((prev) =>
+        prev.map((item, idx) =>
+          idx === editingInternIndex
+            ? {
+                ...item,
+                name: payload.name,
+                email: payload.email,
+                track: payload.track,
+                status: payload.status,
+                mentor: payload.mentor,
+                joinDate: payload.joinDate,
+              }
+            : item
+        )
+      )
       runAdminAction(`Updated ${payload.name}`)
     } else {
       setInternAnalyticsData((prev) => [...prev, payload])
@@ -970,10 +1123,11 @@ function App() {
     setEditingInternIndex(index)
     setInternForm({
       name: selected.name,
-      performance: selected.performance,
-      attendance: selected.attendance,
-      progress: selected.progress,
-      low: selected.low,
+      email: selected.email || '',
+      track: selected.track || 'AI Data Operations',
+      status: selected.status || 'Active',
+      mentor: selected.mentor || '',
+      joinDate: selected.joinDate || '',
     })
     runAdminAction(`Editing ${selected.name}`)
   }
@@ -982,7 +1136,11 @@ function App() {
     const selected = internAnalyticsData[index]
     if (!selected) return
     setInternAnalyticsData((prev) => prev.filter((_, idx) => idx !== index))
-    if (editingInternIndex === index) resetInternForm()
+    if (editingInternIndex === index) {
+      resetInternForm()
+    } else if (editingInternIndex !== null && editingInternIndex > index) {
+      setEditingInternIndex((prev) => (prev !== null ? prev - 1 : null))
+    }
     runAdminAction(`Deleted ${selected.name}`)
   }
 
@@ -3359,10 +3517,23 @@ function App() {
                           >
                             Export
                           </button>
+                          <select
+                            value={analyticsSortBy}
+                            onChange={(event) => setAnalyticsSortBy(event.target.value)}
+                            className="focus-brand rounded-full border border-castleton/20 bg-white px-4 py-2 text-sm font-semibold text-castleton"
+                          >
+                            <option value="name-asc">Sort: Name A-Z</option>
+                            <option value="name-desc">Sort: Name Z-A</option>
+                            <option value="performance-desc">Sort: Performance</option>
+                            <option value="attendance-desc">Sort: Attendance</option>
+                            <option value="progress-desc">Sort: Progress</option>
+                          </select>
                         </motion.div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                          {internAnalyticsData.map((intern, index) => (
+                          {analyticsInternRows.map((intern, index) => {
+                            const breakdown = getInternBreakdown(intern)
+                            return (
                             <motion.button
                               key={intern.name}
                               type="button"
@@ -3402,9 +3573,9 @@ function App() {
 
                               <div className="space-y-3">
                                 {[
-                                  ['Performance', intern.performance],
-                                  ['Attendance', intern.attendance],
-                                  ['Progress', intern.progress],
+                                  ['Activities', breakdown.activities],
+                                  ['Tasks', breakdown.tasks],
+                                  ['Quality', breakdown.quality],
                                 ].map(([label, value]) => (
                                   <div key={`${intern.name}-${label}`}>
                                     <div className="flex items-center justify-between mb-1">
@@ -3421,9 +3592,9 @@ function App() {
                                 ))}
                               </div>
 
-                              <p className="mt-4 text-sm font-semibold text-black/70">{intern.progress}% complete</p>
+                              <p className="mt-4 text-sm font-semibold text-black/70">{breakdown.evalScore}% overall analytics score</p>
                             </motion.button>
-                          ))}
+                          )})}
                         </div>
 
                         <AnimatePresence>
@@ -3443,6 +3614,10 @@ function App() {
                                 transition={{ duration: 0.22 }}
                                 onClick={(event) => event.stopPropagation()}
                               >
+                                {(() => {
+                                  const detail = getInternBreakdown(selectedAnalyticsIntern)
+                                  return (
+                                    <>
                                 <div className="flex items-start justify-between gap-3 mb-4">
                                   <div>
                                     <p className="text-xs uppercase tracking-[0.12em] text-castleton mb-1">Intern Breakdown</p>
@@ -3472,9 +3647,12 @@ function App() {
 
                                 <div className="space-y-3">
                                   {[
-                                    ['Task Quality', Math.min(100, Math.round(selectedAnalyticsIntern.performance * 0.97))],
-                                    ['Deadline Adherence', Math.min(100, Math.round((selectedAnalyticsIntern.attendance + selectedAnalyticsIntern.progress) / 2))],
-                                    ['Collaboration', Math.min(100, Math.round((selectedAnalyticsIntern.performance + selectedAnalyticsIntern.attendance) / 2))],
+                                    ['Activities', detail.activities],
+                                    ['Tasks', detail.tasks],
+                                    ['Quality', detail.quality],
+                                    ['Collaboration', detail.collaboration],
+                                    ['Consistency', detail.consistency],
+                                    ['Evaluation Score', detail.evalScore],
                                   ].map(([label, value]) => (
                                     <div key={label}>
                                       <div className="flex items-center justify-between mb-1">
@@ -3499,6 +3677,9 @@ function App() {
                                     {selectedAnalyticsIntern.low ? 'Needs coaching and close follow-up' : 'Consistent and on-track performance'}
                                   </span>
                                 </p>
+                                    </>
+                                  )
+                                })()}
                               </motion.div>
                             </motion.div>
                           ) : null}
@@ -3512,50 +3693,167 @@ function App() {
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.25 }}
                         >
-                          <h2 className="text-3xl sm:text-4xl font-semibold text-black">Intern Evaluation Matrix</h2>
-                          <p className="text-black/70 text-base sm:text-lg">
-                            Evaluation is generated from analytics: 40% performance, 30% attendance, 30% progress.
-                          </p>
+                          <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
+                            <div>
+                              <h2 className="text-3xl sm:text-4xl font-semibold text-black">Intern Evaluation Matrix</h2>
+                              <p className="text-black/70 text-base sm:text-lg">
+                                Performance review view with risk category, mentoring direction, and current review score.
+                              </p>
+                            </div>
+                            <select
+                              value={evaluationSortBy}
+                              onChange={(event) => setEvaluationSortBy(event.target.value)}
+                              className="focus-brand rounded-full border border-castleton/20 bg-white px-4 py-2 text-sm font-semibold text-castleton"
+                            >
+                              <option value="score-desc">Sort: Score High-Low</option>
+                              <option value="score-asc">Sort: Score Low-High</option>
+                              <option value="name-asc">Sort: Name A-Z</option>
+                              <option value="name-desc">Sort: Name Z-A</option>
+                            </select>
+                          </div>
+                          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                            {[
+                              ['Excellent', evaluationInsights.filter((item) => item.band === 'Excellent').length],
+                              ['Strong', evaluationInsights.filter((item) => item.band === 'Strong').length],
+                              ['Stable', evaluationInsights.filter((item) => item.band === 'Stable').length],
+                              ['Needs Support', evaluationInsights.filter((item) => item.band === 'Needs Support').length],
+                            ].map(([label, value]) => (
+                              <div key={label} className="rounded-2xl border border-castleton/15 bg-[#f6f9f7] p-3">
+                                <p className="text-xs uppercase tracking-[0.12em] text-castleton">{label}</p>
+                                <p className="text-3xl font-semibold text-black">{value}</p>
+                              </div>
+                            ))}
+                          </div>
                         </motion.div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                          {internAnalyticsData
-                            .map((intern) => {
-                              const score = Math.round(intern.performance * 0.4 + intern.attendance * 0.3 + intern.progress * 0.3)
-                              const band = score >= 90 ? 'Excellent' : score >= 80 ? 'Strong' : score >= 70 ? 'Stable' : 'Needs Support'
-                              return { ...intern, score, band }
-                            })
-                            .sort((a, b) => b.score - a.score)
-                            .map((intern, index) => (
-                              <motion.article
-                                key={`eval-${intern.name}`}
-                                className={`rounded-[22px] border p-4 sm:p-5 ${
-                                  intern.band === 'Needs Support' ? 'border-[#d9aaa2] bg-[#fff2ef]' : 'border-castleton/15 bg-white'
-                                }`}
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.22, delay: Math.min(index * 0.015, 0.3) }}
-                              >
-                                <div className="flex items-start justify-between gap-3 mb-3">
+                          {evaluationInsights.map((intern, index) => (
+                            <motion.button
+                              key={`eval-${intern.name}`}
+                              type="button"
+                              onClick={() => {
+                                setSelectedAnalyticsIntern(intern)
+                                runAdminAction(`Opened evaluation detail: ${intern.name}`)
+                              }}
+                              className={`rounded-[22px] border p-4 sm:p-5 text-left ${
+                                intern.band === 'Needs Support' ? 'border-[#d9aaa2] bg-[#fff2ef]' : 'border-castleton/15 bg-white'
+                              }`}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ duration: 0.22, delay: Math.min(index * 0.02, 0.3) }}
+                              whileHover={{ y: -4, boxShadow: '0 16px 36px -28px rgba(11,92,66,0.45)' }}
+                            >
+                              <div className="flex items-start justify-between gap-3 mb-3">
+                                <div>
                                   <h3 className="text-lg font-semibold text-black leading-tight">{intern.name}</h3>
-                                  <span className="inline-flex rounded-full bg-[#eef3ef] text-castleton px-2.5 py-1 text-xs font-semibold">{intern.band}</span>
+                                  <p className="text-xs uppercase tracking-[0.12em] text-black/55 mt-1">
+                                    {intern.track || 'AI Data Operations'} | {intern.status || 'Active'}
+                                  </p>
                                 </div>
-                                <p className="text-sm text-black/70 mb-2">Evaluation Score</p>
-                                <p className="text-4xl font-semibold text-black">{intern.score}%</p>
-                                <div className="h-2 rounded-full bg-[#e8ece8] overflow-hidden mt-3 mb-3">
-                                  <motion.div
-                                    className={intern.band === 'Needs Support' ? 'h-full bg-[#c05345]' : 'h-full bg-castleton'}
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${intern.score}%` }}
-                                    transition={{ duration: 0.45, ease: 'easeOut' }}
-                                  />
-                                </div>
-                                <p className="text-sm text-black/80">
-                                  P: {intern.performance}% · A: {intern.attendance}% · G: {intern.progress}%
-                                </p>
-                              </motion.article>
-                            ))}
+                                <span className="inline-flex rounded-full bg-[#eef3ef] text-castleton px-2.5 py-1 text-xs font-semibold">{intern.band}</span>
+                              </div>
+                              <p className="text-sm text-black/75 mb-2">{intern.risk}</p>
+                              <div className="h-2 rounded-full bg-[#e8ece8] overflow-hidden mt-2 mb-3">
+                                <motion.div
+                                  className={intern.band === 'Needs Support' ? 'h-full bg-[#c05345]' : 'h-full bg-castleton'}
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${intern.score}%` }}
+                                  transition={{ duration: 0.45, ease: 'easeOut' }}
+                                />
+                              </div>
+                              <p className="text-sm font-semibold text-black mb-1">{intern.score}% evaluation score</p>
+                              <p className="text-sm text-black/75 line-clamp-2">{intern.recommendation}</p>
+                              <div className="mt-3 flex items-center justify-between text-xs text-black/65">
+                                <span>Review: {intern.reviewDate}</span>
+                                <span>P:{intern.performance}% A:{intern.attendance}% G:{intern.progress}%</span>
+                              </div>
+                            </motion.button>
+                          ))}
                         </div>
+
+                        <AnimatePresence>
+                          {selectedAnalyticsIntern ? (
+                            <motion.div
+                              className="fixed inset-0 z-[80] bg-black/45 backdrop-blur-[2px] flex items-center justify-center p-4"
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
+                              onClick={() => setSelectedAnalyticsIntern(null)}
+                            >
+                              <motion.div
+                                className="w-full max-w-3xl rounded-[24px] border border-castleton/25 bg-[#f5f7f6] shadow-2xl p-5 sm:p-6"
+                                initial={{ opacity: 0, y: 16, scale: 0.98 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: 12, scale: 0.98 }}
+                                transition={{ duration: 0.22 }}
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                {(() => {
+                                  const detail = getInternBreakdown(selectedAnalyticsIntern)
+                                  const score = detail.evalScore
+                                  return (
+                                    <>
+                                      <div className="flex items-start justify-between gap-3 mb-4">
+                                        <div>
+                                          <p className="text-xs uppercase tracking-[0.12em] text-castleton mb-1">Evaluation Detail</p>
+                                          <h3 className="text-2xl sm:text-3xl font-semibold text-black leading-tight">{selectedAnalyticsIntern.name}</h3>
+                                          <p className="text-sm text-black/65 mt-1">
+                                            {selectedAnalyticsIntern.track || 'AI Data Operations'} | Mentor:{' '}
+                                            {selectedAnalyticsIntern.mentor || 'Unassigned'}
+                                          </p>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => setSelectedAnalyticsIntern(null)}
+                                          className="focus-brand rounded-full border border-castleton/20 px-3 py-1.5 text-sm font-semibold text-castleton hover:bg-castleton hover:text-white transition-colors"
+                                        >
+                                          Close
+                                        </button>
+                                      </div>
+                                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+                                        {[
+                                          ['Performance', selectedAnalyticsIntern.performance],
+                                          ['Attendance', selectedAnalyticsIntern.attendance],
+                                          ['Progress', selectedAnalyticsIntern.progress],
+                                          ['Eval', score],
+                                        ].map(([label, value]) => (
+                                          <div key={label} className="rounded-2xl border border-castleton/15 bg-white p-3.5">
+                                            <p className="text-sm text-black/70">{label}</p>
+                                            <p className="text-3xl font-semibold text-black">{value}%</p>
+                                          </div>
+                                        ))}
+                                      </div>
+                                      <div className="space-y-3">
+                                        {[
+                                          ['Activities', detail.activities],
+                                          ['Tasks', detail.tasks],
+                                          ['Quality', detail.quality],
+                                          ['Collaboration', detail.collaboration],
+                                          ['Consistency', detail.consistency],
+                                        ].map(([label, value]) => (
+                                          <div key={label}>
+                                            <div className="flex items-center justify-between mb-1">
+                                              <p className="text-sm font-medium text-black/80">{label}</p>
+                                              <p className="text-sm font-semibold text-black">{value}%</p>
+                                            </div>
+                                            <div className="h-2.5 rounded-full bg-[#e7ece8] overflow-hidden">
+                                              <motion.div
+                                                className={`h-full rounded-full ${selectedAnalyticsIntern.low ? 'bg-[#c05345]' : 'bg-castleton'}`}
+                                                initial={{ width: 0 }}
+                                                animate={{ width: `${value}%` }}
+                                                transition={{ duration: 0.45, ease: 'easeOut' }}
+                                              />
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </>
+                                  )
+                                })()}
+                              </motion.div>
+                            </motion.div>
+                          ) : null}
+                        </AnimatePresence>
                       </div>
                     ) : activeAdminTab === 'Reports' ? (
                       <div className="space-y-5">
@@ -3565,58 +3863,144 @@ function App() {
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.25 }}
                         >
-                          <h2 className="text-3xl sm:text-4xl font-semibold text-black mb-2">Analytics Reports</h2>
-                          <p className="text-black/70 text-base sm:text-lg mb-5">Overall summary and per-intern reports generated from current analytics data.</p>
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                            <div className="rounded-2xl bg-[#f3f6f4] border border-castleton/15 p-3">
-                              <p className="text-xs uppercase tracking-[0.12em] text-castleton">Overall Performance</p>
-                              <p className="text-3xl font-semibold text-black">{averagePerformance}%</p>
+                          <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
+                            <div>
+                              <h2 className="text-3xl sm:text-4xl font-semibold text-black mb-1">Performance Reports</h2>
+                              <p className="text-black/70 text-base sm:text-lg">
+                                Operational report snapshots with KPI trend, delivery status, and intern-level details.
+                              </p>
                             </div>
-                            <div className="rounded-2xl bg-[#f3f6f4] border border-castleton/15 p-3">
-                              <p className="text-xs uppercase tracking-[0.12em] text-castleton">Overall Attendance</p>
-                              <p className="text-3xl font-semibold text-black">{averageAttendance}%</p>
-                            </div>
-                            <div className="rounded-2xl bg-[#f3f6f4] border border-castleton/15 p-3">
-                              <p className="text-xs uppercase tracking-[0.12em] text-castleton">Overall Progress</p>
-                              <p className="text-3xl font-semibold text-black">{averageProgress}%</p>
-                            </div>
-                            <div className="rounded-2xl bg-[#f3f6f4] border border-castleton/15 p-3">
-                              <p className="text-xs uppercase tracking-[0.12em] text-castleton">Low Performers</p>
-                              <p className="text-3xl font-semibold text-black">{leaveInterns.length}</p>
-                            </div>
+                            <select
+                              value={reportsSortBy}
+                              onChange={(event) => setReportsSortBy(event.target.value)}
+                              className="focus-brand rounded-full border border-castleton/20 bg-white px-4 py-2 text-sm font-semibold text-castleton"
+                            >
+                              <option value="score-desc">Sort: Score High-Low</option>
+                              <option value="score-asc">Sort: Score Low-High</option>
+                              <option value="name-asc">Sort: Name A-Z</option>
+                              <option value="name-desc">Sort: Name Z-A</option>
+                            </select>
+                          </div>
+                          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                            {[
+                              ['Avg Eval', Math.round(reportInsights.reduce((sum, item) => sum + item.score, 0) / Math.max(reportInsights.length, 1)), '%'],
+                              ['Avg QA Pass', Math.round(reportInsights.reduce((sum, item) => sum + item.qaPassRate, 0) / Math.max(reportInsights.length, 1)), '%'],
+                              ['Tasks Done', reportInsights.reduce((sum, item) => sum + item.completedTasks, 0), ''],
+                              ['Watch/At Risk', reportInsights.filter((item) => item.attendanceFlag !== 'Healthy').length, ''],
+                              ['Low Performers', leaveInterns.length, ''],
+                            ].map(([label, value, suffix]) => (
+                              <div key={label} className="rounded-2xl border border-castleton/15 bg-[#f6f9f7] p-3">
+                                <p className="text-xs uppercase tracking-[0.12em] text-castleton">{label}</p>
+                                <p className="text-2xl font-semibold text-black">
+                                  {value}
+                                  {suffix}
+                                </p>
+                              </div>
+                            ))}
                           </div>
                         </motion.div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {internAnalyticsData.map((intern, index) => {
-                            const reportScore = Math.round((intern.performance + intern.attendance + intern.progress) / 3)
-                            return (
-                              <motion.article
-                                key={`report-${intern.name}`}
-                                className="rounded-[22px] border border-castleton/15 bg-white p-4 sm:p-5"
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.22, delay: Math.min(index * 0.01, 0.2) }}
-                              >
-                                <div className="flex items-start justify-between gap-3 mb-2">
-                                  <h3 className="text-lg font-semibold text-black leading-tight">{intern.name}</h3>
-                                  <span className="text-sm font-semibold text-castleton">{reportScore}%</span>
+                          {reportInsights.map((intern, index) => (
+                            <motion.button
+                              key={`report-${intern.name}`}
+                              type="button"
+                              onClick={() => {
+                                setSelectedAnalyticsIntern(intern)
+                                runAdminAction(`Opened report detail: ${intern.name}`)
+                              }}
+                              className="rounded-[22px] border border-castleton/15 bg-white p-4 sm:p-5 text-left"
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ duration: 0.22, delay: Math.min(index * 0.012, 0.2) }}
+                              whileHover={{ y: -4, boxShadow: '0 16px 36px -28px rgba(11,92,66,0.45)' }}
+                            >
+                              <div className="flex items-start justify-between gap-3 mb-2">
+                                <h3 className="text-lg font-semibold text-black leading-tight">{intern.name}</h3>
+                                <span className="text-sm font-semibold text-castleton">{intern.score}%</span>
+                              </div>
+                              <p className="text-xs uppercase tracking-[0.12em] text-black/55 mb-3">{intern.track || 'AI Data Operations'}</p>
+                              <div className="grid grid-cols-3 gap-2 mb-3">
+                                <div className="rounded-xl bg-[#f3f7f5] border border-castleton/10 px-2.5 py-2">
+                                  <p className="text-[11px] text-black/60">Tasks</p>
+                                  <p className="text-lg font-semibold text-black">{intern.completedTasks}</p>
                                 </div>
-                                <p className="text-sm text-black/75 mb-3">
-                                  Report: performance {intern.performance}%, attendance {intern.attendance}%, progress {intern.progress}%.
-                                </p>
-                                <div className="h-2 rounded-full bg-[#e8ece8] overflow-hidden">
-                                  <motion.div
-                                    className={intern.low ? 'h-full bg-[#c05345]' : 'h-full bg-castleton'}
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${reportScore}%` }}
-                                    transition={{ duration: 0.4 }}
-                                  />
+                                <div className="rounded-xl bg-[#f3f7f5] border border-castleton/10 px-2.5 py-2">
+                                  <p className="text-[11px] text-black/60">QA Pass</p>
+                                  <p className="text-lg font-semibold text-black">{intern.qaPassRate}%</p>
                                 </div>
-                              </motion.article>
-                            )
-                          })}
+                                <div className="rounded-xl bg-[#f3f7f5] border border-castleton/10 px-2.5 py-2">
+                                  <p className="text-[11px] text-black/60">Trend</p>
+                                  <p className="text-lg font-semibold text-black">{intern.trend}</p>
+                                </div>
+                              </div>
+                              <div className="h-2 rounded-full bg-[#e8ece8] overflow-hidden mb-2">
+                                <motion.div
+                                  className={intern.low ? 'h-full bg-[#c05345]' : 'h-full bg-castleton'}
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${intern.score}%` }}
+                                  transition={{ duration: 0.42 }}
+                                />
+                              </div>
+                              <p className="text-sm text-black/75">Attendance status: {intern.attendanceFlag}</p>
+                            </motion.button>
+                          ))}
                         </div>
+                        <AnimatePresence>
+                          {selectedAnalyticsIntern ? (
+                            <motion.div
+                              className="fixed inset-0 z-[80] bg-black/45 backdrop-blur-[2px] flex items-center justify-center p-4"
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
+                              onClick={() => setSelectedAnalyticsIntern(null)}
+                            >
+                              <motion.div
+                                className="w-full max-w-3xl rounded-[24px] border border-castleton/25 bg-[#f5f7f6] shadow-2xl p-5 sm:p-6"
+                                initial={{ opacity: 0, y: 16, scale: 0.98 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: 12, scale: 0.98 }}
+                                transition={{ duration: 0.22 }}
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                <div className="flex items-start justify-between gap-3 mb-4">
+                                  <div>
+                                    <p className="text-xs uppercase tracking-[0.12em] text-castleton mb-1">Report Detail</p>
+                                    <h3 className="text-2xl sm:text-3xl font-semibold text-black leading-tight">{selectedAnalyticsIntern.name}</h3>
+                                    <p className="text-sm text-black/65 mt-1">Monthly report pack: March 2026</p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedAnalyticsIntern(null)}
+                                    className="focus-brand rounded-full border border-castleton/20 px-3 py-1.5 text-sm font-semibold text-castleton hover:bg-castleton hover:text-white transition-colors"
+                                  >
+                                    Close
+                                  </button>
+                                </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                                  {[
+                                    ['Performance', selectedAnalyticsIntern.performance],
+                                    ['Attendance', selectedAnalyticsIntern.attendance],
+                                    ['Progress', selectedAnalyticsIntern.progress],
+                                    ['Eval', getInternBreakdown(selectedAnalyticsIntern).evalScore],
+                                  ].map(([label, value]) => (
+                                    <div key={label} className="rounded-2xl border border-castleton/15 bg-white p-3.5">
+                                      <p className="text-sm text-black/70">{label}</p>
+                                      <p className="text-3xl font-semibold text-black">{value}%</p>
+                                    </div>
+                                  ))}
+                                </div>
+                                <div className="rounded-2xl border border-castleton/15 bg-white p-4">
+                                  <p className="text-sm font-semibold text-black mb-1">Narrative Summary</p>
+                                  <p className="text-sm text-black/75 leading-relaxed">
+                                    This intern delivered measurable output quality with stable attendance. Next action is to align difficulty
+                                    of assigned tasks with current strengths while monitoring consistency for upcoming delivery cycles.
+                                  </p>
+                                </div>
+                              </motion.div>
+                            </motion.div>
+                          ) : null}
+                        </AnimatePresence>
                       </div>
                     ) : activeAdminTab === 'Settings' ? (
                       <div className="space-y-5">
@@ -3626,104 +4010,175 @@ function App() {
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.25 }}
                         >
-                          <h2 className="text-3xl sm:text-4xl font-semibold text-black">Intern Settings (CRUD)</h2>
-                          <p className="text-black/70 text-base sm:text-lg">Create, update, and delete intern analytics entries.</p>
+                          <h2 className="text-3xl sm:text-4xl font-semibold text-black">Intern Admin Settings</h2>
+                          <p className="text-black/70 text-base sm:text-lg">
+                            Profile-level CRUD for intern management. Analytics metrics are system-generated and not directly editable here.
+                          </p>
                         </motion.div>
 
-                        <motion.form
-                          onSubmit={handleInternSave}
-                          className="rounded-[22px] border border-castleton/15 bg-white p-4 sm:p-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3"
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.22 }}
-                        >
-                          <input
-                            type="text"
-                            placeholder="Intern name"
-                            value={internForm.name}
-                            onChange={(event) => setInternForm((prev) => ({ ...prev, name: event.target.value }))}
-                            className="xl:col-span-2 focus-brand rounded-xl border border-castleton/20 px-3 py-2.5 bg-[#f9fbfa]"
-                          />
-                          <input
-                            type="number"
-                            min={0}
-                            max={100}
-                            placeholder="Performance"
-                            value={internForm.performance}
-                            onChange={(event) => setInternForm((prev) => ({ ...prev, performance: event.target.value }))}
-                            className="focus-brand rounded-xl border border-castleton/20 px-3 py-2.5 bg-[#f9fbfa]"
-                          />
-                          <input
-                            type="number"
-                            min={0}
-                            max={100}
-                            placeholder="Attendance"
-                            value={internForm.attendance}
-                            onChange={(event) => setInternForm((prev) => ({ ...prev, attendance: event.target.value }))}
-                            className="focus-brand rounded-xl border border-castleton/20 px-3 py-2.5 bg-[#f9fbfa]"
-                          />
-                          <input
-                            type="number"
-                            min={0}
-                            max={100}
-                            placeholder="Progress"
-                            value={internForm.progress}
-                            onChange={(event) => setInternForm((prev) => ({ ...prev, progress: event.target.value }))}
-                            className="focus-brand rounded-xl border border-castleton/20 px-3 py-2.5 bg-[#f9fbfa]"
-                          />
-                          <label className="inline-flex items-center gap-2 text-sm text-black/80">
+                        <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-4">
+                          <motion.form
+                            onSubmit={handleInternSave}
+                            className="rounded-[22px] border border-castleton/15 bg-white p-4 sm:p-5 grid grid-cols-1 md:grid-cols-2 gap-3"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.22 }}
+                          >
                             <input
-                              type="checkbox"
-                              checked={internForm.low}
-                              onChange={(event) => setInternForm((prev) => ({ ...prev, low: event.target.checked }))}
-                              className="accent-castleton"
+                              type="text"
+                              placeholder="Intern name"
+                              value={internForm.name}
+                              onChange={(event) => setInternForm((prev) => ({ ...prev, name: event.target.value }))}
+                              className="focus-brand rounded-xl border border-castleton/20 px-3 py-2.5 bg-[#f9fbfa]"
                             />
-                            Low performer
-                          </label>
-                          <div className="xl:col-span-6 flex gap-2">
-                            <button type="submit" className="focus-brand rounded-full bg-castleton text-white px-4 py-2 text-sm font-semibold hover:bg-serpent transition-colors">
-                              {editingInternIndex !== null ? 'Update Intern' : 'Add Intern'}
-                            </button>
-                            <button type="button" onClick={resetInternForm} className="focus-brand rounded-full border border-castleton/20 px-4 py-2 text-sm font-semibold text-castleton hover:bg-castleton hover:text-white transition-colors">
-                              Reset
-                            </button>
-                          </div>
-                        </motion.form>
+                            <input
+                              type="email"
+                              placeholder="Intern email"
+                              value={internForm.email}
+                              onChange={(event) => setInternForm((prev) => ({ ...prev, email: event.target.value }))}
+                              className="focus-brand rounded-xl border border-castleton/20 px-3 py-2.5 bg-[#f9fbfa]"
+                            />
+                            <select
+                              value={internForm.track}
+                              onChange={(event) => setInternForm((prev) => ({ ...prev, track: event.target.value }))}
+                              className="focus-brand rounded-xl border border-castleton/20 px-3 py-2.5 bg-[#f9fbfa]"
+                            >
+                              <option>AI Data Operations</option>
+                              <option>Quality Assurance</option>
+                              <option>Reporting & PMO</option>
+                              <option>Machine Learning Enablement</option>
+                            </select>
+                            <select
+                              value={internForm.status}
+                              onChange={(event) => setInternForm((prev) => ({ ...prev, status: event.target.value }))}
+                              className="focus-brand rounded-xl border border-castleton/20 px-3 py-2.5 bg-[#f9fbfa]"
+                            >
+                              <option>Active</option>
+                              <option>Probation</option>
+                              <option>On Leave</option>
+                              <option>Completed</option>
+                            </select>
+                            <input
+                              type="text"
+                              placeholder="Assigned mentor"
+                              value={internForm.mentor}
+                              onChange={(event) => setInternForm((prev) => ({ ...prev, mentor: event.target.value }))}
+                              className="focus-brand rounded-xl border border-castleton/20 px-3 py-2.5 bg-[#f9fbfa]"
+                            />
+                            <input
+                              type="date"
+                              value={internForm.joinDate}
+                              onChange={(event) => setInternForm((prev) => ({ ...prev, joinDate: event.target.value }))}
+                              className="focus-brand rounded-xl border border-castleton/20 px-3 py-2.5 bg-[#f9fbfa]"
+                            />
+                            <div className="md:col-span-2 flex flex-wrap gap-2 pt-1">
+                              <button
+                                type="submit"
+                                className="focus-brand rounded-full bg-castleton text-white px-4 py-2 text-sm font-semibold hover:bg-serpent transition-colors"
+                              >
+                                {editingInternIndex !== null ? 'Update Intern Profile' : 'Add Intern'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={resetInternForm}
+                                className="focus-brand rounded-full border border-castleton/20 px-4 py-2 text-sm font-semibold text-castleton hover:bg-castleton hover:text-white transition-colors"
+                              >
+                                Reset
+                              </button>
+                            </div>
+                          </motion.form>
 
-                        <div className="rounded-[22px] border border-castleton/15 bg-white p-4 sm:p-5 overflow-x-auto">
-                          <table className="min-w-full text-left">
-                            <thead>
-                              <tr className="border-b border-castleton/15 text-black/75">
-                                <th className="py-2 pr-3 text-sm font-semibold">Name</th>
-                                <th className="py-2 pr-3 text-sm font-semibold">Performance</th>
-                                <th className="py-2 pr-3 text-sm font-semibold">Attendance</th>
-                                <th className="py-2 pr-3 text-sm font-semibold">Progress</th>
-                                <th className="py-2 pr-3 text-sm font-semibold">Tag</th>
-                                <th className="py-2 pr-3 text-sm font-semibold">Actions</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {internAnalyticsData.map((intern, index) => (
-                                <tr key={`settings-${intern.name}-${index}`} className="border-b border-castleton/10">
-                                  <td className="py-2 pr-3 text-sm font-medium text-black">{intern.name}</td>
-                                  <td className="py-2 pr-3 text-sm text-black/80">{intern.performance}%</td>
-                                  <td className="py-2 pr-3 text-sm text-black/80">{intern.attendance}%</td>
-                                  <td className="py-2 pr-3 text-sm text-black/80">{intern.progress}%</td>
-                                  <td className="py-2 pr-3 text-sm text-black/80">{intern.low ? 'Low' : 'High'}</td>
-                                  <td className="py-2 pr-3">
-                                    <div className="flex gap-2">
-                                      <button type="button" onClick={() => handleInternEdit(index)} className="focus-brand rounded-lg border border-castleton/20 px-2.5 py-1 text-xs font-semibold text-castleton hover:bg-castleton hover:text-white transition-colors">
-                                        Edit
-                                      </button>
-                                      <button type="button" onClick={() => handleInternDelete(index)} className="focus-brand rounded-lg border border-[#c67c72]/40 px-2.5 py-1 text-xs font-semibold text-[#9d4436] hover:bg-[#c05345] hover:text-white transition-colors">
-                                        Delete
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
+                          <motion.div
+                            className="rounded-[22px] border border-castleton/15 bg-white p-4 sm:p-5 space-y-3"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.22, delay: 0.03 }}
+                          >
+                            <div className="grid grid-cols-2 gap-3">
+                              {[
+                                ['Total Interns', internAnalyticsData.length],
+                                ['Active', internAnalyticsData.filter((item) => (item.status || 'Active') === 'Active').length],
+                                ['Probation', internAnalyticsData.filter((item) => item.status === 'Probation').length],
+                                ['On Leave', internAnalyticsData.filter((item) => item.status === 'On Leave').length],
+                              ].map(([label, value]) => (
+                                <div key={label} className="rounded-xl border border-castleton/15 bg-[#f7faf8] p-3">
+                                  <p className="text-xs uppercase tracking-[0.1em] text-castleton">{label}</p>
+                                  <p className="text-2xl font-semibold text-black">{value}</p>
+                                </div>
                               ))}
-                            </tbody>
-                          </table>
+                            </div>
+                            <p className="text-sm text-black/70 leading-relaxed">
+                              Manage profile records and assignment ownership here. View analytics from the Analytics, Evaluation, and Reports tabs.
+                            </p>
+                          </motion.div>
+                        </div>
+
+                        <div className="rounded-[22px] border border-castleton/15 bg-white p-4 sm:p-5">
+                          <div className="flex flex-wrap gap-2 mb-4">
+                            <input
+                              type="text"
+                              value={settingsSearch}
+                              onChange={(event) => setSettingsSearch(event.target.value)}
+                              placeholder="Search name, email, or track"
+                              className="focus-brand min-w-[260px] flex-1 rounded-xl border border-castleton/20 px-3 py-2.5 bg-[#f9fbfa]"
+                            />
+                            <select
+                              value={settingsStatusFilter}
+                              onChange={(event) => setSettingsStatusFilter(event.target.value)}
+                              className="focus-brand rounded-xl border border-castleton/20 px-3 py-2.5 bg-[#f9fbfa] font-medium text-castleton"
+                            >
+                              <option value="All">All Status</option>
+                              <option value="Active">Active</option>
+                              <option value="Probation">Probation</option>
+                              <option value="On Leave">On Leave</option>
+                              <option value="Completed">Completed</option>
+                            </select>
+                          </div>
+                          <div className="overflow-x-auto">
+                            <table className="min-w-full text-left">
+                              <thead>
+                                <tr className="border-b border-castleton/15 text-black/75">
+                                  <th className="py-2 pr-3 text-sm font-semibold">Name</th>
+                                  <th className="py-2 pr-3 text-sm font-semibold">Email</th>
+                                  <th className="py-2 pr-3 text-sm font-semibold">Track</th>
+                                  <th className="py-2 pr-3 text-sm font-semibold">Status</th>
+                                  <th className="py-2 pr-3 text-sm font-semibold">Mentor</th>
+                                  <th className="py-2 pr-3 text-sm font-semibold">Joined</th>
+                                  <th className="py-2 pr-3 text-sm font-semibold">Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {settingsInternRows.map((intern, index) => (
+                                    <tr key={`settings-${intern.name}-${index}`} className="border-b border-castleton/10">
+                                      <td className="py-2 pr-3 text-sm font-medium text-black">{intern.name}</td>
+                                      <td className="py-2 pr-3 text-sm text-black/80">{intern.email}</td>
+                                      <td className="py-2 pr-3 text-sm text-black/80">{intern.track || 'AI Data Operations'}</td>
+                                      <td className="py-2 pr-3 text-sm text-black/80">{intern.status || 'Active'}</td>
+                                      <td className="py-2 pr-3 text-sm text-black/80">{intern.mentor || 'Unassigned'}</td>
+                                      <td className="py-2 pr-3 text-sm text-black/80">{intern.joinDate || '-'}</td>
+                                      <td className="py-2 pr-3">
+                                        <div className="flex gap-2">
+                                          <button
+                                            type="button"
+                                            onClick={() => handleInternEdit(intern.sourceIndex)}
+                                            className="focus-brand rounded-lg border border-castleton/20 px-2.5 py-1 text-xs font-semibold text-castleton hover:bg-castleton hover:text-white transition-colors"
+                                          >
+                                            Edit
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleInternDelete(intern.sourceIndex)}
+                                            className="focus-brand rounded-lg border border-[#c67c72]/40 px-2.5 py-1 text-xs font-semibold text-[#9d4436] hover:bg-[#c05345] hover:text-white transition-colors"
+                                          >
+                                            Delete
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
                         </div>
                       </div>
                     ) : (
