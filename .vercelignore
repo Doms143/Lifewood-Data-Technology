@@ -1,0 +1,17 @@
+node_modules
+dist
+.git
+.gitignore
+.vscode
+.idea
+*.log
+tmp_*.html
+tmp_*.js
+DELIVERY_SUMMARY.md
+FILE_ARCHITECTURE.md
+INDEX.md
+INVENTORY.md
+QUICK_COMMANDS.md
+SETUP_GUIDE.md
+VISUAL_REFERENCE.md
+index.php
