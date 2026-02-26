@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Sparkles,
@@ -907,6 +907,9 @@ function App() {
   const [reportsSearch, setReportsSearch] = useState('')
   const [settingsSearch, setSettingsSearch] = useState('')
   const [settingsStatusFilter, setSettingsStatusFilter] = useState('All')
+  const manageInternsTopScrollRef = useRef(null)
+  const manageInternsTableScrollRef = useRef(null)
+  const isSyncingManageInternsScrollRef = useRef(false)
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(() => {
     if (typeof window === 'undefined') return false
     return window.localStorage.getItem('lw_admin_auth') === '1'
@@ -1258,6 +1261,23 @@ function App() {
   const runAdminAction = (message) => {
     setAdminNotice(message)
     window.setTimeout(() => setAdminNotice(''), 1800)
+  }
+
+  const syncManageInternsHorizontalScroll = (source) => {
+    if (isSyncingManageInternsScrollRef.current) return
+    const topEl = manageInternsTopScrollRef.current
+    const tableEl = manageInternsTableScrollRef.current
+    if (!topEl || !tableEl) return
+
+    isSyncingManageInternsScrollRef.current = true
+    if (source === 'top') {
+      tableEl.scrollLeft = topEl.scrollLeft
+    } else {
+      topEl.scrollLeft = tableEl.scrollLeft
+    }
+    window.requestAnimationFrame(() => {
+      isSyncingManageInternsScrollRef.current = false
+    })
   }
 
   const openAnalyticsTaskModal = () => {
@@ -4793,7 +4813,19 @@ function App() {
                               <option value="Suspend">Suspend</option>
                             </select>
                           </div>
-                          <div className="w-full overflow-x-auto overflow-y-visible rounded-xl border border-castleton/10">
+                          <div
+                            ref={manageInternsTopScrollRef}
+                            onScroll={() => syncManageInternsHorizontalScroll('top')}
+                            className="w-full overflow-x-auto overflow-y-hidden rounded-xl border border-castleton/10 bg-[#f9fbfa] mb-2"
+                            aria-label="Manage interns horizontal scrollbar"
+                          >
+                            <div className="min-w-[1550px] h-4" />
+                          </div>
+                          <div
+                            ref={manageInternsTableScrollRef}
+                            onScroll={() => syncManageInternsHorizontalScroll('table')}
+                            className="w-full overflow-x-auto overflow-y-visible rounded-xl border border-castleton/10"
+                          >
                             <table className="min-w-[1550px] text-left">
                               <thead className="sticky top-0 z-10 bg-[#eef4f0]">
                                 <tr className="border-b border-castleton/15 text-black/75">
