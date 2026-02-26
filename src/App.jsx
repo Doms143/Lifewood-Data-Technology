@@ -889,6 +889,19 @@ function App() {
     mentor: '',
     joinDate: '',
   })
+  const [isAnalyticsTaskModalOpen, setIsAnalyticsTaskModalOpen] = useState(false)
+  const [analyticsTaskError, setAnalyticsTaskError] = useState('')
+  const [analyticsTaskForm, setAnalyticsTaskForm] = useState({
+    internName: '',
+    task: '',
+    score: '',
+    activityType: 'Activity',
+  })
+  const [analyticsTaskEntries, setAnalyticsTaskEntries] = useState([
+    { id: 'seed-1', internName: 'Cabrillos, Dane Kiev', task: 'Image Label Audit', score: 91, activityType: 'Task', createdAt: '2026-03-10' },
+    { id: 'seed-2', internName: 'Damayo, Jholmer', task: 'Dataset QA Review', score: 88, activityType: 'Quality Check', createdAt: '2026-03-11' },
+    { id: 'seed-3', internName: 'Tacatani, Dominic', task: 'Daily Standup Report', score: 100, activityType: 'Activity', createdAt: '2026-03-12' },
+  ])
   const [analyticsSearch, setAnalyticsSearch] = useState('')
   const [evaluationSearch, setEvaluationSearch] = useState('')
   const [reportsSearch, setReportsSearch] = useState('')
@@ -906,17 +919,26 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (!selectedAnalyticsIntern && !selectedDashboardGroup && !isAdminProfileModalOpen && !isInternStepperOpen) return undefined
+    if (
+      !selectedAnalyticsIntern &&
+      !selectedDashboardGroup &&
+      !isAdminProfileModalOpen &&
+      !isInternStepperOpen &&
+      !isAnalyticsTaskModalOpen
+    ) {
+      return undefined
+    }
     const onKeyDown = (event) => {
       if (event.key !== 'Escape') return
       setSelectedAnalyticsIntern(null)
       setSelectedDashboardGroup(null)
       setIsAdminProfileModalOpen(false)
       setIsInternStepperOpen(false)
+      setIsAnalyticsTaskModalOpen(false)
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [selectedAnalyticsIntern, selectedDashboardGroup, isAdminProfileModalOpen, isInternStepperOpen])
+  }, [selectedAnalyticsIntern, selectedDashboardGroup, isAdminProfileModalOpen, isInternStepperOpen, isAnalyticsTaskModalOpen])
 
   useEffect(() => {
     if (!isInternStepperOpen) {
@@ -925,10 +947,22 @@ function App() {
   }, [isInternStepperOpen])
 
   useEffect(() => {
+    if (!isAnalyticsTaskModalOpen) {
+      setAnalyticsTaskError('')
+    }
+  }, [isAnalyticsTaskModalOpen])
+
+  useEffect(() => {
     if (!['Analytics', 'Evaluation', 'Reports'].includes(activeAdminTab) && selectedAnalyticsIntern) {
       setSelectedAnalyticsIntern(null)
     }
   }, [activeAdminTab, selectedAnalyticsIntern])
+
+  useEffect(() => {
+    if (activeAdminTab !== 'Analytics' && isAnalyticsTaskModalOpen) {
+      setIsAnalyticsTaskModalOpen(false)
+    }
+  }, [activeAdminTab, isAnalyticsTaskModalOpen])
 
   useEffect(() => {
     if (activeAdminTab !== 'Dashboard' && selectedDashboardGroup) {
@@ -1224,6 +1258,53 @@ function App() {
   const runAdminAction = (message) => {
     setAdminNotice(message)
     window.setTimeout(() => setAdminNotice(''), 1800)
+  }
+
+  const openAnalyticsTaskModal = () => {
+    const defaultIntern = internAnalyticsData[0]?.name || ''
+    setAnalyticsTaskForm({
+      internName: defaultIntern,
+      task: '',
+      score: '',
+      activityType: 'Activity',
+    })
+    setAnalyticsTaskError('')
+    setIsAnalyticsTaskModalOpen(true)
+  }
+
+  const handleAnalyticsTaskSave = (event) => {
+    event.preventDefault()
+    const task = analyticsTaskForm.task.trim()
+    const internName = analyticsTaskForm.internName.trim()
+    const scoreValue = Number(analyticsTaskForm.score)
+
+    if (!internName) {
+      setAnalyticsTaskError('Please select an intern.')
+      return
+    }
+    if (!task) {
+      setAnalyticsTaskError('Task name is required.')
+      return
+    }
+    if (!Number.isFinite(scoreValue) || scoreValue < 0 || scoreValue > 100) {
+      setAnalyticsTaskError('Score must be between 0 and 100.')
+      return
+    }
+
+    const today = new Date().toISOString().slice(0, 10)
+    const entry = {
+      id: `task-${Date.now()}`,
+      internName,
+      task,
+      score: Math.round(scoreValue),
+      activityType: analyticsTaskForm.activityType || 'Activity',
+      createdAt: today,
+    }
+
+    setAnalyticsTaskEntries((prev) => [entry, ...prev].slice(0, 40))
+    setIsAnalyticsTaskModalOpen(false)
+    setAnalyticsTaskError('')
+    runAdminAction(`Task added for ${internName}`)
   }
 
   const handleAdminProfileSave = (event) => {
@@ -3494,7 +3575,7 @@ function App() {
             </section>
           ) : currentPath === '/admin-dashboard' ? (
             isAdminAuthenticated ? (
-              <section className="max-w-[1400px] mx-auto text-black lg:h-[calc(100dvh-1.5rem)]">
+              <section className="w-full text-black lg:h-[calc(100dvh-1.5rem)]">
                 <div className="grid grid-cols-1 lg:grid-cols-[240px,1fr] gap-4 items-start lg:h-full">
                   <div className="lg:sticky lg:top-2 self-start h-full space-y-3 flex flex-col items-center lg:justify-center">
                     <div className="h-14 w-full flex items-center justify-center">
@@ -3555,7 +3636,7 @@ function App() {
                     </aside>
                   </div>
 
-                  <div className="admin-main-scroll admin-gloss-scope rounded-[26px] border border-castleton/20 bg-[#edf0ee] p-4 sm:p-6 lg:h-full lg:overflow-y-auto">
+                  <main className="lg:h-full lg:overflow-y-auto p-1 sm:p-2">
                     <div className="flex items-center justify-between mb-4">
                       <h1 className="text-3xl sm:text-4xl font-semibold">{activeAdminData.heading}</h1>
                       <span className="inline-flex items-center rounded-full bg-white border border-castleton/15 px-4 py-2 text-sm font-semibold">
@@ -3747,7 +3828,7 @@ function App() {
                                   View report
                                 </button>
                               </div>
-                              <div className="overflow-auto max-h-[62vh] rounded-xl border border-castleton/10 admin-main-scroll">
+                              <div className="overflow-x-auto">
                                 <table className="min-w-full text-left">
                                   <thead className="sticky top-0 z-10 bg-[#eef4f0]">
                                     <tr className="text-black/75 border-b border-castleton/15">
@@ -3864,13 +3945,22 @@ function App() {
                               Performance, attendance, and progress by intern.
                             </p>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => runAdminAction('Analytics report exported')}
-                            className="focus-brand rounded-full border border-castleton/20 bg-[#f3f5f4] px-4 py-2 text-base font-semibold text-castleton hover:bg-castleton hover:text-white transition-colors"
-                          >
-                            Export
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={openAnalyticsTaskModal}
+                              className="focus-brand rounded-full bg-castleton text-white px-4 py-2 text-base font-semibold hover:bg-serpent transition-colors"
+                            >
+                              Add Task
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => runAdminAction('Analytics report exported')}
+                              className="focus-brand rounded-full border border-castleton/20 bg-[#f3f5f4] px-4 py-2 text-base font-semibold text-castleton hover:bg-castleton hover:text-white transition-colors"
+                            >
+                              Export
+                            </button>
+                          </div>
                           <input
                             type="text"
                             value={analyticsSearch}
@@ -3890,6 +3980,34 @@ function App() {
                             <option value="progress-desc">Sort: Progress</option>
                           </select>
                         </motion.div>
+
+                        <motion.article
+                          className="rounded-[22px] border border-castleton/20 bg-white p-4 sm:p-5"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.22, delay: 0.04 }}
+                        >
+                          <div className="flex items-center justify-between gap-3 mb-3">
+                            <h3 className="text-xl sm:text-2xl font-semibold text-black">Recent Task Entries</h3>
+                            <span className="inline-flex rounded-full bg-[#edf3ef] px-3 py-1 text-xs sm:text-sm font-semibold text-castleton">
+                              {analyticsTaskEntries.length} item{analyticsTaskEntries.length === 1 ? '' : 's'}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                            {analyticsTaskEntries.slice(0, 6).map((item) => (
+                              <div key={item.id} className="rounded-xl border border-castleton/15 bg-[#f8faf9] p-3">
+                                <p className="text-sm font-semibold text-black">{item.task}</p>
+                                <p className="text-xs text-black/65 mt-1">{item.internName}</p>
+                                <div className="mt-2 flex items-center justify-between gap-2">
+                                  <span className="inline-flex rounded-full bg-[#e8f3ed] px-2.5 py-1 text-xs font-semibold text-castleton">
+                                    {item.activityType}
+                                  </span>
+                                  <span className="text-sm font-semibold text-black">{item.score}%</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </motion.article>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                           {filteredAnalyticsRows.map((intern, index) => {
@@ -4055,6 +4173,114 @@ function App() {
                                   )
                                 })()}
                               </motion.div>
+                            </motion.div>
+                          ) : null}
+                        </AnimatePresence>
+
+                        <AnimatePresence>
+                          {isAnalyticsTaskModalOpen ? (
+                            <motion.div
+                              className="fixed inset-0 z-[82] bg-black/45 backdrop-blur-[2px] flex items-center justify-center p-4"
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
+                              onClick={() => setIsAnalyticsTaskModalOpen(false)}
+                            >
+                              <motion.form
+                                onSubmit={handleAnalyticsTaskSave}
+                                className="w-full max-w-xl rounded-[24px] border border-castleton/25 bg-[#f5f7f6] shadow-2xl p-5 sm:p-6"
+                                initial={{ opacity: 0, y: 16, scale: 0.98 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: 12, scale: 0.98 }}
+                                transition={{ duration: 0.22 }}
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                <div className="flex items-start justify-between gap-3 mb-4">
+                                  <div>
+                                    <p className="text-xs uppercase tracking-[0.12em] text-castleton mb-1">Analytics Intake</p>
+                                    <h3 className="text-2xl sm:text-3xl font-semibold text-black leading-tight">Add Task Entry</h3>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => setIsAnalyticsTaskModalOpen(false)}
+                                    className="focus-brand rounded-full border border-castleton/20 px-3 py-1.5 text-sm font-semibold text-castleton hover:bg-castleton hover:text-white transition-colors"
+                                  >
+                                    Close
+                                  </button>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  <select
+                                    value={analyticsTaskForm.internName}
+                                    onChange={(event) =>
+                                      setAnalyticsTaskForm((prev) => ({ ...prev, internName: event.target.value }))
+                                    }
+                                    className="focus-brand rounded-xl border border-castleton/20 px-3 py-2.5 bg-white"
+                                  >
+                                    <option value="">Select intern</option>
+                                    {internAnalyticsData.map((intern) => (
+                                      <option key={`task-intern-${intern.name}`} value={intern.name}>
+                                        {intern.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <select
+                                    value={analyticsTaskForm.activityType}
+                                    onChange={(event) =>
+                                      setAnalyticsTaskForm((prev) => ({ ...prev, activityType: event.target.value }))
+                                    }
+                                    className="focus-brand rounded-xl border border-castleton/20 px-3 py-2.5 bg-white"
+                                  >
+                                    <option value="Activity">Activity</option>
+                                    <option value="Task">Task</option>
+                                    <option value="Assessment">Assessment</option>
+                                    <option value="Quality Check">Quality Check</option>
+                                    <option value="Project">Project</option>
+                                  </select>
+                                  <input
+                                    type="text"
+                                    value={analyticsTaskForm.task}
+                                    onChange={(event) =>
+                                      setAnalyticsTaskForm((prev) => ({ ...prev, task: event.target.value }))
+                                    }
+                                    placeholder="Task name"
+                                    className="focus-brand rounded-xl border border-castleton/20 px-3 py-2.5 bg-white sm:col-span-2"
+                                  />
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    value={analyticsTaskForm.score}
+                                    onChange={(event) =>
+                                      setAnalyticsTaskForm((prev) => ({ ...prev, score: event.target.value }))
+                                    }
+                                    placeholder="Score (0-100)"
+                                    className="focus-brand rounded-xl border border-castleton/20 px-3 py-2.5 bg-white sm:col-span-2"
+                                  />
+                                </div>
+
+                                {analyticsTaskError ? (
+                                  <p className="mt-3 rounded-xl border border-[#c05345]/35 bg-[#fff3f1] px-3 py-2 text-sm font-medium text-[#9d4436]">
+                                    {analyticsTaskError}
+                                  </p>
+                                ) : null}
+
+                                <div className="mt-5 flex items-center justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setIsAnalyticsTaskModalOpen(false)}
+                                    className="focus-brand rounded-full border border-castleton/20 px-4 py-2 text-sm font-semibold text-castleton hover:bg-castleton hover:text-white transition-colors"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="submit"
+                                    className="focus-brand rounded-full bg-castleton text-white px-4 py-2 text-sm font-semibold hover:bg-serpent transition-colors"
+                                  >
+                                    Save Task
+                                  </button>
+                                </div>
+                              </motion.form>
                             </motion.div>
                           ) : null}
                         </AnimatePresence>
@@ -5042,7 +5268,7 @@ function App() {
                         </div>
                       </>
                     )}
-                  </div>
+                  </main>
                 </div>
 
                 <AnimatePresence>
@@ -5768,6 +5994,8 @@ function App() {
 }
 
 export default App
+
+
 
 
 
