@@ -4793,7 +4793,7 @@ function App() {
                               <option value="Suspend">Suspend</option>
                             </select>
                           </div>
-                          <div className="overflow-auto max-h-[62vh] rounded-xl border border-castleton/10 admin-main-scroll">
+                          <div className="w-full overflow-x-auto overflow-y-visible rounded-xl border border-castleton/10">
                             <table className="min-w-[1550px] text-left">
                               <thead className="sticky top-0 z-10 bg-[#eef4f0]">
                                 <tr className="border-b border-castleton/15 text-black/75">
