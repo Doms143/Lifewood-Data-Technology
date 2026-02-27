@@ -892,11 +892,13 @@ function App() {
   const [isAnalyticsTaskModalOpen, setIsAnalyticsTaskModalOpen] = useState(false)
   const [analyticsTaskError, setAnalyticsTaskError] = useState('')
   const [analyticsTaskForm, setAnalyticsTaskForm] = useState({
+    targetMode: 'individual',
     internName: '',
     task: '',
     score: '',
     activityType: 'Activity',
   })
+  const [analyticsTaskSelectedCourses, setAnalyticsTaskSelectedCourses] = useState([])
   const [analyticsTaskEntries, setAnalyticsTaskEntries] = useState([
     { id: 'seed-1', internName: 'Cabrillos, Dane Kiev', task: 'Image Label Audit', score: 91, activityType: 'Task', createdAt: '2026-03-10' },
     { id: 'seed-2', internName: 'Damayo, Jholmer', task: 'Dataset QA Review', score: 88, activityType: 'Quality Check', createdAt: '2026-03-11' },
@@ -907,7 +909,10 @@ function App() {
   const [reportsSearch, setReportsSearch] = useState('')
   const [settingsSearch, setSettingsSearch] = useState('')
   const [settingsStatusFilter, setSettingsStatusFilter] = useState('All')
-  const manageInternsTopScrollRef = useRef(null)
+  const [settingsPage, setSettingsPage] = useState(1)
+  const settingsPageSize = 10
+  const manageInternsFollowScrollRef = useRef(null)
+  const manageInternsFollowTrackRef = useRef(null)
   const manageInternsTableScrollRef = useRef(null)
   const isSyncingManageInternsScrollRef = useRef(false)
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(() => {
@@ -1060,6 +1065,10 @@ function App() {
   }, [])
 
   const totalInterns = internAnalyticsData.length
+  const analyticsCourseOptions = useMemo(
+    () => Array.from(new Set(internAnalyticsData.map((intern) => intern.course || 'BS Information Technology'))).sort(),
+    [internAnalyticsData]
+  )
   const presentInterns = useMemo(() => internAnalyticsData.filter((intern) => intern.attendance >= 90), [internAnalyticsData])
   const leaveInterns = useMemo(() => internAnalyticsData.filter((intern) => intern.low), [internAnalyticsData])
   const lateInterns = useMemo(() => internAnalyticsData.filter((intern) => intern.attendance < 85), [internAnalyticsData])
@@ -1233,6 +1242,52 @@ function App() {
       })
   }, [internAnalyticsData, settingsSearch, settingsStatusFilter])
 
+  const settingsTotalPages = useMemo(
+    () => Math.max(1, Math.ceil(settingsInternRows.length / settingsPageSize)),
+    [settingsInternRows.length]
+  )
+
+  const paginatedSettingsInternRows = useMemo(() => {
+    const start = (settingsPage - 1) * settingsPageSize
+    return settingsInternRows.slice(start, start + settingsPageSize)
+  }, [settingsInternRows, settingsPage])
+
+  const settingsPageButtons = useMemo(() => {
+    if (settingsTotalPages <= 7) {
+      return Array.from({ length: settingsTotalPages }, (_, index) => index + 1)
+    }
+
+    if (settingsPage <= 4) {
+      return [1, 2, 3, 4, 5, '...', settingsTotalPages]
+    }
+
+    if (settingsPage >= settingsTotalPages - 3) {
+      return [1, '...', settingsTotalPages - 4, settingsTotalPages - 3, settingsTotalPages - 2, settingsTotalPages - 1, settingsTotalPages]
+    }
+
+    return [1, '...', settingsPage - 1, settingsPage, settingsPage + 1, '...', settingsTotalPages]
+  }, [settingsPage, settingsTotalPages])
+
+  useEffect(() => {
+    setSettingsPage(1)
+  }, [settingsSearch, settingsStatusFilter])
+
+  useEffect(() => {
+    if (settingsPage > settingsTotalPages) {
+      setSettingsPage(settingsTotalPages)
+    }
+  }, [settingsPage, settingsTotalPages])
+
+  useEffect(() => {
+    window.requestAnimationFrame(syncManageInternsScrollMetrics)
+  }, [currentPath, activeAdminTab, settingsPage, settingsSearch, settingsStatusFilter, settingsInternRows.length])
+
+  useEffect(() => {
+    const onResize = () => window.requestAnimationFrame(syncManageInternsScrollMetrics)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
   const pageData = useMemo(() => routeContent[currentPath], [currentPath])
   const isAdminRoute = currentPath === '/admin-dashboard'
   const isCareersRoute = currentPath === '/careers'
@@ -1265,7 +1320,7 @@ function App() {
 
   const syncManageInternsHorizontalScroll = (source) => {
     if (isSyncingManageInternsScrollRef.current) return
-    const topEl = manageInternsTopScrollRef.current
+    const topEl = manageInternsFollowScrollRef.current
     const tableEl = manageInternsTableScrollRef.current
     if (!topEl || !tableEl) return
 
@@ -1280,14 +1335,27 @@ function App() {
     })
   }
 
+  const syncManageInternsScrollMetrics = () => {
+    const topEl = manageInternsFollowScrollRef.current
+    const tableEl = manageInternsTableScrollRef.current
+    const trackEl = manageInternsFollowTrackRef.current
+    if (!topEl || !tableEl || !trackEl) return
+
+    const contentWidth = Math.max(tableEl.scrollWidth, tableEl.clientWidth)
+    trackEl.style.width = `${contentWidth}px`
+    topEl.scrollLeft = tableEl.scrollLeft
+  }
+
   const openAnalyticsTaskModal = () => {
     const defaultIntern = internAnalyticsData[0]?.name || ''
     setAnalyticsTaskForm({
+      targetMode: 'individual',
       internName: defaultIntern,
       task: '',
       score: '',
       activityType: 'Activity',
     })
+    setAnalyticsTaskSelectedCourses([])
     setAnalyticsTaskError('')
     setIsAnalyticsTaskModalOpen(true)
   }
@@ -1295,13 +1363,9 @@ function App() {
   const handleAnalyticsTaskSave = (event) => {
     event.preventDefault()
     const task = analyticsTaskForm.task.trim()
+    const targetMode = analyticsTaskForm.targetMode || 'individual'
     const internName = analyticsTaskForm.internName.trim()
     const scoreValue = Number(analyticsTaskForm.score)
-
-    if (!internName) {
-      setAnalyticsTaskError('Please select an intern.')
-      return
-    }
     if (!task) {
       setAnalyticsTaskError('Task name is required.')
       return
@@ -1311,20 +1375,44 @@ function App() {
       return
     }
 
+    let targetInterns = []
+    if (targetMode === 'individual') {
+      if (!internName) {
+        setAnalyticsTaskError('Please select an intern.')
+        return
+      }
+      targetInterns = internAnalyticsData.filter((intern) => intern.name === internName).map((intern) => intern.name)
+    } else if (targetMode === 'specific-courses') {
+      if (!analyticsTaskSelectedCourses.length) {
+        setAnalyticsTaskError('Select at least one course.')
+        return
+      }
+      targetInterns = internAnalyticsData
+        .filter((intern) => analyticsTaskSelectedCourses.includes(intern.course || 'BS Information Technology'))
+        .map((intern) => intern.name)
+    } else if (targetMode === 'all-courses' || targetMode === 'all-students') {
+      targetInterns = internAnalyticsData.map((intern) => intern.name)
+    }
+
+    if (!targetInterns.length) {
+      setAnalyticsTaskError('No target interns found for this selection.')
+      return
+    }
+
     const today = new Date().toISOString().slice(0, 10)
-    const entry = {
-      id: `task-${Date.now()}`,
-      internName,
+    const newEntries = targetInterns.map((targetName, idx) => ({
+      id: `task-${Date.now()}-${idx}`,
+      internName: targetName,
       task,
       score: Math.round(scoreValue),
       activityType: analyticsTaskForm.activityType || 'Activity',
       createdAt: today,
-    }
+    }))
 
-    setAnalyticsTaskEntries((prev) => [entry, ...prev].slice(0, 40))
+    setAnalyticsTaskEntries((prev) => [...newEntries, ...prev].slice(0, 80))
     setIsAnalyticsTaskModalOpen(false)
     setAnalyticsTaskError('')
-    runAdminAction(`Task added for ${internName}`)
+    runAdminAction(`Task added for ${targetInterns.length} intern${targetInterns.length === 1 ? '' : 's'}`)
   }
 
   const handleAdminProfileSave = (event) => {
@@ -3595,17 +3683,17 @@ function App() {
             </section>
           ) : currentPath === '/admin-dashboard' ? (
             isAdminAuthenticated ? (
-              <section className="w-full text-black lg:h-[calc(100dvh-1.5rem)]">
-                <div className="grid grid-cols-1 lg:grid-cols-[240px,1fr] gap-4 items-start lg:h-full">
-                  <div className="lg:sticky lg:top-2 self-start h-full space-y-3 flex flex-col items-center lg:justify-center">
-                    <div className="h-14 w-full flex items-center justify-center">
+              <section className="w-full text-black lg:min-h-screen">
+                <div className="relative">
+                  <div className="space-y-3 flex flex-col items-center lg:fixed lg:left-0 lg:top-0 lg:inset-y-0 lg:w-[280px] lg:z-40 lg:justify-start lg:bg-[linear-gradient(165deg,#0f5a3f,#0d4d38_52%,#0a3f31)] lg:border-r lg:border-castleton/30 lg:px-4 lg:pt-5 lg:pb-4">
+                    <div className="h-14 w-full flex items-center justify-center lg:h-16">
                       <img
-                        src="https://framerusercontent.com/images/BZSiFYgRc4wDUAuEybhJbZsIBQY.png"
+                        src="https://framerusercontent.com/images/Ca8ppNsvJIfTsWEuHr50gvkDow.png"
                         alt="Lifewood logo"
-                        className="h-12 w-auto"
+                        className="h-12 w-auto lg:h-14"
                       />
                     </div>
-                    <aside className="w-full max-w-[220px] h-fit rounded-[26px] border border-castleton/25 bg-[linear-gradient(165deg,#0f5a3f,#0d4d38_52%,#0a3f31)] text-[#eef4e9] overflow-hidden shadow-soft">
+                    <aside className="w-full h-full rounded-[26px] lg:rounded-[18px] border border-castleton/25 bg-transparent text-[#eef4e9] overflow-hidden shadow-soft lg:shadow-none">
                     <div className="p-3 mt-2 space-y-3">
                       <button
                         type="button"
@@ -3656,7 +3744,7 @@ function App() {
                     </aside>
                   </div>
 
-                  <main className="lg:h-full lg:overflow-y-auto p-1 sm:p-2">
+                  <main className="p-1 sm:p-2 lg:ml-[280px] lg:min-h-screen">
                     <div className="flex items-center justify-between mb-4">
                       <h1 className="text-3xl sm:text-4xl font-semibold">{activeAdminData.heading}</h1>
                       <span className="inline-flex items-center rounded-full bg-white border border-castleton/15 px-4 py-2 text-sm font-semibold">
@@ -4231,19 +4319,60 @@ function App() {
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                   <select
-                                    value={analyticsTaskForm.internName}
+                                    value={analyticsTaskForm.targetMode}
                                     onChange={(event) =>
-                                      setAnalyticsTaskForm((prev) => ({ ...prev, internName: event.target.value }))
+                                      setAnalyticsTaskForm((prev) => ({ ...prev, targetMode: event.target.value }))
                                     }
-                                    className="focus-brand rounded-xl border border-castleton/20 px-3 py-2.5 bg-white"
+                                    className="focus-brand rounded-xl border border-castleton/20 px-3 py-2.5 bg-white sm:col-span-2"
                                   >
-                                    <option value="">Select intern</option>
-                                    {internAnalyticsData.map((intern) => (
-                                      <option key={`task-intern-${intern.name}`} value={intern.name}>
-                                        {intern.name}
-                                      </option>
-                                    ))}
+                                    <option value="individual">Individual Student</option>
+                                    <option value="specific-courses">Specific Courses</option>
+                                    <option value="all-courses">All Courses</option>
+                                    <option value="all-students">All Students</option>
                                   </select>
+                                  {analyticsTaskForm.targetMode === 'individual' ? (
+                                    <select
+                                      value={analyticsTaskForm.internName}
+                                      onChange={(event) =>
+                                        setAnalyticsTaskForm((prev) => ({ ...prev, internName: event.target.value }))
+                                      }
+                                      className="focus-brand rounded-xl border border-castleton/20 px-3 py-2.5 bg-white sm:col-span-2"
+                                    >
+                                      <option value="">Select intern</option>
+                                      {internAnalyticsData.map((intern) => (
+                                        <option key={`task-intern-${intern.name}`} value={intern.name}>
+                                          {intern.name}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  ) : null}
+                                  {analyticsTaskForm.targetMode === 'specific-courses' ? (
+                                    <div className="sm:col-span-2 rounded-xl border border-castleton/20 bg-white px-3 py-3">
+                                      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-castleton mb-2">
+                                        Select Courses
+                                      </p>
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        {analyticsCourseOptions.map((course) => {
+                                          const checked = analyticsTaskSelectedCourses.includes(course)
+                                          return (
+                                            <label key={`task-course-${course}`} className="flex items-center gap-2 text-sm text-black">
+                                              <input
+                                                type="checkbox"
+                                                checked={checked}
+                                                onChange={(event) => {
+                                                  setAnalyticsTaskSelectedCourses((prev) =>
+                                                    event.target.checked ? [...prev, course] : prev.filter((item) => item !== course)
+                                                  )
+                                                }}
+                                                className="accent-[#0d5d43]"
+                                              />
+                                              <span className="truncate">{course}</span>
+                                            </label>
+                                          )
+                                        })}
+                                      </div>
+                                    </div>
+                                  ) : null}
                                   <select
                                     value={analyticsTaskForm.activityType}
                                     onChange={(event) =>
@@ -4813,72 +4942,105 @@ function App() {
                               <option value="Suspend">Suspend</option>
                             </select>
                           </div>
-                          <div
-                            ref={manageInternsTopScrollRef}
-                            onScroll={() => syncManageInternsHorizontalScroll('top')}
-                            className="w-full overflow-x-auto overflow-y-hidden rounded-xl border border-castleton/10 bg-[#f9fbfa] mb-2"
-                            aria-label="Manage interns horizontal scrollbar"
-                          >
-                            <div className="min-w-[1550px] h-4" />
-                          </div>
-                          <div
-                            ref={manageInternsTableScrollRef}
-                            onScroll={() => syncManageInternsHorizontalScroll('table')}
-                            className="w-full overflow-x-auto overflow-y-visible rounded-xl border border-castleton/10"
-                          >
-                            <table className="min-w-[1550px] text-left">
-                              <thead className="sticky top-0 z-10 bg-[#eef4f0]">
-                                <tr className="border-b border-castleton/15 text-black/75">
-                                  <th className="py-2 pr-3 text-sm font-semibold whitespace-nowrap">Name</th>
-                                  <th className="py-2 pr-3 text-sm font-semibold whitespace-nowrap">Gender</th>
-                                  <th className="py-2 pr-3 text-sm font-semibold whitespace-nowrap">Email</th>
-                                  <th className="py-2 pr-3 text-sm font-semibold whitespace-nowrap">Contact</th>
-                                  <th className="py-2 pr-3 text-sm font-semibold whitespace-nowrap">Course</th>
-                                  <th className="py-2 pr-3 text-sm font-semibold whitespace-nowrap">School/University</th>
-                                  <th className="py-2 pr-3 text-sm font-semibold whitespace-nowrap">Required Hours</th>
-                                  <th className="py-2 pr-3 text-sm font-semibold whitespace-nowrap">Track</th>
-                                  <th className="py-2 pr-3 text-sm font-semibold whitespace-nowrap">Status</th>
-                                  <th className="py-2 pr-3 text-sm font-semibold whitespace-nowrap">Mentor</th>
-                                  <th className="py-2 pr-3 text-sm font-semibold whitespace-nowrap">Joined</th>
-                                  <th className="py-2 pr-3 text-sm font-semibold whitespace-nowrap">Actions</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {settingsInternRows.map((intern, index) => (
-                                    <tr key={`settings-${intern.name}-${index}`} className="border-b border-castleton/10">
-                                      <td className="py-2 pr-3 text-sm font-medium text-black whitespace-nowrap">{intern.name}</td>
-                                      <td className="py-2 pr-3 text-sm text-black/80 whitespace-nowrap">{intern.gender || '-'}</td>
-                                      <td className="py-2 pr-3 text-sm text-black/80 whitespace-nowrap">{intern.email}</td>
-                                      <td className="py-2 pr-3 text-sm text-black/80 whitespace-nowrap">{intern.contact || '-'}</td>
-                                      <td className="py-2 pr-3 text-sm text-black/80 whitespace-nowrap">{intern.course || '-'}</td>
-                                      <td className="py-2 pr-3 text-sm text-black/80 whitespace-nowrap">{intern.school || schoolOptions[0]}</td>
-                                      <td className="py-2 pr-3 text-sm text-black/80 whitespace-nowrap">{intern.requiredHours || '-'}</td>
-                                      <td className="py-2 pr-3 text-sm text-black/80 whitespace-nowrap">{intern.track || 'AI Data Operations'}</td>
-                                      <td className="py-2 pr-3 text-sm text-black/80 whitespace-nowrap">{getInternStatusLabel(intern.status || 'Active')}</td>
-                                      <td className="py-2 pr-3 text-sm text-black/80 whitespace-nowrap">{intern.mentor || 'Unassigned'}</td>
-                                      <td className="py-2 pr-3 text-sm text-black/80 whitespace-nowrap">{intern.joinDate || '-'}</td>
-                                      <td className="py-2 pr-3 whitespace-nowrap">
-                                        <div className="flex gap-2">
-                                          <button
-                                            type="button"
-                                            onClick={() => handleInternEdit(intern.sourceIndex)}
-                                            className="focus-brand rounded-lg border border-castleton/20 px-2.5 py-1 text-xs font-semibold text-castleton hover:bg-castleton hover:text-white transition-colors"
-                                          >
-                                            Edit
-                                          </button>
-                                          <button
-                                            type="button"
-                                            onClick={() => handleInternDelete(intern.sourceIndex)}
-                                            className="focus-brand rounded-lg border border-[#c67c72]/40 px-2.5 py-1 text-xs font-semibold text-[#9d4436] hover:bg-[#c05345] hover:text-white transition-colors"
-                                          >
-                                            Delete
-                                          </button>
-                                        </div>
-                                      </td>
-                                    </tr>
+                          <div className="relative rounded-xl">
+                            <div
+                              ref={manageInternsTableScrollRef}
+                              onScroll={() => syncManageInternsHorizontalScroll('table')}
+                              className="w-full overflow-x-auto overflow-y-visible rounded-xl border border-castleton/10 hide-x-scrollbar"
+                            >
+                              <table className="manage-interns-table w-max min-w-full text-center">
+                                <thead className="sticky top-0 z-10 bg-[#eef4f0]">
+                                  <tr className="border-b border-castleton/15 text-black/75">
+                                    <th className="py-2 px-3 text-sm font-semibold whitespace-nowrap text-center">Name</th>
+                                    <th className="py-2 px-3 text-sm font-semibold whitespace-nowrap text-center">Gender</th>
+                                    <th className="py-2 px-3 text-sm font-semibold whitespace-nowrap text-center">Email</th>
+                                    <th className="py-2 px-3 text-sm font-semibold whitespace-nowrap text-center">Contact</th>
+                                    <th className="py-2 px-3 text-sm font-semibold whitespace-nowrap text-center">Course</th>
+                                    <th className="py-2 px-3 text-sm font-semibold whitespace-nowrap text-center">School/University</th>
+                                    <th className="py-2 px-3 text-sm font-semibold whitespace-nowrap text-center">Required Hours</th>
+                                    <th className="py-2 px-3 text-sm font-semibold whitespace-nowrap text-center">Track</th>
+                                    <th className="py-2 px-3 text-sm font-semibold whitespace-nowrap text-center">Status</th>
+                                    <th className="py-2 px-3 text-sm font-semibold whitespace-nowrap text-center">Mentor</th>
+                                    <th className="py-2 px-3 text-sm font-semibold whitespace-nowrap text-center">Joined</th>
+                                    <th className="py-2 px-3 text-sm font-semibold whitespace-nowrap text-center">Actions</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {paginatedSettingsInternRows.map((intern, index) => (
+                                      <tr key={`settings-${intern.name}-${index}`} className="border-b border-castleton/10">
+                                        <td className="py-2 px-3 text-sm font-medium text-black whitespace-nowrap text-center">{intern.name}</td>
+                                        <td className="py-2 px-3 text-sm text-black/80 whitespace-nowrap text-center">{intern.gender || '-'}</td>
+                                        <td className="py-2 px-3 text-sm text-black/80 whitespace-nowrap text-center">{intern.email}</td>
+                                        <td className="py-2 px-3 text-sm text-black/80 whitespace-nowrap text-center">{intern.contact || '-'}</td>
+                                        <td className="py-2 px-3 text-sm text-black/80 whitespace-nowrap text-center">{intern.course || '-'}</td>
+                                        <td className="py-2 px-3 text-sm text-black/80 whitespace-nowrap text-center">{intern.school || schoolOptions[0]}</td>
+                                        <td className="py-2 px-3 text-sm text-black/80 whitespace-nowrap text-center">{intern.requiredHours || '-'}</td>
+                                        <td className="py-2 px-3 text-sm text-black/80 whitespace-nowrap text-center">{intern.track || 'AI Data Operations'}</td>
+                                        <td className="py-2 px-3 text-sm text-black/80 whitespace-nowrap text-center">{getInternStatusLabel(intern.status || 'Active')}</td>
+                                        <td className="py-2 px-3 text-sm text-black/80 whitespace-nowrap text-center">{intern.mentor || 'Unassigned'}</td>
+                                        <td className="py-2 px-3 text-sm text-black/80 whitespace-nowrap text-center">{intern.joinDate || '-'}</td>
+                                        <td className="py-2 px-3 whitespace-nowrap text-center">
+                                          <div className="flex items-center justify-center gap-2">
+                                            <button
+                                              type="button"
+                                              onClick={() => handleInternEdit(intern.sourceIndex)}
+                                              className="focus-brand rounded-lg border border-castleton/20 px-2.5 py-1 text-xs font-semibold text-castleton hover:bg-castleton hover:text-white transition-colors"
+                                            >
+                                              Edit
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleInternDelete(intern.sourceIndex)}
+                                              className="focus-brand rounded-lg border border-[#c67c72]/40 px-2.5 py-1 text-xs font-semibold text-[#9d4436] hover:bg-[#c05345] hover:text-white transition-colors"
+                                            >
+                                              Delete
+                                            </button>
+                                          </div>
+                                        </td>
+                                      </tr>
                                 ))}
                               </tbody>
                             </table>
+                            </div>
+                            <div
+                              ref={manageInternsFollowScrollRef}
+                              onScroll={() => syncManageInternsHorizontalScroll('top')}
+                              className="admin-follow-x-scroll z-20 mt-2 w-full overflow-x-auto overflow-y-hidden rounded-xl border border-castleton/25 bg-[#f9fbfa]/96 backdrop-blur-md shadow-[0_14px_34px_-18px_rgba(19,48,32,0.45)] py-1"
+                              aria-label="Manage interns horizontal scrollbar"
+                            >
+                              <div ref={manageInternsFollowTrackRef} className="h-6" />
+                            </div>
+                          </div>
+                          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                            <p className="text-sm text-black/70">
+                              {settingsInternRows.length
+                                ? `Showing ${(settingsPage - 1) * settingsPageSize + 1} - ${Math.min(settingsPage * settingsPageSize, settingsInternRows.length)} of ${settingsInternRows.length} interns`
+                                : 'No interns found for current filters'}
+                            </p>
+                            <div className="flex items-center gap-2">
+                              {settingsPageButtons.map((item, index) => (
+                                item === '...'
+                                  ? (
+                                    <span key={`settings-page-ellipsis-${index}`} className="px-1 text-sm font-semibold text-black/45">
+                                      ...
+                                    </span>
+                                  )
+                                  : (
+                                    <button
+                                      key={`settings-page-${item}`}
+                                      type="button"
+                                      onClick={() => setSettingsPage(item)}
+                                      className={`focus-brand rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                                        settingsPage === item
+                                          ? 'border-castleton bg-castleton text-white'
+                                          : 'border-castleton/20 text-castleton hover:bg-castleton hover:text-white'
+                                      }`}
+                                    >
+                                      {item}
+                                    </button>
+                                  )
+                              ))}
+                            </div>
                           </div>
                         </div>
 
@@ -5301,6 +5463,7 @@ function App() {
                       </>
                     )}
                   </main>
+
                 </div>
 
                 <AnimatePresence>

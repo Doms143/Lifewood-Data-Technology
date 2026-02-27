@@ -277,6 +277,55 @@ p, body {
     background: linear-gradient(180deg, #138459, #0d5d42);
   }
 
+  .hide-x-scrollbar {
+    scrollbar-width: none;
+  }
+
+  .hide-x-scrollbar::-webkit-scrollbar {
+    display: none;
+    height: 0;
+  }
+
+  .admin-follow-x-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #0f6a48 #dfe6e2;
+  }
+
+  .admin-follow-x-scroll::-webkit-scrollbar {
+    height: 12px;
+  }
+
+  .admin-follow-x-scroll::-webkit-scrollbar-track {
+    background: linear-gradient(180deg, #e7eeea, #dbe5df);
+    border-radius: 999px;
+    border: 1px solid rgba(15, 106, 72, 0.14);
+  }
+
+  .admin-follow-x-scroll::-webkit-scrollbar-thumb {
+    background: linear-gradient(90deg, #0f6a48, #0a4d36);
+    border-radius: 999px;
+    border: 2px solid #dbe5df;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.38), 0 1px 2px rgba(4, 98, 65, 0.16);
+  }
+
+  .admin-follow-x-scroll::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(90deg, #14845b, #0d5d42);
+  }
+
+  .admin-follow-x-scroll::-webkit-scrollbar-thumb:active {
+    background: linear-gradient(90deg, #0d5f42, #09402c);
+  }
+
+  .manage-interns-table thead th,
+  .manage-interns-table tbody td {
+    border-right: 1px solid rgba(4, 98, 65, 0.12);
+  }
+
+  .manage-interns-table thead th:last-child,
+  .manage-interns-table tbody td:last-child {
+    border-right: 0;
+  }
+
   .admin-gloss-scope {
     background:
       radial-gradient(circle at 10% 4%, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0) 44%),
