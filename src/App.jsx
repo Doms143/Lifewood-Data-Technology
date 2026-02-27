@@ -4967,7 +4967,12 @@ function App() {
                                 </thead>
                                 <tbody>
                                   {paginatedSettingsInternRows.map((intern, index) => (
-                                      <tr key={`settings-${intern.name}-${index}`} className="border-b border-castleton/10">
+                                      <tr
+                                        key={`settings-${intern.name}-${index}`}
+                                        className={`border-b border-castleton/10 transition-colors ${
+                                          index % 2 === 0 ? 'bg-white/45' : 'bg-castleton/[0.04]'
+                                        } hover:bg-castleton/[0.08]`}
+                                      >
                                         <td className="py-2 px-3 text-sm font-medium text-black whitespace-nowrap text-center">{intern.name}</td>
                                         <td className="py-2 px-3 text-sm text-black/80 whitespace-nowrap text-center">{intern.gender || '-'}</td>
                                         <td className="py-2 px-3 text-sm text-black/80 whitespace-nowrap text-center">{intern.email}</td>
