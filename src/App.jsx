@@ -3690,7 +3690,7 @@ function App() {
                       <img
                         src="https://framerusercontent.com/images/Ca8ppNsvJIfTsWEuHr50gvkDow.png"
                         alt="Lifewood logo"
-                        className="h-12 w-auto lg:h-14"
+                        className="h-7 w-auto lg:h-9"
                       />
                     </div>
                     <aside className="w-full h-full rounded-[26px] lg:rounded-[18px] border border-castleton/25 bg-transparent text-[#eef4e9] overflow-hidden shadow-soft lg:shadow-none">

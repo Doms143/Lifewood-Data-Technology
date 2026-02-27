@@ -160,11 +160,12 @@ p, body {
     position: relative;
     height: 74px;
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.23), rgba(255, 255, 255, 0.09));
-    border: 1px solid rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(19, 48, 32, 0.28);
     box-shadow:
       0 26px 40px -32px rgba(0, 0, 0, 0.42),
       0 14px 24px -22px rgba(19, 48, 32, 0.3),
-      inset 0 1px 0 rgba(255, 255, 255, 0.9);
+      inset 0 1px 0 rgba(255, 255, 255, 0.88),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.32);
     backdrop-filter: blur(22px) saturate(130%);
     -webkit-backdrop-filter: blur(22px) saturate(130%);
     overflow: hidden;
@@ -205,12 +206,13 @@ p, body {
 
 
   .nav-dropdown-glass {
-    border: 1px solid rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(19, 48, 32, 0.24);
     background: #f5eedb;
     box-shadow:
       0 20px 38px -24px rgba(0, 0, 0, 0.42),
       0 10px 20px -16px rgba(19, 48, 32, 0.35),
-      inset 0 1px 0 rgba(255, 255, 255, 0.82);
+      inset 0 1px 0 rgba(255, 255, 255, 0.82),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.26);
     backdrop-filter: blur(22px) saturate(130%);
     -webkit-backdrop-filter: blur(22px) saturate(130%);
   }
