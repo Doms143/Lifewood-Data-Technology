@@ -7,6 +7,9 @@ create table if not exists public.profiles (
   phone text,
   department text,
   role text not null default 'user' check (role in ('user', 'admin', 'superadmin')),
+  is_approved boolean not null default false,
+  can_manage_approvals boolean not null default false,
+  approved_at timestamptz,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
 );
@@ -69,6 +72,7 @@ as $$
     from public.profiles
     where id = auth.uid()
       and role in ('admin', 'superadmin')
+      and is_approved = true
   );
 $$;
 

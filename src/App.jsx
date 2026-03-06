@@ -28,6 +28,8 @@ import {
   Clapperboard,
   Bot,
   Quote,
+  LayoutGrid,
+  AlignJustify,
 } from 'lucide-react'
 import Hero from './components/Hero'
 import Services from './components/Services'
@@ -394,7 +396,7 @@ const careersCultureChips = [
   'Balanced (work-life balance)',
 ]
 
-const adminMenuItems = ['Dashboard', 'Analytics', 'Evaluation', 'Reports', 'Manage Interns']
+const adminMenuItems = ['Dashboard', 'Analytics', 'Evaluation', 'Reports', 'Approvals', 'Manage Interns']
 
 const adminPanelContent = {
   Dashboard: {
@@ -479,6 +481,27 @@ const adminPanelContent = {
       ['8', 'Draft Reports', 'Queued for internal review'],
       ['3', 'Client Exports', 'Pending approval'],
       ['1', 'Overdue Item', 'Executive summary update'],
+    ],
+  },
+  Approvals: {
+    heading: 'Approvals',
+    badge: 'Pending Requests',
+    status: 'Review Queue',
+    titleA: 'Sign-up',
+    titleB: 'Request',
+    titleC: '& Approval Flow',
+    module: 'Registration pipeline',
+    completion: '100%',
+    spent: '11h',
+    grade: 'A',
+    efficiency: '96%',
+    level: '06',
+    levelLabel: 'Access Admin',
+    weekly: 'Review pending requests',
+    activity: [
+      ['New', 'Incoming Requests', 'Awaiting admin review'],
+      ['Queue', 'Approval Status', 'Track approved and rejected requests'],
+      ['Next', 'Provision Accounts', 'Backend function can automate final auth creation'],
     ],
   },
   'Manage Interns': {
@@ -882,6 +905,50 @@ const mapTaskRowToClient = (row) => ({
   createdAt: row.created_at_date,
 })
 
+const mapSignupRequestRowToClient = (row) => ({
+  id: row.id,
+  fullName: row.full_name,
+  email: row.email,
+  phone: row.phone || '',
+  department: row.department || '',
+  status: row.status,
+  adminNote: row.admin_note || '',
+  reviewedAt: row.reviewed_at || '',
+  createdAt: row.created_at,
+})
+
+const approvalStatusOrder = {
+  pending: 0,
+  approved: 1,
+  rejected: 2,
+}
+
+function ViewModeToggle({ value, onChange }) {
+  return (
+    <div className="inline-flex rounded-2xl border border-castleton/15 bg-[#f4f7f5] p-1">
+      {[
+        ['tiles', 'Tiles', LayoutGrid],
+        ['content', 'Content', AlignJustify],
+      ].map(([mode, label, Icon]) => {
+        const isActive = value === mode
+        return (
+          <button
+            key={mode}
+            type="button"
+            onClick={() => onChange(mode)}
+            className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition-colors ${
+              isActive ? 'bg-castleton text-white shadow-sm' : 'text-castleton hover:bg-white'
+            }`}
+          >
+            <Icon size={16} />
+            {label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 const clampMetric = (value, min = 0, max = 100) => Math.max(min, Math.min(max, value))
 
 const calculateInternMetricsAfterTask = (intern, score, activityType) => {
@@ -933,6 +1000,8 @@ function App() {
   const [isSignUpOpen, setIsSignUpOpen] = useState(false)
   const [authUser, setAuthUser] = useState(null)
   const [adminRole, setAdminRole] = useState(null)
+  const [isApprovedUser, setIsApprovedUser] = useState(false)
+  const [canManageApprovals, setCanManageApprovals] = useState(false)
   const [adminAccessError, setAdminAccessError] = useState('')
   const [signUpForm, setSignUpForm] = useState({
     fullName: '',
@@ -947,11 +1016,16 @@ function App() {
   const [internAnalyticsData, setInternAnalyticsData] = useState([])
   const [isAdminDataLoading, setIsAdminDataLoading] = useState(false)
   const [adminDataError, setAdminDataError] = useState('')
+  const [signupRequests, setSignupRequests] = useState([])
+  const [approvalNoteDrafts, setApprovalNoteDrafts] = useState({})
   const [selectedAnalyticsIntern, setSelectedAnalyticsIntern] = useState(null)
   const [selectedDashboardGroup, setSelectedDashboardGroup] = useState(null)
   const [analyticsSortBy, setAnalyticsSortBy] = useState('name-asc')
   const [evaluationSortBy, setEvaluationSortBy] = useState('score-desc')
   const [reportsSortBy, setReportsSortBy] = useState('score-desc')
+  const [analyticsViewMode, setAnalyticsViewMode] = useState('tiles')
+  const [evaluationViewMode, setEvaluationViewMode] = useState('tiles')
+  const [reportsViewMode, setReportsViewMode] = useState('tiles')
   const [isAdminProfileModalOpen, setIsAdminProfileModalOpen] = useState(false)
   const [adminProfileForm, setAdminProfileForm] = useState({
     firstName: 'Lifewood',
@@ -990,6 +1064,8 @@ function App() {
   const [analyticsSearch, setAnalyticsSearch] = useState('')
   const [evaluationSearch, setEvaluationSearch] = useState('')
   const [reportsSearch, setReportsSearch] = useState('')
+  const [approvalSearch, setApprovalSearch] = useState('')
+  const [approvalSortBy, setApprovalSortBy] = useState('pending-first')
   const [settingsSearch, setSettingsSearch] = useState('')
   const [settingsStatusFilter, setSettingsStatusFilter] = useState('All')
   const [settingsPage, setSettingsPage] = useState(1)
@@ -999,7 +1075,7 @@ function App() {
   const manageInternsTableScrollRef = useRef(null)
   const isSyncingManageInternsScrollRef = useRef(false)
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false)
-  const hasAdminAccess = isAdminAuthenticated
+  const hasAdminAccess = isAdminAuthenticated && isApprovedUser
 
   useEffect(() => {
     const handlePopState = () => setCurrentPath(window.location.pathname || '/')
@@ -1021,6 +1097,8 @@ function App() {
 
       if (!session || !user) {
         setAdminRole(null)
+        setIsApprovedUser(false)
+        setCanManageApprovals(false)
         setAdminAccessError('')
         setIsAuthReady(true)
         return
@@ -1034,7 +1112,7 @@ function App() {
 
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('full_name, email, phone, role')
+        .select('full_name, email, phone, role, is_approved, can_manage_approvals')
         .eq('id', user.id)
         .maybeSingle()
 
@@ -1042,6 +1120,8 @@ function App() {
 
       if (!error && profile) {
         resolvedRole = profile.role || resolvedRole
+        setIsApprovedUser(Boolean(profile.is_approved))
+        setCanManageApprovals(Boolean(profile.can_manage_approvals))
         const fullName = (profile.full_name || '').trim()
         const nameParts = fullName ? fullName.split(/\s+/) : []
         setAdminProfileForm((prev) => ({
@@ -1052,6 +1132,8 @@ function App() {
           phone: profile.phone || prev.phone,
         }))
       } else {
+        setIsApprovedUser(false)
+        setCanManageApprovals(false)
         setAdminProfileForm((prev) => ({
           ...prev,
           email: user.email || prev.email,
@@ -1059,7 +1141,7 @@ function App() {
       }
 
       setAdminRole(resolvedRole || 'admin')
-      setAdminAccessError('')
+      setAdminAccessError(profile?.is_approved ? '' : 'Your email is verified, but your account is still awaiting admin approval.')
       setIsAuthReady(true)
     }
 
@@ -1114,15 +1196,20 @@ function App() {
       setIsAdminDataLoading(true)
       setAdminDataError('')
 
-      const [{ data: internRows, error: internError }, { data: taskRows, error: taskError }] = await Promise.all([
+      const [
+        { data: internRows, error: internError },
+        { data: taskRows, error: taskError },
+        { data: signupRequestRows, error: signupRequestError },
+      ] = await Promise.all([
         supabase.from('admin_interns').select('*').order('name'),
         supabase.from('admin_task_entries').select('*').order('created_at', { ascending: false }),
+        supabase.from('signup_requests').select('*').order('created_at', { ascending: false }),
       ])
 
       if (!isMounted) return
 
-      if (internError || taskError) {
-        setAdminDataError(internError?.message || taskError?.message || 'Failed to load admin data.')
+      if (internError || taskError || signupRequestError) {
+        setAdminDataError(internError?.message || taskError?.message || signupRequestError?.message || 'Failed to load admin data.')
         setIsAdminDataLoading(false)
         return
       }
@@ -1194,6 +1281,7 @@ function App() {
 
       setInternAnalyticsData(resolvedInternRows.map(mapInternRowToClient))
       setAnalyticsTaskEntries(resolvedTaskRows.map(mapTaskRowToClient).slice(0, 80))
+      setSignupRequests((signupRequestRows || []).map(mapSignupRequestRowToClient))
       setIsAdminDataLoading(false)
     }
 
@@ -1205,10 +1293,43 @@ function App() {
   }, [authUser?.id, hasAdminAccess, isAdminAuthenticated])
 
   useEffect(() => {
-    if (currentPath === '/sign-in' && isAdminAuthenticated) {
+    if (currentPath === '/sign-in' && hasAdminAccess) {
       goToPath('/admin-dashboard')
     }
-  }, [currentPath, isAdminAuthenticated])
+  }, [currentPath, hasAdminAccess])
+
+  useEffect(() => {
+    if (activeAdminTab === 'Approvals' && !canManageApprovals) {
+      setActiveAdminTab('Dashboard')
+    }
+  }, [activeAdminTab, canManageApprovals])
+
+  useEffect(() => {
+    if (!supabase || !canManageApprovals || activeAdminTab !== 'Approvals') return undefined
+
+    let isMounted = true
+
+    const refreshSignupRequests = async () => {
+      const { data, error } = await supabase
+        .from('signup_requests')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (!isMounted || error) return
+
+      setSignupRequests((data || []).map(mapSignupRequestRowToClient))
+    }
+
+    void refreshSignupRequests()
+    const intervalId = window.setInterval(() => {
+      void refreshSignupRequests()
+    }, 5000)
+
+    return () => {
+      isMounted = false
+      window.clearInterval(intervalId)
+    }
+  }, [activeAdminTab, canManageApprovals])
 
   useEffect(() => {
     if (
@@ -1506,6 +1627,36 @@ function App() {
       return source.includes(query)
     })
   }, [reportInsights, reportsSearch])
+  const filteredApprovalRequests = useMemo(() => {
+    const query = approvalSearch.trim().toLowerCase()
+    const visibleRequests = signupRequests.filter((request) => {
+      if (!query) return true
+      const source = `${request.fullName} ${request.email} ${request.phone || ''} ${request.department || ''} ${request.status}`.toLowerCase()
+      return source.includes(query)
+    })
+
+    return [...visibleRequests].sort((left, right) => {
+      const nameCompare = left.fullName.localeCompare(right.fullName, undefined, { sensitivity: 'base' })
+
+      if (approvalSortBy === 'name-asc') return nameCompare
+      if (approvalSortBy === 'approved-first') {
+        return (
+          (approvalStatusOrder[left.status] === approvalStatusOrder.approved ? -1 : approvalStatusOrder[left.status]) -
+            (approvalStatusOrder[right.status] === approvalStatusOrder.approved ? -1 : approvalStatusOrder[right.status]) ||
+          nameCompare
+        )
+      }
+      if (approvalSortBy === 'rejected-first') {
+        return (
+          (approvalStatusOrder[left.status] === approvalStatusOrder.rejected ? -1 : approvalStatusOrder[left.status]) -
+            (approvalStatusOrder[right.status] === approvalStatusOrder.rejected ? -1 : approvalStatusOrder[right.status]) ||
+          nameCompare
+        )
+      }
+
+      return (approvalStatusOrder[left.status] ?? 99) - (approvalStatusOrder[right.status] ?? 99) || nameCompare
+    })
+  }, [approvalSearch, approvalSortBy, signupRequests])
   const settingsInternRows = useMemo(() => {
     const query = settingsSearch.trim().toLowerCase()
     return internAnalyticsData
@@ -1651,7 +1802,7 @@ function App() {
     setSignUpError('')
     setSignUpSuccess('')
 
-    const { error } = await supabase.auth.signUp({
+    const { data: signUpData, error: signUpErrorResult } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -1660,10 +1811,27 @@ function App() {
           full_name: fullName,
           phone,
           department,
-          role: 'admin',
+          role: 'user',
         },
       },
     })
+
+    if (signUpErrorResult) {
+      setSignUpError(signUpErrorResult.message)
+      setIsAuthLoading(false)
+      return
+    }
+
+    const { error } = await supabase
+      .from('signup_requests')
+      .insert({
+        full_name: fullName,
+        email,
+        password_hint: `Auth user: ${signUpData.user?.id ? 'created' : 'pending'}`,
+        phone,
+        department,
+        status: 'pending',
+      })
 
     if (error) {
       setSignUpError(error.message)
@@ -1679,7 +1847,7 @@ function App() {
       phone: '',
       department: '',
     })
-    setSignUpSuccess('Account created. Check your email for the confirmation link, then sign in.')
+    setSignUpSuccess('Account created. Check your email for verification, then wait for admin approval before dashboard access.')
     setIsAuthLoading(false)
     setIsSignUpOpen(false)
   }
@@ -1691,6 +1859,62 @@ function App() {
     setAdminAccessError('')
     if (supabase) await supabase.auth.signOut()
     goToPath('/sign-in')
+  }
+
+  const handleSignupRequestDecision = (requestId, status) => {
+    void (async () => {
+      if (!supabase || !authUser?.id) {
+        runAdminAction('Supabase is not ready for approval actions')
+        return
+      }
+
+      const currentRequest = signupRequests.find((item) => item.id === requestId)
+      if (!currentRequest) {
+        runAdminAction('Request not found')
+        return
+      }
+      if (currentRequest.status !== 'pending') {
+        runAdminAction('Decision already recorded')
+        return
+      }
+
+      const note = approvalNoteDrafts[requestId] || ''
+      const { data, error } = await supabase
+        .from('signup_requests')
+        .update({
+          status,
+          admin_note: note,
+          reviewed_by: authUser.id,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq('id', requestId)
+        .select('*')
+        .single()
+
+      if (error) {
+        runAdminAction(`${status} failed`)
+        return
+      }
+
+      const { error: profileUpdateError } = await supabase
+        .from('profiles')
+        .update({
+          is_approved: status === 'approved',
+          approved_at: status === 'approved' ? new Date().toISOString() : null,
+          role: status === 'approved' ? 'admin' : 'user',
+        })
+        .eq('email', currentRequest.email)
+
+      if (profileUpdateError) {
+        runAdminAction(`Request ${status}, but profile update failed`)
+        return
+      }
+
+      const updatedRequest = mapSignupRequestRowToClient(data)
+      setSignupRequests((prev) => prev.map((item) => (item.id === updatedRequest.id ? updatedRequest : item)))
+      setApprovalNoteDrafts((prev) => ({ ...prev, [requestId]: updatedRequest.adminNote }))
+      runAdminAction(`Request ${status}`)
+    })()
   }
 
   const runAdminAction = (message) => {
@@ -1868,13 +2092,14 @@ function App() {
 
     const fullName = `${adminProfileForm.firstName.trim()} ${adminProfileForm.lastName.trim()}`.trim()
     const email = adminProfileForm.email.trim().toLowerCase()
+    const phone = adminProfileForm.phone.trim()
     const role = adminRole === 'superadmin' ? 'superadmin' : 'admin'
 
     const { error } = await supabase.from('profiles').upsert({
       id: authUser.id,
       email,
       full_name: fullName,
-      phone: adminProfileForm.phone.trim(),
+      phone,
       role,
     })
 
@@ -1882,6 +2107,28 @@ function App() {
       runAdminAction('Profile save failed')
       return
     }
+
+    const { error: authUpdateError } = await supabase.auth.updateUser({
+      email,
+      data: {
+        display_name: fullName,
+        full_name: fullName,
+        phone,
+      },
+    })
+
+    if (authUpdateError) {
+      runAdminAction('Profile saved, but auth metadata update failed')
+      return
+    }
+
+    setAdminProfileForm((prev) => ({
+      ...prev,
+      firstName: adminProfileForm.firstName.trim(),
+      lastName: adminProfileForm.lastName.trim(),
+      email,
+      phone,
+    }))
 
     setIsAdminProfileModalOpen(false)
     runAdminAction('Admin profile updated')
@@ -4363,7 +4610,7 @@ function App() {
                       </button>
                     </div>
                     <nav className="px-3 pb-4 space-y-2">
-                      {adminMenuItems.map((item) => (
+                      {adminMenuItems.filter((item) => item !== 'Approvals' || canManageApprovals).map((item) => (
                         <button
                           key={item}
                           type="button"
@@ -4746,6 +4993,7 @@ function App() {
                             <option value="attendance-desc">Sort: Attendance</option>
                             <option value="progress-desc">Sort: Progress</option>
                           </select>
+                          <ViewModeToggle value={analyticsViewMode} onChange={setAnalyticsViewMode} />
                         </motion.div>
 
                         <motion.article
@@ -4776,78 +5024,128 @@ function App() {
                           </div>
                         </motion.article>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                          {filteredAnalyticsRows.map((intern, index) => {
-                            const breakdown = getInternBreakdown(intern)
-                            return (
-                            <motion.button
-                              key={intern.name}
-                              type="button"
-                              onClick={() => {
-                                setSelectedAnalyticsIntern(intern)
-                                runAdminAction(`Opened analytics: ${intern.name}`)
-                              }}
-                              whileHover={{ y: -4, scale: 1.01 }}
-                              whileTap={{ scale: 0.99 }}
-                              className={`admin-name-card rounded-[22px] border p-4 sm:p-5 text-left ${
-                                intern.low
-                                  ? 'border-[#d9aaa2] bg-[#fff2ef]'
-                                  : 'border-castleton/15 bg-white'
-                              }`}
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ duration: 0.22, delay: Math.min(index * 0.015, 0.32) }}
-                            >
-                              <div className="flex items-start justify-between gap-3 mb-4">
-                                <div>
-                                  <h3 className="text-lg font-semibold leading-tight text-black">{intern.name}</h3>
-                                  <p className="text-xs text-black/60 mt-1">{intern.school}</p>
-                                  <p className="text-[11px] text-black/60 mt-1">
-                                    {intern.gender || '-'} | {intern.course || '-'}
-                                  </p>
-                                </div>
-                                <span
-                                  className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap ${
-                                    intern.low
-                                      ? 'bg-[#f4d4ce] text-[#7d2e21]'
-                                      : intern.performance === 100 && intern.attendance === 100 && intern.progress === 100
-                                        ? 'bg-[#d9efe4] text-[#0b5a39]'
-                                      : 'bg-[#e8f3ed] text-castleton'
+                        {analyticsViewMode === 'tiles' ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                            {filteredAnalyticsRows.map((intern, index) => {
+                              const breakdown = getInternBreakdown(intern)
+                              return (
+                                <motion.button
+                                  key={intern.name}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedAnalyticsIntern(intern)
+                                    runAdminAction(`Opened analytics: ${intern.name}`)
+                                  }}
+                                  whileHover={{ y: -4, scale: 1.01 }}
+                                  whileTap={{ scale: 0.99 }}
+                                  className={`admin-name-card rounded-[22px] border p-4 sm:p-5 text-left ${
+                                    intern.low ? 'border-[#d9aaa2] bg-[#fff2ef]' : 'border-castleton/15 bg-white'
                                   }`}
+                                  initial={{ opacity: 0, y: 10 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{ duration: 0.22, delay: Math.min(index * 0.015, 0.32) }}
                                 >
-                                  {intern.low
-                                    ? 'Low Performer'
-                                    : intern.performance === 100 && intern.attendance === 100 && intern.progress === 100
-                                      ? 'Top Performer'
-                                      : 'High Performer'}
-                                </span>
-                              </div>
-
-                              <div className="space-y-3">
-                                {[
-                                  ['Activities', breakdown.activities],
-                                  ['Tasks', breakdown.tasks],
-                                  ['Quality', breakdown.quality],
-                                ].map(([label, value]) => (
-                                  <div key={`${intern.name}-${label}`}>
-                                    <div className="flex items-center justify-between mb-1">
-                                      <p className="text-sm font-medium text-black/80">{label}</p>
-                                      <p className="text-sm font-semibold text-black">{value}%</p>
+                                  <div className="flex items-start justify-between gap-3 mb-4">
+                                    <div>
+                                      <h3 className="text-lg font-semibold leading-tight text-black">{intern.name}</h3>
+                                      <p className="text-xs text-black/60 mt-1">{intern.school}</p>
+                                      <p className="text-[11px] text-black/60 mt-1">
+                                        {intern.gender || '-'} | {intern.course || '-'}
+                                      </p>
                                     </div>
-                                    <div className="h-2 rounded-full bg-[#e8ece8] overflow-hidden">
-                                      <div
-                                        className={`h-full rounded-full ${intern.low ? 'bg-[#c05345]' : 'bg-castleton'}`}
-                                        style={{ width: `${value}%` }}
-                                      />
+                                    <span
+                                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap ${
+                                        intern.low
+                                          ? 'bg-[#f4d4ce] text-[#7d2e21]'
+                                          : intern.performance === 100 && intern.attendance === 100 && intern.progress === 100
+                                            ? 'bg-[#d9efe4] text-[#0b5a39]'
+                                            : 'bg-[#e8f3ed] text-castleton'
+                                      }`}
+                                    >
+                                      {intern.low
+                                        ? 'Low Performer'
+                                        : intern.performance === 100 && intern.attendance === 100 && intern.progress === 100
+                                          ? 'Top Performer'
+                                          : 'High Performer'}
+                                    </span>
+                                  </div>
+
+                                  <div className="space-y-3">
+                                    {[
+                                      ['Activities', breakdown.activities],
+                                      ['Tasks', breakdown.tasks],
+                                      ['Quality', breakdown.quality],
+                                    ].map(([label, value]) => (
+                                      <div key={`${intern.name}-${label}`}>
+                                        <div className="flex items-center justify-between mb-1">
+                                          <p className="text-sm font-medium text-black/80">{label}</p>
+                                          <p className="text-sm font-semibold text-black">{value}%</p>
+                                        </div>
+                                        <div className="h-2 rounded-full bg-[#e8ece8] overflow-hidden">
+                                          <div
+                                            className={`h-full rounded-full ${intern.low ? 'bg-[#c05345]' : 'bg-castleton'}`}
+                                            style={{ width: `${value}%` }}
+                                          />
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+
+                                  <p className="mt-4 text-sm font-semibold text-black/70">{breakdown.evalScore}% overall analytics score</p>
+                                </motion.button>
+                              )
+                            })}
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {filteredAnalyticsRows.map((intern, index) => {
+                              const breakdown = getInternBreakdown(intern)
+                              return (
+                                <motion.button
+                                  key={`analytics-content-${intern.name}`}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedAnalyticsIntern(intern)
+                                    runAdminAction(`Opened analytics: ${intern.name}`)
+                                  }}
+                                  className={`admin-name-card w-full rounded-[22px] border p-4 text-left ${
+                                    intern.low ? 'border-[#d9aaa2] bg-[#fff2ef]' : 'border-castleton/15 bg-white'
+                                  }`}
+                                  initial={{ opacity: 0, y: 10 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{ duration: 0.2, delay: Math.min(index * 0.012, 0.18) }}
+                                  whileHover={{ y: -2 }}
+                                >
+                                  <div className="flex flex-wrap items-start justify-between gap-4">
+                                    <div className="min-w-[220px]">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <h3 className="text-lg font-semibold text-black">{intern.name}</h3>
+                                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${intern.low ? 'bg-[#f4d4ce] text-[#7d2e21]' : 'bg-[#e8f3ed] text-castleton'}`}>
+                                          {intern.low ? 'Low Performer' : 'On Track'}
+                                        </span>
+                                      </div>
+                                      <p className="mt-1 text-sm text-black/65">{intern.school}</p>
+                                      <p className="text-xs text-black/55">{intern.gender || '-'} | {intern.course || '-'}</p>
+                                    </div>
+                                    <div className="grid min-w-[260px] grid-cols-2 sm:grid-cols-4 gap-2">
+                                      {[
+                                        ['Performance', intern.performance],
+                                        ['Attendance', intern.attendance],
+                                        ['Progress', intern.progress],
+                                        ['Eval', breakdown.evalScore],
+                                      ].map(([label, value]) => (
+                                        <div key={`${intern.name}-${label}`} className="rounded-xl border border-castleton/10 bg-[#f7faf8] px-3 py-2">
+                                          <p className="text-[11px] uppercase tracking-[0.08em] text-black/45">{label}</p>
+                                          <p className="mt-1 text-lg font-semibold text-black">{value}%</p>
+                                        </div>
+                                      ))}
                                     </div>
                                   </div>
-                                ))}
-                              </div>
-
-                              <p className="mt-4 text-sm font-semibold text-black/70">{breakdown.evalScore}% overall analytics score</p>
-                            </motion.button>
-                          )})}
-                        </div>
+                                </motion.button>
+                              )
+                            })}
+                          </div>
+                        )}
 
                         <AnimatePresence>
                           {selectedAnalyticsIntern ? (
@@ -5125,6 +5423,7 @@ function App() {
                               placeholder="Search intern"
                               className="focus-brand min-w-[220px] rounded-full border border-castleton/20 bg-white px-4 py-2 text-sm font-medium text-black"
                             />
+                            <ViewModeToggle value={evaluationViewMode} onChange={setEvaluationViewMode} />
                           </div>
                           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                             {[
@@ -5141,54 +5440,99 @@ function App() {
                           </div>
                         </motion.div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                          {filteredEvaluationInsights.map((intern, index) => (
-                            <motion.button
-                              key={`eval-${intern.name}`}
-                              type="button"
-                              onClick={() => {
-                                setSelectedAnalyticsIntern(intern)
-                                runAdminAction(`Opened evaluation detail: ${intern.name}`)
-                              }}
-                              className={`admin-name-card rounded-[22px] border p-4 sm:p-5 text-left ${
-                                intern.band === 'Needs Support' ? 'border-[#d9aaa2] bg-[#fff2ef]' : 'border-castleton/15 bg-white'
-                              }`}
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ duration: 0.22, delay: Math.min(index * 0.02, 0.3) }}
-                              whileHover={{ y: -4, boxShadow: '0 16px 36px -28px rgba(11,92,66,0.45)' }}
-                            >
-                              <div className="flex items-start justify-between gap-3 mb-3">
-                                <div>
-                                  <h3 className="text-lg font-semibold text-black leading-tight">{intern.name}</h3>
-                                  <p className="text-xs text-black/60 mt-1">{intern.school}</p>
-                                  <p className="text-[11px] text-black/60 mt-1">
-                                    {intern.gender || '-'} | {intern.course || '-'}
-                                  </p>
-                                  <p className="text-xs uppercase tracking-[0.12em] text-black/55 mt-1">
-                                    {intern.track || 'AI Data Operations'} | {getInternStatusLabel(intern.status || 'Active')}
-                                  </p>
+                        {evaluationViewMode === 'tiles' ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                            {filteredEvaluationInsights.map((intern, index) => (
+                              <motion.button
+                                key={`eval-${intern.name}`}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedAnalyticsIntern(intern)
+                                  runAdminAction(`Opened evaluation detail: ${intern.name}`)
+                                }}
+                                className={`admin-name-card rounded-[22px] border p-4 sm:p-5 text-left ${
+                                  intern.band === 'Needs Support' ? 'border-[#d9aaa2] bg-[#fff2ef]' : 'border-castleton/15 bg-white'
+                                }`}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.22, delay: Math.min(index * 0.02, 0.3) }}
+                                whileHover={{ y: -4, boxShadow: '0 16px 36px -28px rgba(11,92,66,0.45)' }}
+                              >
+                                <div className="flex items-start justify-between gap-3 mb-3">
+                                  <div>
+                                    <h3 className="text-lg font-semibold text-black leading-tight">{intern.name}</h3>
+                                    <p className="text-xs text-black/60 mt-1">{intern.school}</p>
+                                    <p className="text-[11px] text-black/60 mt-1">
+                                      {intern.gender || '-'} | {intern.course || '-'}
+                                    </p>
+                                    <p className="text-xs uppercase tracking-[0.12em] text-black/55 mt-1">
+                                      {intern.track || 'AI Data Operations'} | {getInternStatusLabel(intern.status || 'Active')}
+                                    </p>
+                                  </div>
+                                  <span className="inline-flex rounded-full bg-[#eef3ef] text-castleton px-2.5 py-1 text-xs font-semibold">{intern.band}</span>
                                 </div>
-                                <span className="inline-flex rounded-full bg-[#eef3ef] text-castleton px-2.5 py-1 text-xs font-semibold">{intern.band}</span>
-                              </div>
-                              <p className="text-sm text-black/75 mb-2">{intern.risk}</p>
-                              <div className="h-2 rounded-full bg-[#e8ece8] overflow-hidden mt-2 mb-3">
-                                <motion.div
-                                  className={intern.band === 'Needs Support' ? 'h-full bg-[#c05345]' : 'h-full bg-castleton'}
-                                  initial={{ width: 0 }}
-                                  animate={{ width: `${intern.score}%` }}
-                                  transition={{ duration: 0.45, ease: 'easeOut' }}
-                                />
-                              </div>
-                              <p className="text-sm font-semibold text-black mb-1">{intern.score}% evaluation score</p>
-                              <p className="text-sm text-black/75 line-clamp-2">{intern.recommendation}</p>
-                              <div className="mt-3 flex items-center justify-between text-xs text-black/65">
-                                <span>Review: {intern.reviewDate}</span>
-                                <span>P:{intern.performance}% A:{intern.attendance}% G:{intern.progress}%</span>
-                              </div>
-                            </motion.button>
-                          ))}
-                        </div>
+                                <p className="text-sm text-black/75 mb-2">{intern.risk}</p>
+                                <div className="h-2 rounded-full bg-[#e8ece8] overflow-hidden mt-2 mb-3">
+                                  <motion.div
+                                    className={intern.band === 'Needs Support' ? 'h-full bg-[#c05345]' : 'h-full bg-castleton'}
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${intern.score}%` }}
+                                    transition={{ duration: 0.45, ease: 'easeOut' }}
+                                  />
+                                </div>
+                                <p className="text-sm font-semibold text-black mb-1">{intern.score}% evaluation score</p>
+                                <p className="text-sm text-black/75 line-clamp-2">{intern.recommendation}</p>
+                                <div className="mt-3 flex items-center justify-between text-xs text-black/65">
+                                  <span>Review: {intern.reviewDate}</span>
+                                  <span>P:{intern.performance}% A:{intern.attendance}% G:{intern.progress}%</span>
+                                </div>
+                              </motion.button>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {filteredEvaluationInsights.map((intern, index) => (
+                              <motion.button
+                                key={`eval-content-${intern.name}`}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedAnalyticsIntern(intern)
+                                  runAdminAction(`Opened evaluation detail: ${intern.name}`)
+                                }}
+                                className={`admin-name-card w-full rounded-[22px] border p-4 text-left ${
+                                  intern.band === 'Needs Support' ? 'border-[#d9aaa2] bg-[#fff2ef]' : 'border-castleton/15 bg-white'
+                                }`}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.2, delay: Math.min(index * 0.012, 0.18) }}
+                              >
+                                <div className="flex flex-wrap items-start justify-between gap-4">
+                                  <div className="min-w-[240px]">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <h3 className="text-lg font-semibold text-black">{intern.name}</h3>
+                                      <span className="inline-flex rounded-full bg-[#eef3ef] text-castleton px-2.5 py-1 text-xs font-semibold">{intern.band}</span>
+                                    </div>
+                                    <p className="mt-1 text-sm text-black/65">{intern.risk}</p>
+                                    <p className="mt-2 text-xs text-black/55">{intern.recommendation}</p>
+                                  </div>
+                                  <div className="grid min-w-[280px] grid-cols-2 sm:grid-cols-4 gap-2">
+                                    {[
+                                      ['Score', intern.score],
+                                      ['Performance', intern.performance],
+                                      ['Attendance', intern.attendance],
+                                      ['Progress', intern.progress],
+                                    ].map(([label, value]) => (
+                                      <div key={`${intern.name}-${label}`} className="rounded-xl border border-castleton/10 bg-[#f7faf8] px-3 py-2">
+                                        <p className="text-[11px] uppercase tracking-[0.08em] text-black/45">{label}</p>
+                                        <p className="mt-1 text-lg font-semibold text-black">{value}%</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </motion.button>
+                            ))}
+                          </div>
+                        )}
 
                         <AnimatePresence>
                           {selectedAnalyticsIntern ? (
@@ -5310,6 +5654,7 @@ function App() {
                               placeholder="Search intern"
                               className="focus-brand min-w-[220px] rounded-full border border-castleton/20 bg-white px-4 py-2 text-sm font-medium text-black"
                             />
+                            <ViewModeToggle value={reportsViewMode} onChange={setReportsViewMode} />
                           </div>
                           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                             {[
@@ -5330,58 +5675,101 @@ function App() {
                           </div>
                         </motion.div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {filteredReportInsights.map((intern, index) => (
-                            <motion.button
-                              key={`report-${intern.name}`}
-                              type="button"
-                              onClick={() => {
-                                setSelectedAnalyticsIntern(intern)
-                                runAdminAction(`Opened report detail: ${intern.name}`)
-                              }}
-                              className="admin-name-card rounded-[22px] border border-castleton/15 bg-white p-4 sm:p-5 text-left"
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ duration: 0.22, delay: Math.min(index * 0.012, 0.2) }}
-                              whileHover={{ y: -4, boxShadow: '0 16px 36px -28px rgba(11,92,66,0.45)' }}
-                            >
-                              <div className="flex items-start justify-between gap-3 mb-2">
-                                <div>
-                                  <h3 className="text-lg font-semibold text-black leading-tight">{intern.name}</h3>
-                                  <p className="text-xs text-black/60 mt-1">{intern.school}</p>
-                                  <p className="text-[11px] text-black/60 mt-1">
-                                    {intern.gender || '-'} | {intern.course || '-'}
-                                  </p>
+                        {reportsViewMode === 'tiles' ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {filteredReportInsights.map((intern, index) => (
+                              <motion.button
+                                key={`report-${intern.name}`}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedAnalyticsIntern(intern)
+                                  runAdminAction(`Opened report detail: ${intern.name}`)
+                                }}
+                                className="admin-name-card rounded-[22px] border border-castleton/15 bg-white p-4 sm:p-5 text-left"
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.22, delay: Math.min(index * 0.012, 0.2) }}
+                                whileHover={{ y: -4, boxShadow: '0 16px 36px -28px rgba(11,92,66,0.45)' }}
+                              >
+                                <div className="flex items-start justify-between gap-3 mb-2">
+                                  <div>
+                                    <h3 className="text-lg font-semibold text-black leading-tight">{intern.name}</h3>
+                                    <p className="text-xs text-black/60 mt-1">{intern.school}</p>
+                                    <p className="text-[11px] text-black/60 mt-1">
+                                      {intern.gender || '-'} | {intern.course || '-'}
+                                    </p>
+                                  </div>
+                                  <span className="text-sm font-semibold text-castleton">{intern.score}%</span>
                                 </div>
-                                <span className="text-sm font-semibold text-castleton">{intern.score}%</span>
-                              </div>
-                              <p className="text-xs uppercase tracking-[0.12em] text-black/55 mb-3">{intern.track || 'AI Data Operations'}</p>
-                              <div className="grid grid-cols-3 gap-2 mb-3">
-                                <div className="rounded-xl bg-[#f3f7f5] border border-castleton/10 px-2.5 py-2">
-                                  <p className="text-[11px] text-black/60">Tasks</p>
-                                  <p className="text-lg font-semibold text-black">{intern.completedTasks}</p>
+                                <p className="text-xs uppercase tracking-[0.12em] text-black/55 mb-3">{intern.track || 'AI Data Operations'}</p>
+                                <div className="grid grid-cols-3 gap-2 mb-3">
+                                  <div className="rounded-xl bg-[#f3f7f5] border border-castleton/10 px-2.5 py-2">
+                                    <p className="text-[11px] text-black/60">Tasks</p>
+                                    <p className="text-lg font-semibold text-black">{intern.completedTasks}</p>
+                                  </div>
+                                  <div className="rounded-xl bg-[#f3f7f5] border border-castleton/10 px-2.5 py-2">
+                                    <p className="text-[11px] text-black/60">QA Pass</p>
+                                    <p className="text-lg font-semibold text-black">{intern.qaPassRate}%</p>
+                                  </div>
+                                  <div className="rounded-xl bg-[#f3f7f5] border border-castleton/10 px-2.5 py-2">
+                                    <p className="text-[11px] text-black/60">Trend</p>
+                                    <p className="text-lg font-semibold text-black">{intern.trend}</p>
+                                  </div>
                                 </div>
-                                <div className="rounded-xl bg-[#f3f7f5] border border-castleton/10 px-2.5 py-2">
-                                  <p className="text-[11px] text-black/60">QA Pass</p>
-                                  <p className="text-lg font-semibold text-black">{intern.qaPassRate}%</p>
+                                <div className="h-2 rounded-full bg-[#e8ece8] overflow-hidden mb-2">
+                                  <motion.div
+                                    className={intern.low ? 'h-full bg-[#c05345]' : 'h-full bg-castleton'}
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${intern.score}%` }}
+                                    transition={{ duration: 0.42 }}
+                                  />
                                 </div>
-                                <div className="rounded-xl bg-[#f3f7f5] border border-castleton/10 px-2.5 py-2">
-                                  <p className="text-[11px] text-black/60">Trend</p>
-                                  <p className="text-lg font-semibold text-black">{intern.trend}</p>
+                                <p className="text-sm text-black/75">Attendance status: {intern.attendanceFlag}</p>
+                              </motion.button>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {filteredReportInsights.map((intern, index) => (
+                              <motion.button
+                                key={`report-content-${intern.name}`}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedAnalyticsIntern(intern)
+                                  runAdminAction(`Opened report detail: ${intern.name}`)
+                                }}
+                                className="admin-name-card w-full rounded-[22px] border border-castleton/15 bg-white p-4 text-left"
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.2, delay: Math.min(index * 0.012, 0.18) }}
+                              >
+                                <div className="flex flex-wrap items-start justify-between gap-4">
+                                  <div className="min-w-[240px]">
+                                    <div className="flex flex-wrap items-center gap-3">
+                                      <h3 className="text-lg font-semibold text-black">{intern.name}</h3>
+                                      <span className="text-sm font-semibold text-castleton">{intern.score}%</span>
+                                    </div>
+                                    <p className="mt-1 text-sm text-black/65">{intern.track || 'AI Data Operations'}</p>
+                                    <p className="text-xs text-black/55">Attendance status: {intern.attendanceFlag}</p>
+                                  </div>
+                                  <div className="grid min-w-[280px] grid-cols-2 sm:grid-cols-4 gap-2">
+                                    {[
+                                      ['Eval', `${intern.score}%`],
+                                      ['QA Pass', `${intern.qaPassRate}%`],
+                                      ['Tasks', intern.completedTasks],
+                                      ['Trend', intern.trend],
+                                    ].map(([label, value]) => (
+                                      <div key={`${intern.name}-${label}`} className="rounded-xl border border-castleton/10 bg-[#f7faf8] px-3 py-2">
+                                        <p className="text-[11px] uppercase tracking-[0.08em] text-black/45">{label}</p>
+                                        <p className="mt-1 text-lg font-semibold text-black">{value}</p>
+                                      </div>
+                                    ))}
+                                  </div>
                                 </div>
-                              </div>
-                              <div className="h-2 rounded-full bg-[#e8ece8] overflow-hidden mb-2">
-                                <motion.div
-                                  className={intern.low ? 'h-full bg-[#c05345]' : 'h-full bg-castleton'}
-                                  initial={{ width: 0 }}
-                                  animate={{ width: `${intern.score}%` }}
-                                  transition={{ duration: 0.42 }}
-                                />
-                              </div>
-                              <p className="text-sm text-black/75">Attendance status: {intern.attendanceFlag}</p>
-                            </motion.button>
-                          ))}
-                        </div>
+                              </motion.button>
+                            ))}
+                          </div>
+                        )}
                         <AnimatePresence>
                           {selectedAnalyticsIntern ? (
                             <motion.div
@@ -5444,6 +5832,192 @@ function App() {
                             </motion.div>
                           ) : null}
                         </AnimatePresence>
+                      </div>
+                    ) : activeAdminTab === 'Approvals' ? (
+                      <div className="space-y-5">
+                        <motion.div
+                          className="rounded-[24px] border border-castleton/20 bg-white p-5 sm:p-6"
+                          initial={{ opacity: 0, y: 12 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.25 }}
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
+                            <div>
+                              <h2 className="text-3xl sm:text-4xl font-semibold text-black mb-1">Registration Approvals</h2>
+                              <p className="text-black/70 text-base sm:text-lg">
+                                Review sign-up requests, record a decision, and prepare approved users for account provisioning.
+                              </p>
+                            </div>
+                            <div className="grid grid-cols-3 gap-3 min-w-[280px]">
+                              {[
+                                ['Pending', signupRequests.filter((item) => item.status === 'pending').length, 'bg-[#fff6e4] text-[#8a5a14]'],
+                                ['Approved', signupRequests.filter((item) => item.status === 'approved').length, 'bg-[#e9f3ee] text-castleton'],
+                                ['Rejected', signupRequests.filter((item) => item.status === 'rejected').length, 'bg-[#fde8e8] text-[#8a3528]'],
+                              ].map(([label, value, tone]) => (
+                                <div key={label} className="rounded-2xl border border-castleton/15 bg-[#f7faf8] p-3">
+                                  <p className="text-xs uppercase tracking-[0.12em] text-castleton">{label}</p>
+                                  <p className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-sm font-semibold ${tone}`}>{value}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px] mb-5">
+                            <label className="flex items-center gap-3 rounded-2xl border border-castleton/15 bg-[#f7faf8] px-4 py-3">
+                              <Search size={18} className="text-castleton/60" />
+                              <input
+                                type="search"
+                                value={approvalSearch}
+                                onChange={(event) => setApprovalSearch(event.target.value)}
+                                placeholder="Search name, email, phone, department, status"
+                                className="w-full bg-transparent text-sm text-black outline-none placeholder:text-black/40"
+                              />
+                            </label>
+                            <label className="rounded-2xl border border-castleton/15 bg-[#f7faf8] px-4 py-3">
+                              <span className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-castleton/70 mb-2">
+                                Sort By
+                              </span>
+                              <select
+                                value={approvalSortBy}
+                                onChange={(event) => setApprovalSortBy(event.target.value)}
+                                className="w-full bg-transparent text-sm text-black outline-none"
+                              >
+                                <option value="pending-first">Pending First</option>
+                                <option value="approved-first">Approved First</option>
+                                <option value="rejected-first">Rejected First</option>
+                                <option value="name-asc">A-Z</option>
+                              </select>
+                            </label>
+                          </div>
+
+                          <div className="rounded-2xl border border-[#ead9a4] bg-[#fff9e8] px-4 py-3 text-sm text-[#7c5a16]">
+                            Each request can only be approved or rejected once. Pending requests are shown first by default.
+                          </div>
+                        </motion.div>
+
+                        <div className="space-y-4">
+                          {filteredApprovalRequests.length ? (
+                            filteredApprovalRequests.map((request, index) => (
+                              <motion.article
+                                key={request.id}
+                                className={`rounded-[22px] border bg-white p-5 transition-colors ${
+                                  request.status === 'pending'
+                                    ? 'border-[#e2c676] shadow-[0_16px_40px_-30px_rgba(138,90,20,0.45)]'
+                                    : request.status === 'approved'
+                                      ? 'border-castleton/20'
+                                      : 'border-[#dfc1bb]'
+                                }`}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.22, delay: Math.min(index * 0.03, 0.18) }}
+                              >
+                                <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
+                                  <div>
+                                    <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
+                                      <div>
+                                        <p className="text-xs uppercase tracking-[0.12em] text-castleton mb-1">Signup Request</p>
+                                        <h3 className="text-2xl font-semibold text-black">{request.fullName}</h3>
+                                        <p className="text-sm text-black/65 mt-1">{request.email}</p>
+                                      </div>
+                                      <div className="text-right">
+                                        <p className="text-xs uppercase tracking-[0.12em] text-black/45 mb-2">Submitted</p>
+                                        <p className="text-sm text-black/65">{new Date(request.createdAt).toLocaleString()}</p>
+                                      </div>
+                                    </div>
+
+                                    <div className="grid gap-3 sm:grid-cols-3">
+                                      <div className="rounded-2xl border border-castleton/12 bg-[#f8faf9] px-4 py-3">
+                                        <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Phone</p>
+                                        <p className="mt-2 text-sm font-medium text-black">{request.phone || 'No phone'}</p>
+                                      </div>
+                                      <div className="rounded-2xl border border-castleton/12 bg-[#f8faf9] px-4 py-3">
+                                        <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Department</p>
+                                        <p className="mt-2 text-sm font-medium text-black">{request.department || 'No department'}</p>
+                                      </div>
+                                      <div className="rounded-2xl border border-castleton/12 bg-[#f8faf9] px-4 py-3">
+                                        <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Status</p>
+                                        <span
+                                          className={`mt-2 inline-flex rounded-full px-3 py-1 text-sm font-semibold ${
+                                            request.status === 'approved'
+                                              ? 'bg-[#e9f3ee] text-castleton'
+                                              : request.status === 'rejected'
+                                                ? 'bg-[#fde8e8] text-[#8a3528]'
+                                                : 'bg-[#fff6e4] text-[#8a5a14]'
+                                          }`}
+                                        >
+                                          {request.status}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="rounded-[20px] border border-castleton/12 bg-[#fbfcfb] p-4">
+                                    <span
+                                      className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] ${
+                                        request.status === 'approved'
+                                          ? 'bg-[#e9f3ee] text-castleton'
+                                          : request.status === 'rejected'
+                                            ? 'bg-[#fde8e8] text-[#8a3528]'
+                                            : 'bg-[#fff6e4] text-[#8a5a14]'
+                                      }`}
+                                    >
+                                      {request.status === 'pending' ? 'Needs Review' : `Status: ${request.status}`}
+                                    </span>
+                                    <p className="mt-3 text-sm text-black/65">
+                                      {request.reviewedAt
+                                        ? `Reviewed ${new Date(request.reviewedAt).toLocaleString()}`
+                                        : 'Awaiting admin review'}
+                                    </p>
+                                    <textarea
+                                      value={approvalNoteDrafts[request.id] ?? request.adminNote}
+                                      onChange={(event) =>
+                                        setApprovalNoteDrafts((prev) => ({ ...prev, [request.id]: event.target.value }))
+                                      }
+                                      placeholder="Add an internal note for this request"
+                                      rows={4}
+                                      className="focus-brand mt-4 w-full rounded-2xl border border-castleton/20 bg-white px-4 py-3 text-black outline-none resize-y"
+                                    />
+
+                                    <div className="mt-4 flex flex-wrap gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleSignupRequestDecision(request.id, 'rejected')}
+                                        disabled={request.status !== 'pending'}
+                                        className="focus-brand rounded-full border border-[#dcb7b0] bg-white px-4 py-2 text-sm font-semibold text-[#8a3528] transition-colors enabled:hover:bg-[#fde8e8] disabled:cursor-not-allowed disabled:opacity-45"
+                                      >
+                                        Reject
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleSignupRequestDecision(request.id, 'approved')}
+                                        disabled={request.status !== 'pending'}
+                                        className="focus-brand rounded-full border border-castleton/20 bg-castleton px-4 py-2 text-sm font-semibold text-white transition-colors enabled:hover:bg-serpent disabled:cursor-not-allowed disabled:opacity-45"
+                                      >
+                                        Approve
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </motion.article>
+                            ))
+                          ) : (
+                            <motion.article
+                              className="rounded-[22px] border border-castleton/15 bg-white p-6"
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ duration: 0.22 }}
+                            >
+                              <h3 className="text-2xl font-semibold text-black mb-2">
+                                {signupRequests.length ? 'No matching requests' : 'No signup requests yet'}
+                              </h3>
+                              <p className="text-black/70 text-base">
+                                {signupRequests.length
+                                  ? 'Try a different search term or sort order.'
+                                  : 'Requests submitted from the sign-up form will appear here for admin review.'}
+                              </p>
+                            </motion.article>
+                          )}
+                        </div>
                       </div>
                     ) : activeAdminTab === 'Manage Interns' ? (
                       <div className="space-y-5">
