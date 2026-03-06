@@ -920,7 +920,8 @@ const mapSignupRequestRowToClient = (row) => ({
 const approvalStatusOrder = {
   pending: 0,
   approved: 1,
-  rejected: 2,
+  suspended: 2,
+  rejected: 3,
 }
 
 function ViewModeToggle({ value, onChange }) {
@@ -1052,6 +1053,7 @@ function App() {
   })
   const [isAnalyticsTaskModalOpen, setIsAnalyticsTaskModalOpen] = useState(false)
   const [analyticsTaskError, setAnalyticsTaskError] = useState('')
+  const [confirmationDialog, setConfirmationDialog] = useState(null)
   const [analyticsTaskForm, setAnalyticsTaskForm] = useState({
     targetMode: 'individual',
     internName: '',
@@ -1653,6 +1655,13 @@ function App() {
           nameCompare
         )
       }
+      if (approvalSortBy === 'suspended-first') {
+        return (
+          (approvalStatusOrder[left.status] === approvalStatusOrder.suspended ? -1 : approvalStatusOrder[left.status]) -
+            (approvalStatusOrder[right.status] === approvalStatusOrder.suspended ? -1 : approvalStatusOrder[right.status]) ||
+          nameCompare
+        )
+      }
 
       return (approvalStatusOrder[left.status] ?? 99) - (approvalStatusOrder[right.status] ?? 99) || nameCompare
     })
@@ -1853,12 +1862,18 @@ function App() {
   }
 
   const handleAdminSignOut = async () => {
-    setIsAdminAuthenticated(false)
-    setAuthUser(null)
-    setAdminRole(null)
-    setAdminAccessError('')
-    if (supabase) await supabase.auth.signOut()
-    goToPath('/sign-in')
+    confirmAdminAction({
+      message: 'Sign out of the admin dashboard?',
+      confirmLabel: 'Sign Out',
+      onConfirm: async () => {
+        setIsAdminAuthenticated(false)
+        setAuthUser(null)
+        setAdminRole(null)
+        setAdminAccessError('')
+        if (supabase) await supabase.auth.signOut()
+        goToPath('/sign-in')
+      },
+    })
   }
 
   const handleSignupRequestDecision = (requestId, status) => {
@@ -1873,47 +1888,103 @@ function App() {
         runAdminAction('Request not found')
         return
       }
-      if (currentRequest.status !== 'pending') {
+      if (
+        !(
+          (currentRequest.status === 'pending' && ['approved', 'rejected'].includes(status)) ||
+          (currentRequest.status === 'approved' && status === 'suspended') ||
+          (currentRequest.status === 'suspended' && status === 'approved')
+        )
+      ) {
         runAdminAction('Decision already recorded')
         return
       }
 
-      const note = approvalNoteDrafts[requestId] || ''
-      const { data, error } = await supabase
-        .from('signup_requests')
-        .update({
-          status,
-          admin_note: note,
-          reviewed_by: authUser.id,
-          reviewed_at: new Date().toISOString(),
-        })
-        .eq('id', requestId)
-        .select('*')
-        .single()
+      const actionLabel =
+        status === 'approved'
+          ? currentRequest.status === 'suspended'
+            ? 'unsuspend'
+            : 'approve'
+          : status === 'rejected'
+            ? 'reject'
+            : 'suspend'
+      confirmAdminAction({
+        message: `Are you sure you want to ${actionLabel} ${currentRequest.fullName}?`,
+        confirmLabel: actionLabel.charAt(0).toUpperCase() + actionLabel.slice(1),
+        tone: status === 'rejected' ? 'danger' : status === 'suspended' ? 'muted' : 'default',
+        onConfirm: async () => {
+          const note = approvalNoteDrafts[requestId] || ''
+          const { data, error } = await supabase
+            .from('signup_requests')
+            .update({
+              status,
+              admin_note: note,
+              reviewed_by: authUser.id,
+              reviewed_at: new Date().toISOString(),
+            })
+            .eq('id', requestId)
+            .select('*')
+            .single()
 
-      if (error) {
-        runAdminAction(`${status} failed`)
+          if (error) {
+            runAdminAction(`${status} failed`)
+            return
+          }
+
+          const { error: profileUpdateError } = await supabase
+            .from('profiles')
+            .update({
+              is_approved: status === 'approved',
+              approved_at: status === 'approved' ? new Date().toISOString() : null,
+              role: status === 'approved' ? 'admin' : 'user',
+            })
+            .eq('email', currentRequest.email)
+
+          if (profileUpdateError) {
+            runAdminAction(`Request ${status}, but profile update failed`)
+            return
+          }
+
+          const updatedRequest = mapSignupRequestRowToClient(data)
+          setSignupRequests((prev) => prev.map((item) => (item.id === updatedRequest.id ? updatedRequest : item)))
+          setApprovalNoteDrafts((prev) => ({ ...prev, [requestId]: updatedRequest.adminNote }))
+          runAdminAction(`Request ${status}`)
+        },
+      })
+      return
+    })()
+  }
+
+  const handleDeleteSignupRequest = (requestId) => {
+    void (async () => {
+      if (!supabase) {
+        runAdminAction('Supabase is not ready for approval actions')
         return
       }
-
-      const { error: profileUpdateError } = await supabase
-        .from('profiles')
-        .update({
-          is_approved: status === 'approved',
-          approved_at: status === 'approved' ? new Date().toISOString() : null,
-          role: status === 'approved' ? 'admin' : 'user',
-        })
-        .eq('email', currentRequest.email)
-
-      if (profileUpdateError) {
-        runAdminAction(`Request ${status}, but profile update failed`)
+      const currentRequest = signupRequests.find((item) => item.id === requestId)
+      if (!currentRequest) {
+        runAdminAction('Request not found')
         return
       }
+      confirmAdminAction({
+        message: `Delete the signup request for ${currentRequest.fullName}?`,
+        confirmLabel: 'Delete',
+        tone: 'danger',
+        onConfirm: async () => {
+          const { error } = await supabase.from('signup_requests').delete().eq('id', requestId)
+          if (error) {
+            runAdminAction('Request delete failed')
+            return
+          }
 
-      const updatedRequest = mapSignupRequestRowToClient(data)
-      setSignupRequests((prev) => prev.map((item) => (item.id === updatedRequest.id ? updatedRequest : item)))
-      setApprovalNoteDrafts((prev) => ({ ...prev, [requestId]: updatedRequest.adminNote }))
-      runAdminAction(`Request ${status}`)
+          setSignupRequests((prev) => prev.filter((item) => item.id !== requestId))
+          setApprovalNoteDrafts((prev) => {
+            const next = { ...prev }
+            delete next[requestId]
+            return next
+          })
+          runAdminAction('Request deleted')
+        },
+      })
     })()
   }
 
@@ -1921,6 +1992,17 @@ function App() {
     setAdminNotice(message)
     window.setTimeout(() => setAdminNotice(''), 1800)
   }
+
+  const confirmAdminAction = ({ message, confirmLabel = 'Confirm', tone = 'default', onConfirm }) => {
+    setConfirmationDialog({
+      message,
+      confirmLabel,
+      tone,
+      onConfirm,
+    })
+  }
+
+  const closeConfirmationDialog = () => setConfirmationDialog(null)
 
   const syncManageInternsHorizontalScroll = (source) => {
     if (isSyncingManageInternsScrollRef.current) return
@@ -2331,20 +2413,26 @@ function App() {
     void (async () => {
       const selected = internAnalyticsData[index]
       if (!selected?.id || !supabase) return
+      confirmAdminAction({
+        message: `Delete intern profile for ${selected.name}?`,
+        confirmLabel: 'Delete',
+        tone: 'danger',
+        onConfirm: async () => {
+          const { error } = await supabase.from('admin_interns').delete().eq('id', selected.id)
+          if (error) {
+            runAdminAction('Delete failed')
+            return
+          }
 
-      const { error } = await supabase.from('admin_interns').delete().eq('id', selected.id)
-      if (error) {
-        runAdminAction('Delete failed')
-        return
-      }
-
-      setInternAnalyticsData((prev) => prev.filter((item) => item.id !== selected.id))
-      if (editingInternIndex === index) {
-        resetInternForm()
-      } else if (editingInternIndex !== null && editingInternIndex > index) {
-        setEditingInternIndex((prev) => (prev !== null ? prev - 1 : null))
-      }
-      runAdminAction(`Deleted ${selected.name}`)
+          setInternAnalyticsData((prev) => prev.filter((item) => item.id !== selected.id))
+          if (editingInternIndex === index) {
+            resetInternForm()
+          } else if (editingInternIndex !== null && editingInternIndex > index) {
+            setEditingInternIndex((prev) => (prev !== null ? prev - 1 : null))
+          }
+          runAdminAction(`Deleted ${selected.name}`)
+        },
+      })
     })()
   }
 
@@ -5848,10 +5936,11 @@ function App() {
                                 Review sign-up requests, record a decision, and prepare approved users for account provisioning.
                               </p>
                             </div>
-                            <div className="grid grid-cols-3 gap-3 min-w-[280px]">
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 min-w-[280px]">
                               {[
                                 ['Pending', signupRequests.filter((item) => item.status === 'pending').length, 'bg-[#fff6e4] text-[#8a5a14]'],
                                 ['Approved', signupRequests.filter((item) => item.status === 'approved').length, 'bg-[#e9f3ee] text-castleton'],
+                                ['Suspended', signupRequests.filter((item) => item.status === 'suspended').length, 'bg-[#eef0f5] text-[#44506b]'],
                                 ['Rejected', signupRequests.filter((item) => item.status === 'rejected').length, 'bg-[#fde8e8] text-[#8a3528]'],
                               ].map(([label, value, tone]) => (
                                 <div key={label} className="rounded-2xl border border-castleton/15 bg-[#f7faf8] p-3">
@@ -5884,14 +5973,15 @@ function App() {
                               >
                                 <option value="pending-first">Pending First</option>
                                 <option value="approved-first">Approved First</option>
+                                <option value="suspended-first">Suspended First</option>
                                 <option value="rejected-first">Rejected First</option>
                                 <option value="name-asc">A-Z</option>
                               </select>
-                            </label>
+                        </label>
                           </div>
 
                           <div className="rounded-2xl border border-[#ead9a4] bg-[#fff9e8] px-4 py-3 text-sm text-[#7c5a16]">
-                            Each request can only be approved or rejected once. Pending requests are shown first by default.
+                            Pending requests can be approved or rejected once. Approved accounts can later be suspended, and any request can be deleted from this queue.
                           </div>
                         </motion.div>
 
@@ -5905,6 +5995,8 @@ function App() {
                                     ? 'border-[#e2c676] shadow-[0_16px_40px_-30px_rgba(138,90,20,0.45)]'
                                     : request.status === 'approved'
                                       ? 'border-castleton/20'
+                                      : request.status === 'suspended'
+                                        ? 'border-[#c8cfde]'
                                       : 'border-[#dfc1bb]'
                                 }`}
                                 initial={{ opacity: 0, y: 10 }}
@@ -5940,6 +6032,8 @@ function App() {
                                           className={`mt-2 inline-flex rounded-full px-3 py-1 text-sm font-semibold ${
                                             request.status === 'approved'
                                               ? 'bg-[#e9f3ee] text-castleton'
+                                              : request.status === 'suspended'
+                                                ? 'bg-[#eef0f5] text-[#44506b]'
                                               : request.status === 'rejected'
                                                 ? 'bg-[#fde8e8] text-[#8a3528]'
                                                 : 'bg-[#fff6e4] text-[#8a5a14]'
@@ -5956,6 +6050,8 @@ function App() {
                                       className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] ${
                                         request.status === 'approved'
                                           ? 'bg-[#e9f3ee] text-castleton'
+                                          : request.status === 'suspended'
+                                            ? 'bg-[#eef0f5] text-[#44506b]'
                                           : request.status === 'rejected'
                                             ? 'bg-[#fde8e8] text-[#8a3528]'
                                             : 'bg-[#fff6e4] text-[#8a5a14]'
@@ -5994,6 +6090,26 @@ function App() {
                                         className="focus-brand rounded-full border border-castleton/20 bg-castleton px-4 py-2 text-sm font-semibold text-white transition-colors enabled:hover:bg-serpent disabled:cursor-not-allowed disabled:opacity-45"
                                       >
                                         Approve
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleSignupRequestDecision(
+                                            request.id,
+                                            request.status === 'suspended' ? 'approved' : 'suspended'
+                                          )
+                                        }
+                                        disabled={!['approved', 'suspended'].includes(request.status)}
+                                        className="focus-brand rounded-full border border-[#c8cfde] bg-white px-4 py-2 text-sm font-semibold text-[#44506b] transition-colors enabled:hover:bg-[#eef0f5] disabled:cursor-not-allowed disabled:opacity-45"
+                                      >
+                                        {request.status === 'suspended' ? 'Unsuspend' : 'Suspend'}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteSignupRequest(request.id)}
+                                        className="focus-brand rounded-full border border-black/10 bg-[#f4f4f4] px-4 py-2 text-sm font-semibold text-black/75 transition-colors hover:bg-[#e8e8e8]"
+                                      >
+                                        Delete
                                       </button>
                                     </div>
                                   </div>
@@ -6785,6 +6901,70 @@ function App() {
                           </button>
                         </div>
                       </motion.form>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
+
+                <AnimatePresence>
+                  {confirmationDialog ? (
+                    <motion.div
+                      className="fixed inset-0 z-[96] bg-black/55 backdrop-blur-[3px] flex items-center justify-center p-4"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      onClick={closeConfirmationDialog}
+                    >
+                      <motion.div
+                        className="w-full max-w-md rounded-[26px] border border-castleton/20 bg-white p-5 sm:p-6 shadow-2xl"
+                        initial={{ opacity: 0, y: 16, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 12, scale: 0.98 }}
+                        transition={{ duration: 0.22 }}
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.12em] text-castleton mb-2">Confirm Action</p>
+                            <h2 className="text-2xl font-semibold text-black">Are you sure?</h2>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={closeConfirmationDialog}
+                            className="focus-brand inline-flex h-9 w-9 items-center justify-center rounded-full border border-castleton/15 text-castleton hover:bg-[#f4f7f5] transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        <p className="mt-4 text-base leading-relaxed text-black/72">{confirmationDialog.message}</p>
+
+                        <div className="mt-6 flex flex-wrap justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={closeConfirmationDialog}
+                            className="focus-brand rounded-full border border-castleton/15 bg-white px-4 py-2 text-sm font-semibold text-castleton hover:bg-[#f4f7f5] transition-colors"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const action = confirmationDialog.onConfirm
+                              closeConfirmationDialog()
+                              if (action) void action()
+                            }}
+                            className={`focus-brand rounded-full px-4 py-2 text-sm font-semibold text-white transition-colors ${
+                              confirmationDialog.tone === 'danger'
+                                ? 'bg-[#9f3f33] hover:bg-[#8a3528]'
+                                : confirmationDialog.tone === 'muted'
+                                  ? 'bg-[#58647d] hover:bg-[#44506b]'
+                                  : 'bg-castleton hover:bg-serpent'
+                            }`}
+                          >
+                            {confirmationDialog.confirmLabel}
+                          </button>
+                        </div>
+                      </motion.div>
                     </motion.div>
                   ) : null}
                 </AnimatePresence>

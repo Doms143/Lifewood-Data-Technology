@@ -5,7 +5,7 @@ create table if not exists public.signup_requests (
   password_hint text,
   phone text,
   department text,
-  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
+  status text not null default 'pending' check (status in ('pending', 'approved', 'suspended', 'rejected')),
   admin_note text,
   reviewed_by uuid references auth.users(id) on delete set null,
   reviewed_at timestamptz,
