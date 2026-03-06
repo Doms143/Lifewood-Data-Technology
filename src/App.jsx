@@ -7,6 +7,7 @@ import {
   Instagram,
   Youtube,
   ArrowRight,
+  ArrowLeft,
   X,
   Mail,
   Phone,
@@ -35,6 +36,8 @@ import Footer from './components/Footer'
 import Navigation from './components/Navigation'
 import OurClientsPartners from './components/OurClientsPartners'
 import OfficesMap from './components/OfficesMap'
+import { isBootstrapAdmin } from './lib/adminAccess'
+import { isSupabaseConfigured, supabase } from './lib/supabaseClient'
 
 function CountUpStat({ end = 0, suffix = '', duration = 1200, useGrouping = false, start = false }) {
   const [value, setValue] = useState(0)
@@ -829,6 +832,86 @@ const routeContent = {
   },
 }
 
+const buildSeedInternAnalyticsData = () =>
+  analyticsInterns.map((intern, index) => ({
+    ...intern,
+    id: `seed-intern-${index + 1}`,
+    email: intern.email || internProfileByName[intern.name]?.email || `intern${index + 1}@lifewood.com`,
+    gender: intern.gender || internProfileByName[intern.name]?.gender || 'Male',
+    course: intern.course || internProfileByName[intern.name]?.course || 'BS Information Technology',
+    contact: intern.contact || internProfileByName[intern.name]?.contact || '09XX-XXX-XXXX',
+    requiredHours: intern.requiredHours || internProfileByName[intern.name]?.requiredHours || 540,
+    track: intern.track || (index % 3 === 0 ? 'AI Data Operations' : index % 3 === 1 ? 'Quality Assurance' : 'Reporting & PMO'),
+    status: intern.status === 'On Leave' ? 'Suspend' : (intern.status || 'Active'),
+    mentor: intern.mentor || (index % 2 === 0 ? 'Team Lead A' : 'Team Lead B'),
+    joinDate: intern.joinDate || `2026-0${(index % 3) + 1}-${String((index % 27) + 1).padStart(2, '0')}`,
+    school: intern.school || internSchoolByName[intern.name] || schoolOptions[0],
+  }))
+
+const seedAnalyticsTaskEntries = [
+  { id: 'seed-task-1', internName: 'Cabrillos, Dane Kiev', task: 'Image Label Audit', score: 91, activityType: 'Task', createdAt: '2026-03-10' },
+  { id: 'seed-task-2', internName: 'Damayo, Jholmer', task: 'Dataset QA Review', score: 88, activityType: 'Quality Check', createdAt: '2026-03-11' },
+  { id: 'seed-task-3', internName: 'Tacatani, Dominic', task: 'Daily Standup Report', score: 100, activityType: 'Activity', createdAt: '2026-03-12' },
+]
+
+const mapInternRowToClient = (row) => ({
+  id: row.id,
+  name: row.name,
+  email: row.email || '',
+  gender: row.gender || 'Male',
+  course: row.course || 'BS Information Technology',
+  contact: row.contact || '',
+  requiredHours: row.required_hours || 0,
+  school: row.school || schoolOptions[0],
+  track: row.track || 'AI Data Operations',
+  status: row.status || 'Active',
+  mentor: row.mentor || 'Unassigned',
+  joinDate: row.join_date || '2026-01-01',
+  performance: row.performance ?? 0,
+  attendance: row.attendance ?? 0,
+  progress: row.progress ?? 0,
+  low: Boolean(row.low),
+})
+
+const mapTaskRowToClient = (row) => ({
+  id: row.id,
+  internName: row.intern_name,
+  task: row.task,
+  score: row.score,
+  activityType: row.activity_type,
+  createdAt: row.created_at_date,
+})
+
+const clampMetric = (value, min = 0, max = 100) => Math.max(min, Math.min(max, value))
+
+const calculateInternMetricsAfterTask = (intern, score, activityType) => {
+  const activityWeights = {
+    Task: { performanceWeight: 0.34, progressBoost: 5, attendanceBoost: 1 },
+    'Quality Check': { performanceWeight: 0.28, progressBoost: 4, attendanceBoost: 1 },
+    Activity: { performanceWeight: 0.2, progressBoost: 3, attendanceBoost: 1 },
+  }
+
+  const selectedWeight = activityWeights[activityType] || activityWeights.Activity
+  const performance = Math.round(
+    clampMetric(intern.performance * (1 - selectedWeight.performanceWeight) + score * selectedWeight.performanceWeight, 45, 100)
+  )
+  const scoreMomentum = score >= 95 ? 2 : score >= 85 ? 1 : score < 60 ? -2 : score < 75 ? -1 : 0
+  const progress = Math.round(
+    clampMetric(intern.progress + selectedWeight.progressBoost + scoreMomentum, 45, 100)
+  )
+  const attendance = Math.round(
+    clampMetric(intern.attendance + selectedWeight.attendanceBoost + (score >= 90 ? 1 : score < 60 ? -1 : 0), 40, 100)
+  )
+  const low = performance < 65 || attendance < 70 || progress < 65
+
+  return {
+    performance,
+    progress,
+    attendance,
+    low,
+  }
+}
+
 function App() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname || '/')
   const [activeProjectIndex, setActiveProjectIndex] = useState(0)
@@ -843,23 +926,27 @@ function App() {
   const [signInEmail, setSignInEmail] = useState('')
   const [signInPassword, setSignInPassword] = useState('')
   const [signInError, setSignInError] = useState('')
+  const [signUpError, setSignUpError] = useState('')
+  const [signUpSuccess, setSignUpSuccess] = useState('')
+  const [isAuthLoading, setIsAuthLoading] = useState(false)
+  const [isAuthReady, setIsAuthReady] = useState(false)
+  const [isSignUpOpen, setIsSignUpOpen] = useState(false)
+  const [authUser, setAuthUser] = useState(null)
+  const [adminRole, setAdminRole] = useState(null)
+  const [adminAccessError, setAdminAccessError] = useState('')
+  const [signUpForm, setSignUpForm] = useState({
+    fullName: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    phone: '',
+    department: '',
+  })
   const [activeAdminTab, setActiveAdminTab] = useState('Dashboard')
   const [adminNotice, setAdminNotice] = useState('')
-  const [internAnalyticsData, setInternAnalyticsData] = useState(() =>
-    analyticsInterns.map((intern, index) => ({
-      ...intern,
-      email: intern.email || internProfileByName[intern.name]?.email || `intern${index + 1}@lifewood.com`,
-      gender: intern.gender || internProfileByName[intern.name]?.gender || 'Male',
-      course: intern.course || internProfileByName[intern.name]?.course || 'BS Information Technology',
-      contact: intern.contact || internProfileByName[intern.name]?.contact || '09XX-XXX-XXXX',
-      requiredHours: intern.requiredHours || internProfileByName[intern.name]?.requiredHours || 540,
-      track: intern.track || (index % 3 === 0 ? 'AI Data Operations' : index % 3 === 1 ? 'Quality Assurance' : 'Reporting & PMO'),
-      status: intern.status === 'On Leave' ? 'Suspend' : (intern.status || 'Active'),
-      mentor: intern.mentor || (index % 2 === 0 ? 'Team Lead A' : 'Team Lead B'),
-      joinDate: intern.joinDate || `2026-0${(index % 3) + 1}-${String((index % 27) + 1).padStart(2, '0')}`,
-      school: intern.school || internSchoolByName[intern.name] || schoolOptions[0],
-    }))
-  )
+  const [internAnalyticsData, setInternAnalyticsData] = useState([])
+  const [isAdminDataLoading, setIsAdminDataLoading] = useState(false)
+  const [adminDataError, setAdminDataError] = useState('')
   const [selectedAnalyticsIntern, setSelectedAnalyticsIntern] = useState(null)
   const [selectedDashboardGroup, setSelectedDashboardGroup] = useState(null)
   const [analyticsSortBy, setAnalyticsSortBy] = useState('name-asc')
@@ -899,11 +986,7 @@ function App() {
     activityType: 'Activity',
   })
   const [analyticsTaskSelectedCourses, setAnalyticsTaskSelectedCourses] = useState([])
-  const [analyticsTaskEntries, setAnalyticsTaskEntries] = useState([
-    { id: 'seed-1', internName: 'Cabrillos, Dane Kiev', task: 'Image Label Audit', score: 91, activityType: 'Task', createdAt: '2026-03-10' },
-    { id: 'seed-2', internName: 'Damayo, Jholmer', task: 'Dataset QA Review', score: 88, activityType: 'Quality Check', createdAt: '2026-03-11' },
-    { id: 'seed-3', internName: 'Tacatani, Dominic', task: 'Daily Standup Report', score: 100, activityType: 'Activity', createdAt: '2026-03-12' },
-  ])
+  const [analyticsTaskEntries, setAnalyticsTaskEntries] = useState([])
   const [analyticsSearch, setAnalyticsSearch] = useState('')
   const [evaluationSearch, setEvaluationSearch] = useState('')
   const [reportsSearch, setReportsSearch] = useState('')
@@ -915,16 +998,217 @@ function App() {
   const manageInternsFollowTrackRef = useRef(null)
   const manageInternsTableScrollRef = useRef(null)
   const isSyncingManageInternsScrollRef = useRef(false)
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(() => {
-    if (typeof window === 'undefined') return false
-    return window.localStorage.getItem('lw_admin_auth') === '1'
-  })
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false)
+  const hasAdminAccess = isAdminAuthenticated
 
   useEffect(() => {
     const handlePopState = () => setCurrentPath(window.location.pathname || '/')
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
+
+  useEffect(() => {
+    if (!supabase) return undefined
+
+    let isMounted = true
+
+    const hydrateAdminSession = async (session) => {
+      if (!isMounted) return
+
+      const user = session?.user || null
+      setAuthUser(user)
+      setIsAdminAuthenticated(Boolean(session))
+
+      if (!session || !user) {
+        setAdminRole(null)
+        setAdminAccessError('')
+        setIsAuthReady(true)
+        return
+      }
+
+      const fallbackRole = isBootstrapAdmin(user.email || '')
+        ? 'admin'
+        : user.user_metadata?.role || user.app_metadata?.role || 'admin'
+
+      let resolvedRole = fallbackRole
+
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('full_name, email, phone, role')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      if (!isMounted) return
+
+      if (!error && profile) {
+        resolvedRole = profile.role || resolvedRole
+        const fullName = (profile.full_name || '').trim()
+        const nameParts = fullName ? fullName.split(/\s+/) : []
+        setAdminProfileForm((prev) => ({
+          ...prev,
+          firstName: nameParts[0] || prev.firstName,
+          lastName: nameParts.slice(1).join(' ') || prev.lastName,
+          email: profile.email || user.email || prev.email,
+          phone: profile.phone || prev.phone,
+        }))
+      } else {
+        setAdminProfileForm((prev) => ({
+          ...prev,
+          email: user.email || prev.email,
+        }))
+      }
+
+      setAdminRole(resolvedRole || 'admin')
+      setAdminAccessError('')
+      setIsAuthReady(true)
+    }
+
+    const syncSession = async () => {
+      const { data, error } = await supabase.auth.getSession()
+      if (!isMounted) return
+      if (error) {
+        setSignInError(error.message)
+        setIsAuthReady(true)
+        return
+      }
+      await hydrateAdminSession(data.session)
+    }
+
+    syncSession()
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!isMounted) return
+      setSignInError('')
+      setSignUpError('')
+      void hydrateAdminSession(session)
+    })
+
+    return () => {
+      isMounted = false
+      subscription.unsubscribe()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!supabase) {
+      setIsAuthReady(true)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!supabase || !hasAdminAccess || !authUser?.id) {
+      if (!isAdminAuthenticated) {
+        setInternAnalyticsData([])
+        setAnalyticsTaskEntries([])
+        setAdminDataError('')
+        setIsAdminDataLoading(false)
+      }
+      return
+    }
+
+    let isMounted = true
+
+    const loadAdminData = async () => {
+      setIsAdminDataLoading(true)
+      setAdminDataError('')
+
+      const [{ data: internRows, error: internError }, { data: taskRows, error: taskError }] = await Promise.all([
+        supabase.from('admin_interns').select('*').order('name'),
+        supabase.from('admin_task_entries').select('*').order('created_at', { ascending: false }),
+      ])
+
+      if (!isMounted) return
+
+      if (internError || taskError) {
+        setAdminDataError(internError?.message || taskError?.message || 'Failed to load admin data.')
+        setIsAdminDataLoading(false)
+        return
+      }
+
+      let resolvedInternRows = internRows || []
+      let resolvedTaskRows = taskRows || []
+
+      if (resolvedInternRows.length === 0) {
+        const seedInternPayload = buildSeedInternAnalyticsData().map((intern) => ({
+          owner_user_id: authUser.id,
+          name: intern.name,
+          email: intern.email,
+          gender: intern.gender,
+          course: intern.course,
+          contact: intern.contact,
+          required_hours: intern.requiredHours,
+          school: intern.school,
+          track: intern.track,
+          status: intern.status,
+          mentor: intern.mentor,
+          join_date: intern.joinDate,
+          performance: intern.performance,
+          attendance: intern.attendance,
+          progress: intern.progress,
+          low: intern.low,
+        }))
+
+        const { data: insertedInterns, error: seedInternError } = await supabase
+          .from('admin_interns')
+          .insert(seedInternPayload)
+          .select('*')
+
+        if (!isMounted) return
+
+        if (seedInternError) {
+          setAdminDataError(seedInternError.message)
+          setIsAdminDataLoading(false)
+          return
+        }
+
+        resolvedInternRows = insertedInterns || []
+      }
+
+      if (resolvedTaskRows.length === 0) {
+        const seedTaskPayload = seedAnalyticsTaskEntries.map((task) => ({
+          owner_user_id: authUser.id,
+          intern_name: task.internName,
+          task: task.task,
+          score: task.score,
+          activity_type: task.activityType,
+          created_at_date: task.createdAt,
+        }))
+
+        const { data: insertedTasks, error: seedTaskError } = await supabase
+          .from('admin_task_entries')
+          .insert(seedTaskPayload)
+          .select('*')
+
+        if (!isMounted) return
+
+        if (seedTaskError) {
+          setAdminDataError(seedTaskError.message)
+          setIsAdminDataLoading(false)
+          return
+        }
+
+        resolvedTaskRows = insertedTasks || []
+      }
+
+      setInternAnalyticsData(resolvedInternRows.map(mapInternRowToClient))
+      setAnalyticsTaskEntries(resolvedTaskRows.map(mapTaskRowToClient).slice(0, 80))
+      setIsAdminDataLoading(false)
+    }
+
+    void loadAdminData()
+
+    return () => {
+      isMounted = false
+    }
+  }, [authUser?.id, hasAdminAccess, isAdminAuthenticated])
+
+  useEffect(() => {
+    if (currentPath === '/sign-in' && isAdminAuthenticated) {
+      goToPath('/admin-dashboard')
+    }
+  }, [currentPath, isAdminAuthenticated])
 
   useEffect(() => {
     if (
@@ -1295,21 +1579,117 @@ function App() {
 
   const handleSignIn = (event) => {
     event.preventDefault()
-    const email = signInEmail.trim()
-    const password = signInPassword
-    if (email === 'test123@gmail.com' && password === '123') {
+    void (async () => {
+      const email = signInEmail.trim()
+      const password = signInPassword
+
+      if (!email || !password) {
+        setSignInError('Email and password are required.')
+        return
+      }
+
+      if (!supabase) {
+        setSignInError('Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY before signing in.')
+        return
+      }
+
+      setIsAuthLoading(true)
       setSignInError('')
-      setIsAdminAuthenticated(true)
-      window.localStorage.setItem('lw_admin_auth', '1')
-      goToPath('/admin-dashboard')
-      return
-    }
-    setSignInError('Invalid credentials. Use work email: test123@gmail.com and password: 123.')
+      setAdminAccessError('')
+
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+
+      if (error) {
+        setSignInError(error.message)
+        setIsAuthLoading(false)
+        return
+      }
+
+      if (data.session) {
+        goToPath('/admin-dashboard')
+        setIsAuthLoading(false)
+        return
+      }
+
+      setSignInError('Sign in failed. No active session was created.')
+      setIsAuthLoading(false)
+    })()
   }
 
-  const handleAdminSignOut = () => {
+  const handleEmailSignUp = async (event) => {
+    event.preventDefault()
+
+    const fullName = signUpForm.fullName.trim()
+    const email = signUpForm.email.trim().toLowerCase()
+    const password = signUpForm.password
+    const confirmPassword = signUpForm.confirmPassword
+    const phone = signUpForm.phone.trim()
+    const department = signUpForm.department.trim()
+
+    if (!supabase) {
+      setSignUpError('Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.local.')
+      setSignUpSuccess('')
+      return
+    }
+    if (!fullName || !email || !password) {
+      setSignUpError('Full name, email, and password are required.')
+      setSignUpSuccess('')
+      return
+    }
+    if (password.length < 8) {
+      setSignUpError('Password must be at least 8 characters.')
+      setSignUpSuccess('')
+      return
+    }
+    if (password !== confirmPassword) {
+      setSignUpError('Password and confirm password must match.')
+      setSignUpSuccess('')
+      return
+    }
+
+    setIsAuthLoading(true)
+    setSignUpError('')
+    setSignUpSuccess('')
+
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/sign-in`,
+        data: {
+          full_name: fullName,
+          phone,
+          department,
+          role: 'admin',
+        },
+      },
+    })
+
+    if (error) {
+      setSignUpError(error.message)
+      setIsAuthLoading(false)
+      return
+    }
+
+    setSignUpForm({
+      fullName: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+      phone: '',
+      department: '',
+    })
+    setSignUpSuccess('Account created. Check your email for the confirmation link, then sign in.')
+    setIsAuthLoading(false)
+    setIsSignUpOpen(false)
+  }
+
+  const handleAdminSignOut = async () => {
     setIsAdminAuthenticated(false)
-    window.localStorage.removeItem('lw_admin_auth')
+    setAuthUser(null)
+    setAdminRole(null)
+    setAdminAccessError('')
+    if (supabase) await supabase.auth.signOut()
     goToPath('/sign-in')
   }
 
@@ -1362,6 +1742,12 @@ function App() {
 
   const handleAnalyticsTaskSave = (event) => {
     event.preventDefault()
+    void (async () => {
+      if (!supabase || !authUser?.id) {
+        setAnalyticsTaskError('Supabase is not ready for task storage.')
+        return
+      }
+
     const task = analyticsTaskForm.task.trim()
     const targetMode = analyticsTaskForm.targetMode || 'individual'
     const internName = analyticsTaskForm.internName.trim()
@@ -1400,22 +1786,71 @@ function App() {
     }
 
     const today = new Date().toISOString().slice(0, 10)
-    const newEntries = targetInterns.map((targetName, idx) => ({
-      id: `task-${Date.now()}-${idx}`,
-      internName: targetName,
+    const taskPayload = targetInterns.map((targetName) => ({
+      owner_user_id: authUser.id,
+      intern_name: targetName,
       task,
       score: Math.round(scoreValue),
-      activityType: analyticsTaskForm.activityType || 'Activity',
-      createdAt: today,
+      activity_type: analyticsTaskForm.activityType || 'Activity',
+      created_at_date: today,
     }))
 
+    const { data, error } = await supabase.from('admin_task_entries').insert(taskPayload).select('*')
+    if (error) {
+      setAnalyticsTaskError(error.message)
+      return
+    }
+
+    const affectedInterns = internAnalyticsData.filter((intern) => targetInterns.includes(intern.name) && intern.id)
+    const updatedInterns = []
+
+    for (const intern of affectedInterns) {
+      const nextMetrics = calculateInternMetricsAfterTask(
+        intern,
+        Math.round(scoreValue),
+        analyticsTaskForm.activityType || 'Activity'
+      )
+
+      const { data: updatedInternRow, error: updateError } = await supabase
+        .from('admin_interns')
+        .update({
+          performance: nextMetrics.performance,
+          attendance: nextMetrics.attendance,
+          progress: nextMetrics.progress,
+          low: nextMetrics.low,
+        })
+        .eq('id', intern.id)
+        .select('*')
+        .single()
+
+      if (updateError) {
+        setAnalyticsTaskError(updateError.message)
+        return
+      }
+
+      updatedInterns.push(mapInternRowToClient(updatedInternRow))
+    }
+
+    const newEntries = (data || []).map(mapTaskRowToClient)
     setAnalyticsTaskEntries((prev) => [...newEntries, ...prev].slice(0, 80))
+    if (updatedInterns.length) {
+      setInternAnalyticsData((prev) =>
+        prev.map((intern) => updatedInterns.find((updated) => updated.id === intern.id) || intern)
+      )
+      if (selectedAnalyticsIntern?.id) {
+        const selectedUpdatedIntern = updatedInterns.find((intern) => intern.id === selectedAnalyticsIntern.id)
+        if (selectedUpdatedIntern) {
+          setSelectedAnalyticsIntern(selectedUpdatedIntern)
+        }
+      }
+    }
     setIsAnalyticsTaskModalOpen(false)
     setAnalyticsTaskError('')
-    runAdminAction(`Task added for ${targetInterns.length} intern${targetInterns.length === 1 ? '' : 's'}`)
+    runAdminAction(`Task added and metrics recalculated for ${targetInterns.length} intern${targetInterns.length === 1 ? '' : 's'}`)
+    })()
   }
 
-  const handleAdminProfileSave = (event) => {
+  const handleAdminProfileSave = async (event) => {
     event.preventDefault()
     if (!adminProfileForm.firstName.trim() || !adminProfileForm.lastName.trim()) {
       runAdminAction('First and last name are required')
@@ -1425,6 +1860,29 @@ function App() {
       runAdminAction('Please provide a valid email')
       return
     }
+    if (!supabase || !authUser?.id) {
+      setIsAdminProfileModalOpen(false)
+      runAdminAction('Admin profile updated locally')
+      return
+    }
+
+    const fullName = `${adminProfileForm.firstName.trim()} ${adminProfileForm.lastName.trim()}`.trim()
+    const email = adminProfileForm.email.trim().toLowerCase()
+    const role = adminRole === 'superadmin' ? 'superadmin' : 'admin'
+
+    const { error } = await supabase.from('profiles').upsert({
+      id: authUser.id,
+      email,
+      full_name: fullName,
+      phone: adminProfileForm.phone.trim(),
+      role,
+    })
+
+    if (error) {
+      runAdminAction('Profile save failed')
+      return
+    }
+
     setIsAdminProfileModalOpen(false)
     runAdminAction('Admin profile updated')
   }
@@ -1494,6 +1952,12 @@ function App() {
 
   const handleInternSave = (event) => {
     event.preventDefault()
+    void (async () => {
+      if (!supabase || !authUser?.id) {
+        setInternStepperError('Supabase is not ready for intern storage.')
+        return
+      }
+
     setInternStepperError('')
     const trimmedName = internForm.name.trim()
     const trimmedEmail = internForm.email.trim().toLowerCase()
@@ -1534,17 +1998,18 @@ function App() {
     const low = metrics.performance < 65 || metrics.attendance < 70 || metrics.progress < 65
 
     const payload = {
+      owner_user_id: authUser.id,
       name: trimmedName,
       email: trimmedEmail,
       gender: internForm.gender || 'Male',
       course: internForm.course.trim(),
       contact: internForm.contact.trim(),
-      requiredHours: requiredHoursValue,
+      required_hours: requiredHoursValue,
       school: internForm.school || schoolOptions[0],
       track: internForm.track,
       status: normalizeInternStatus(internForm.status),
       mentor: internForm.mentor.trim() || 'Unassigned',
-      joinDate: internForm.joinDate || '2026-01-01',
+      join_date: internForm.joinDate || '2026-01-01',
       performance: metrics.performance,
       attendance: metrics.attendance,
       progress: metrics.progress,
@@ -1552,33 +2017,45 @@ function App() {
     }
 
     if (editingInternIndex !== null) {
-      setInternAnalyticsData((prev) =>
-        prev.map((item, idx) =>
-          idx === editingInternIndex
-            ? {
-                ...item,
-                name: payload.name,
-                email: payload.email,
-                gender: payload.gender,
-                course: payload.course,
-                contact: payload.contact,
-                requiredHours: payload.requiredHours,
-                school: payload.school,
-                track: payload.track,
-                status: payload.status,
-                mentor: payload.mentor,
-                joinDate: payload.joinDate,
-              }
-            : item
-        )
-      )
-      runAdminAction(`Updated ${payload.name}`)
+      const selected = internAnalyticsData[editingInternIndex]
+      if (!selected?.id) {
+        setInternStepperError('Selected intern record is missing an id.')
+        return
+      }
+      const { data, error } = await supabase
+        .from('admin_interns')
+        .update(payload)
+        .eq('id', selected.id)
+        .select('*')
+        .single()
+
+      if (error) {
+        setInternStepperError(error.message)
+        return
+      }
+
+      const updatedIntern = mapInternRowToClient(data)
+      setInternAnalyticsData((prev) => prev.map((item) => (item.id === updatedIntern.id ? updatedIntern : item)))
+      runAdminAction(`Updated ${updatedIntern.name}`)
     } else {
-      setInternAnalyticsData((prev) => [...prev, payload])
-      runAdminAction(`Added ${payload.name}`)
+      const { data, error } = await supabase
+        .from('admin_interns')
+        .insert(payload)
+        .select('*')
+        .single()
+
+      if (error) {
+        setInternStepperError(error.message)
+        return
+      }
+
+      const newIntern = mapInternRowToClient(data)
+      setInternAnalyticsData((prev) => [...prev, newIntern].sort((a, b) => a.name.localeCompare(b.name)))
+      runAdminAction(`Added ${newIntern.name}`)
     }
     resetInternForm()
     setIsInternStepperOpen(false)
+    })()
   }
 
   const handleInternEdit = (index) => {
@@ -1604,15 +2081,24 @@ function App() {
   }
 
   const handleInternDelete = (index) => {
-    const selected = internAnalyticsData[index]
-    if (!selected) return
-    setInternAnalyticsData((prev) => prev.filter((_, idx) => idx !== index))
-    if (editingInternIndex === index) {
-      resetInternForm()
-    } else if (editingInternIndex !== null && editingInternIndex > index) {
-      setEditingInternIndex((prev) => (prev !== null ? prev - 1 : null))
-    }
-    runAdminAction(`Deleted ${selected.name}`)
+    void (async () => {
+      const selected = internAnalyticsData[index]
+      if (!selected?.id || !supabase) return
+
+      const { error } = await supabase.from('admin_interns').delete().eq('id', selected.id)
+      if (error) {
+        runAdminAction('Delete failed')
+        return
+      }
+
+      setInternAnalyticsData((prev) => prev.filter((item) => item.id !== selected.id))
+      if (editingInternIndex === index) {
+        resetInternForm()
+      } else if (editingInternIndex !== null && editingInternIndex > index) {
+        setEditingInternIndex((prev) => (prev !== null ? prev - 1 : null))
+      }
+      runAdminAction(`Deleted ${selected.name}`)
+    })()
   }
 
   const modalityIcon = (title) => {
@@ -3570,93 +4056,247 @@ function App() {
                           <p className="text-sm sm:text-base">Enterprise-grade sign-in for teams and clients.</p>
                         </div>
                         <div className="rounded-2xl border border-white/25 bg-white/10 px-4 py-3">
-                          <p className="text-xs uppercase tracking-[0.12em] text-white/75 mb-1">Need an Account?</p>
-                          <button
-                            type="button"
-                            onClick={() => goToPath('/contact-us')}
-                            className="focus-brand text-saffron hover:text-white font-semibold inline-flex items-center gap-2"
-                          >
-                            Contact Us
-                            <ArrowRight className="w-4 h-4" />
-                          </button>
+                          <p className="text-xs uppercase tracking-[0.12em] text-white/75 mb-1">New Here?</p>
+                          <p className="text-sm sm:text-base">Create an account with your details, verify your email, then sign in.</p>
                         </div>
                       </div>
                     </div>
                   </motion.article>
 
                   <motion.article
-                    className="lg:col-span-7 rounded-3xl bg-[#f3f3f3] p-6 sm:p-8 border border-castleton/15 shadow-soft"
+                    className={`lg:col-span-7 relative ${isSignUpOpen ? 'min-h-[500px] sm:min-h-[520px]' : 'min-h-[420px] sm:min-h-[460px]'}`}
                     initial={{ opacity: 0, x: 16 }}
                     whileInView={{ opacity: 1, x: 0 }}
                     viewport={{ once: true, amount: 0.2 }}
                     transition={{ duration: 0.32, delay: 0.04 }}
+                    style={{ perspective: 1800 }}
                   >
-                    <h2 className="text-2xl sm:text-3xl font-semibold mb-1">Welcome back</h2>
-                    <p className="text-black/70 text-sm sm:text-base mb-5">Use your work credentials to continue.</p>
-
-                    <form onSubmit={handleSignIn} className="space-y-4">
-                      <div>
-                        <label className="block text-xs uppercase tracking-[0.12em] text-castleton mb-2">Work Email</label>
-                        <input
-                          type="email"
-                          placeholder="name@company.com"
-                          value={signInEmail}
-                          onChange={(event) => {
-                            setSignInEmail(event.target.value)
-                            if (signInError) setSignInError('')
-                          }}
-                          className="focus-brand w-full rounded-2xl border border-castleton/20 bg-white px-4 py-3 text-black outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs uppercase tracking-[0.12em] text-castleton mb-2">Password</label>
-                        <input
-                          type="password"
-                          placeholder="Enter your password"
-                          value={signInPassword}
-                          onChange={(event) => {
-                            setSignInPassword(event.target.value)
-                            if (signInError) setSignInError('')
-                          }}
-                          className="focus-brand w-full rounded-2xl border border-castleton/20 bg-white px-4 py-3 text-black outline-none"
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between gap-3 text-sm">
-                        <label className="inline-flex items-center gap-2 text-black/80">
-                          <input type="checkbox" className="accent-[#046241]" />
-                          Remember me
-                        </label>
-                        <button type="button" className="text-castleton hover:text-serpent font-semibold">
-                          Forgot password?
-                        </button>
-                      </div>
-
-                      {signInError ? (
-                        <p className="text-sm text-[#b64b4b] bg-[#fde8e8] border border-[#efb6b6] rounded-xl px-3 py-2">
-                          {signInError}
-                        </p>
-                      ) : null}
-
-                      <button
-                        type="submit"
-                        className="focus-brand w-full inline-flex justify-center items-center gap-2 rounded-full border border-serpent/25 bg-serpent px-5 py-2.5 text-white font-semibold hover:bg-castleton transition-colors"
+                    <motion.div
+                      className="relative h-full w-full"
+                      animate={{ rotateY: isSignUpOpen ? 180 : 0 }}
+                      transition={{ duration: 0.55, ease: 'easeInOut' }}
+                      style={{ transformStyle: 'preserve-3d' }}
+                    >
+                      <div
+                        className="absolute inset-0 rounded-3xl bg-[#f3f3f3] p-6 sm:p-8 border border-castleton/15 shadow-soft"
+                        style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
                       >
-                        Sign In
-                        <ArrowRight className="w-4 h-4" />
-                      </button>
+                        <h2 className="text-2xl sm:text-3xl font-semibold mb-1">Welcome back</h2>
+                        <p className="text-black/70 text-sm sm:text-base mb-5">Use your work credentials to continue.</p>
 
-                      <p className="text-center text-sm text-black/70">
-                        No account yet?{' '}
-                        <button
-                          type="button"
-                          onClick={() => goToPath('/contact-us')}
-                          className="text-castleton hover:text-serpent font-semibold"
-                        >
-                          Request access
-                        </button>
-                      </p>
-                    </form>
+                        <form onSubmit={handleSignIn} className="space-y-4">
+                          <div>
+                            <label className="block text-xs uppercase tracking-[0.12em] text-castleton mb-2">Work Email</label>
+                            <input
+                              type="email"
+                              placeholder="name@company.com"
+                              value={signInEmail}
+                              onChange={(event) => {
+                                setSignInEmail(event.target.value)
+                                if (signInError) setSignInError('')
+                              }}
+                              className="focus-brand w-full rounded-2xl border border-castleton/20 bg-white px-4 py-3 text-black outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs uppercase tracking-[0.12em] text-castleton mb-2">Password</label>
+                            <input
+                              type="password"
+                              placeholder="Enter your password"
+                              value={signInPassword}
+                              onChange={(event) => {
+                                setSignInPassword(event.target.value)
+                                if (signInError) setSignInError('')
+                              }}
+                              className="focus-brand w-full rounded-2xl border border-castleton/20 bg-white px-4 py-3 text-black outline-none"
+                            />
+                          </div>
+
+                          <div className="flex items-center justify-between gap-3 text-sm">
+                            <label className="inline-flex items-center gap-2 text-black/80">
+                              <input type="checkbox" className="accent-[#046241]" />
+                              Remember me
+                            </label>
+                            <button type="button" className="text-castleton hover:text-serpent font-semibold">
+                              Forgot password?
+                            </button>
+                          </div>
+
+                          {signInError ? (
+                            <p className="text-sm text-[#b64b4b] bg-[#fde8e8] border border-[#efb6b6] rounded-xl px-3 py-2">
+                              {signInError}
+                            </p>
+                          ) : null}
+
+                          {!isSupabaseConfigured ? (
+                            <p className="text-sm text-[#8a5a14] bg-[#fff5df] border border-[#f1d79d] rounded-xl px-3 py-2">
+                              Supabase env vars are missing. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in `.env.local`.
+                            </p>
+                          ) : null}
+
+                          {signUpSuccess ? (
+                            <p className="text-sm text-castleton bg-[#e9f3ee] border border-castleton/20 rounded-xl px-3 py-2">
+                              {signUpSuccess}
+                            </p>
+                          ) : null}
+
+                          <button
+                            type="submit"
+                            disabled={isAuthLoading}
+                            className="focus-brand w-full inline-flex justify-center items-center gap-2 rounded-full border border-serpent/25 bg-serpent px-5 py-2.5 text-white font-semibold hover:bg-castleton transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {isAuthLoading ? 'Signing In...' : 'Sign In'}
+                            <ArrowRight className="w-4 h-4" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsSignUpOpen(true)
+                              setSignUpError('')
+                              setSignUpSuccess('')
+                            }}
+                            className="focus-brand w-full inline-flex justify-center items-center gap-2 rounded-full border border-castleton/25 bg-white px-5 py-2.5 text-serpent font-semibold hover:bg-[#eef3ef] transition-colors"
+                          >
+                            Sign Up
+                            <ArrowRight className="w-4 h-4" />
+                          </button>
+
+                          <p className="text-center text-sm text-black/70">
+                            New users can register first, then return here to sign in.
+                          </p>
+                        </form>
+                      </div>
+
+                      <div
+                        className="absolute inset-0 rounded-3xl bg-[#f3f3f3] p-6 sm:p-8 border border-castleton/15 shadow-soft"
+                        style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
+                      >
+                        <div className="flex items-start justify-between gap-4 mb-5">
+                          <div>
+                            <h3 className="text-xl sm:text-2xl font-semibold mb-1">Create your account</h3>
+                            <p className="text-black/70 text-sm sm:text-base">
+                              Fill in your account details. Supabase will handle secure registration and email verification.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsSignUpOpen(false)
+                              setSignUpError('')
+                            }}
+                            className="focus-brand inline-flex items-center gap-2 rounded-full border border-castleton/20 bg-white px-4 py-2 text-sm font-semibold text-serpent hover:bg-[#eef3ef] transition-colors"
+                          >
+                            <ArrowLeft className="w-4 h-4" />
+                            Back
+                          </button>
+                        </div>
+
+                        <form onSubmit={handleEmailSignUp} className="space-y-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs uppercase tracking-[0.12em] text-castleton mb-2">Full Name</label>
+                              <input
+                                type="text"
+                                placeholder="Juan Dela Cruz"
+                                value={signUpForm.fullName}
+                                onChange={(event) => {
+                                  setSignUpForm((prev) => ({ ...prev, fullName: event.target.value }))
+                                  if (signUpError) setSignUpError('')
+                                }}
+                                className="focus-brand w-full rounded-2xl border border-castleton/20 bg-[#f8f8f8] px-4 py-3 text-black outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs uppercase tracking-[0.12em] text-castleton mb-2">Email</label>
+                              <input
+                                type="email"
+                                placeholder="name@company.com"
+                                value={signUpForm.email}
+                                onChange={(event) => {
+                                  setSignUpForm((prev) => ({ ...prev, email: event.target.value }))
+                                  if (signUpError) setSignUpError('')
+                                }}
+                                className="focus-brand w-full rounded-2xl border border-castleton/20 bg-[#f8f8f8] px-4 py-3 text-black outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs uppercase tracking-[0.12em] text-castleton mb-2">Password</label>
+                              <input
+                                type="password"
+                                placeholder="Minimum 8 characters"
+                                value={signUpForm.password}
+                                onChange={(event) => {
+                                  setSignUpForm((prev) => ({ ...prev, password: event.target.value }))
+                                  if (signUpError) setSignUpError('')
+                                }}
+                                className="focus-brand w-full rounded-2xl border border-castleton/20 bg-[#f8f8f8] px-4 py-3 text-black outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs uppercase tracking-[0.12em] text-castleton mb-2">Confirm Password</label>
+                              <input
+                                type="password"
+                                placeholder="Repeat your password"
+                                value={signUpForm.confirmPassword}
+                                onChange={(event) => {
+                                  setSignUpForm((prev) => ({ ...prev, confirmPassword: event.target.value }))
+                                  if (signUpError) setSignUpError('')
+                                }}
+                                className="focus-brand w-full rounded-2xl border border-castleton/20 bg-[#f8f8f8] px-4 py-3 text-black outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs uppercase tracking-[0.12em] text-castleton mb-2">Phone</label>
+                              <input
+                                type="tel"
+                                placeholder="+63 9XX XXX XXXX"
+                                value={signUpForm.phone}
+                                onChange={(event) => {
+                                  setSignUpForm((prev) => ({ ...prev, phone: event.target.value }))
+                                  if (signUpError) setSignUpError('')
+                                }}
+                                className="focus-brand w-full rounded-2xl border border-castleton/20 bg-[#f8f8f8] px-4 py-3 text-black outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs uppercase tracking-[0.12em] text-castleton mb-2">Department / Role</label>
+                              <input
+                                type="text"
+                                placeholder="Operations, QA, Client Services"
+                                value={signUpForm.department}
+                                onChange={(event) => {
+                                  setSignUpForm((prev) => ({ ...prev, department: event.target.value }))
+                                  if (signUpError) setSignUpError('')
+                                }}
+                                className="focus-brand w-full rounded-2xl border border-castleton/20 bg-[#f8f8f8] px-4 py-3 text-black outline-none"
+                              />
+                            </div>
+                          </div>
+
+                          {signUpError ? (
+                            <p className="text-sm text-[#b64b4b] bg-[#fde8e8] border border-[#efb6b6] rounded-xl px-3 py-2">
+                              {signUpError}
+                            </p>
+                          ) : null}
+
+                          {!isSupabaseConfigured ? (
+                            <p className="text-sm text-[#8a5a14] bg-[#fff5df] border border-[#f1d79d] rounded-xl px-3 py-2">
+                              Supabase env vars are missing. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in `.env.local`.
+                            </p>
+                          ) : null}
+
+                          <button
+                            type="submit"
+                            disabled={isAuthLoading || !isSupabaseConfigured}
+                            className="focus-brand w-full inline-flex justify-center items-center gap-2 rounded-full border border-serpent/25 bg-castleton px-5 py-2.5 text-white font-semibold hover:bg-serpent transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {isAuthLoading ? 'Creating Account...' : 'Create Account'}
+                            <ArrowRight className="w-4 h-4" />
+                          </button>
+                        </form>
+                      </div>
+                    </motion.div>
                   </motion.article>
                 </div>
 
@@ -3682,7 +4322,16 @@ function App() {
               </motion.section>
             </section>
           ) : currentPath === '/admin-dashboard' ? (
-            isAdminAuthenticated ? (
+            !isAuthReady ? (
+              <section className="max-w-xl mx-auto">
+                <div className="bg-[#f3f3f3] rounded-3xl border border-castleton/15 p-7 sm:p-9 text-center">
+                  <h1 className="text-3xl sm:text-4xl font-semibold mb-3">Checking Session</h1>
+                  <p className="text-black/75 text-lg">
+                    Verifying your Supabase session and admin access.
+                  </p>
+                </div>
+              </section>
+            ) : hasAdminAccess ? (
               <section className="w-full text-black lg:min-h-screen">
                 <div className="relative">
                   <div className="space-y-3 flex flex-col items-center lg:fixed lg:left-0 lg:top-0 lg:inset-y-0 lg:w-[280px] lg:z-40 lg:justify-start lg:bg-[linear-gradient(165deg,#0f5a3f,#0d4d38_52%,#0a3f31)] lg:border-r lg:border-castleton/30 lg:px-4 lg:pt-5 lg:pb-4">
@@ -3760,6 +4409,16 @@ function App() {
                       >
                         {adminNotice}
                       </motion.p>
+                    ) : null}
+                    {isAdminDataLoading ? (
+                      <p className="mb-3 text-sm inline-flex rounded-full bg-white border border-castleton/15 px-3 py-1.5">
+                        Syncing admin data from Supabase...
+                      </p>
+                    ) : null}
+                    {adminDataError ? (
+                      <p className="mb-3 text-sm inline-flex rounded-full bg-[#fde8e8] border border-[#efb6b6] px-3 py-1.5 text-[#8a3528]">
+                        {adminDataError}
+                      </p>
                     ) : null}
                     {activeAdminTab === 'Dashboard' ? (
                       <div className="space-y-5">
@@ -5561,7 +6220,9 @@ function App() {
                 <div className="bg-[#f3f3f3] rounded-3xl border border-castleton/15 p-7 sm:p-9 text-center">
                   <h1 className="text-3xl sm:text-4xl font-semibold mb-3">Restricted Area</h1>
                   <p className="text-black/75 text-lg mb-6">
-                    Please sign in first to access the admin dashboard.
+                    {isAdminAuthenticated
+                      ? adminAccessError || 'This signed-in account is not assigned an admin role in Supabase.'
+                      : 'Please sign in first to access the admin dashboard.'}
                   </p>
                   <button
                     type="button"
