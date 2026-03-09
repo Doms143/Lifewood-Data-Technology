@@ -4221,7 +4221,7 @@ function App() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.35, delay: 0.06 }}
               >
-                <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.1fr] gap-5 sm:gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.1fr] gap-5 sm:gap-6 items-start">
                   <div className="space-y-4">
                     {contactChannels.map((channel, index) => {
                       const Icon = channel.icon
@@ -4262,7 +4262,7 @@ function App() {
                   </div>
 
                   <motion.div
-                    className="bg-[#f3f3f3] rounded-3xl p-6 sm:p-7 border border-castleton/15"
+                    className="self-start bg-[#f3f3f3] rounded-3xl p-6 sm:p-7 border border-castleton/15"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.26, delay: 0.16 }}
@@ -7651,6 +7651,8 @@ function App() {
 }
 
 export default App
+
+
 
 
 

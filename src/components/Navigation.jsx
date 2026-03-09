@@ -179,8 +179,22 @@ const Navigation = ({ onNavigate, onNavigatePath }) => {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 px-4 sm:px-6 lg:px-8 py-3">
+      <AnimatePresence>
+        {useCompactNav && isOpen ? (
+          <motion.button
+            type="button"
+            aria-label="Close navigation menu"
+            onClick={closePanel}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.22 }}
+            className="mobile-nav-backdrop fixed inset-0"
+          />
+        ) : null}
+      </AnimatePresence>
       <motion.div
-        className="max-w-7xl mx-auto relative"
+        className="max-w-7xl mx-auto relative z-[1]"
         initial={{ opacity: 0, y: -24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: 'easeOut' }}
@@ -302,21 +316,21 @@ const Navigation = ({ onNavigate, onNavigatePath }) => {
           <AnimatePresence>
             {useCompactNav && isOpen ? (
               <motion.nav
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.25 }}
-                className="pt-8 pb-4"
+                initial={{ opacity: 0, y: -12, scale: 0.985 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.99 }}
+                transition={{ duration: 0.24, ease: 'easeOut' }}
+                className="mobile-nav-panel pt-6 pb-2"
               >
-                <ul className="space-y-4 sm:space-y-5">
+                <ul className="mobile-nav-list space-y-4 sm:space-y-5">
                   {navItems.map((item) => (
                     <li key={item.label}>
                       <button
                         type="button"
                         onClick={() => handleItemClick(item)}
-                        className={`focus-brand flex items-center gap-2 text-left text-sm sm:text-base leading-tight font-medium transition-colors ${
+                        className={`focus-brand mobile-nav-item flex items-center justify-between gap-3 text-left text-sm sm:text-base leading-tight font-medium transition-colors ${
                           item.label === 'Sign In'
-                            ? 'inline-flex rounded-full border border-[#133020] px-4 py-2 bg-[#133020] text-[#f5eedb] transition-all duration-200 hover:-translate-y-0.5 hover:scale-[1.02] hover:shadow-[0_10px_24px_-14px_rgba(19,48,32,0.75)] hover:bg-[#ffb347] hover:border-[#ffb347] hover:text-[#133020]'
+                            ? 'mobile-nav-signin inline-flex rounded-full border border-[#133020] px-4 py-2 bg-[#133020] text-[#f5eedb] transition-all duration-200 hover:-translate-y-0.5 hover:scale-[1.02] hover:shadow-[0_10px_24px_-14px_rgba(19,48,32,0.75)] hover:bg-[#ffb347] hover:border-[#ffb347] hover:text-[#133020]'
                             : isItemSelected(item)
                               ? 'text-[#D79A44]'
                               : 'text-serpent hover:text-castleton'
@@ -335,8 +349,8 @@ const Navigation = ({ onNavigate, onNavigatePath }) => {
                               initial={{ opacity: 0, height: 0 }}
                               animate={{ opacity: 1, height: 'auto' }}
                               exit={{ opacity: 0, height: 0 }}
-                              transition={{ duration: 0.2 }}
-                              className="pl-4 sm:pl-6 pt-3 space-y-3 overflow-hidden"
+                              transition={{ duration: 0.2, ease: 'easeOut' }}
+                              className="mobile-nav-submenu pl-4 sm:pl-6 pt-3 space-y-3 overflow-hidden"
                             >
                               {item.children.map((subItem) => (
                                 <li key={subItem.path}>
