@@ -4832,7 +4832,7 @@ function App() {
                                   interns: internAnalyticsData,
                                 },
                                 {
-                                  title: "Employee's Present Today",
+                                  title: "Interns Present Today",
                                   value: String(presentInterns.length),
                                   detail: `${presentPercent}%`,
                                   accent: 'from-[#eefaf1] to-[#f7fff9]',
@@ -4841,7 +4841,7 @@ function App() {
                                   interns: presentInterns,
                                 },
                                 {
-                                  title: "Employee's on Leave",
+                                  title: "Interns on Leave",
                                   value: String(leaveInterns.length).padStart(2, '0'),
                                   detail: `${leavePercent}%`,
                                   accent: 'from-[#fff3f1] to-[#fff8f7]',
@@ -4850,7 +4850,7 @@ function App() {
                                   interns: leaveInterns,
                                 },
                                 {
-                                  title: "Employee's Late Today",
+                                  title: "Interns Late Today",
                                   value: String(lateInterns.length),
                                   detail: `${latePercent}%`,
                                   accent: 'from-[#f7f8f6] to-[#fcfcfb]',
@@ -4976,8 +4976,8 @@ function App() {
                                 <table className="min-w-full text-left">
                                   <thead className="sticky top-0 z-10 bg-[#eef4f0]">
                                     <tr className="text-black/75 border-b border-castleton/15">
-                                      <th className="py-2 pr-4 text-sm font-semibold">Emp Name</th>
-                                      <th className="py-2 pr-4 text-sm font-semibold">Emp Id</th>
+                                      <th className="py-2 pr-4 text-sm font-semibold">Intern Name</th>
+                                      <th className="py-2 pr-4 text-sm font-semibold">Intern Id</th>
                                       <th className="py-2 pr-4 text-sm font-semibold">Check-in</th>
                                       <th className="py-2 pr-4 text-sm font-semibold">Check-out</th>
                                     </tr>
@@ -5005,7 +5005,7 @@ function App() {
                               transition={{ duration: 0.24, delay: 0.08 }}
                             >
                               <div className="flex items-center justify-between mb-3">
-                                <h3 className="text-2xl font-semibold text-black">Employees Present</h3>
+                                <h3 className="text-2xl font-semibold text-black">Interns Present</h3>
                                 <span className="inline-flex rounded-full bg-[#edf3ef] px-3 py-1 text-sm font-semibold text-castleton">
                                   {presentInterns.length}/{totalInterns}
                                 </span>
@@ -5016,11 +5016,11 @@ function App() {
                                     key={person.name}
                                     type="button"
                                     onClick={() => runAdminAction(`Checked ${person.name} status`)}
-                                    className="admin-name-card w-full rounded-xl border border-castleton/10 bg-[#f8faf9] px-3 py-2 flex items-center justify-between hover:border-castleton/30 transition-colors"
+                                    className="admin-name-card w-full rounded-xl border border-castleton/10 bg-[#f8faf9] px-3 py-2 flex items-center gap-3 hover:border-castleton/30 transition-colors"
                                   >
-                                    <span className="font-medium text-black">{person.name}</span>
-                                    <span className="text-black/75 text-sm">{`09:${String(2 + idx).padStart(2, '0')}`}</span>
-                                    <span className="w-2.5 h-2.5 rounded-full bg-[#1e8f51]" />
+                                    <span className="min-w-0 flex-1 font-medium text-black text-left">{person.name}</span>
+                                    <span className="w-[76px] shrink-0 text-right text-black/75 text-sm tabular-nums">{`09:${String(2 + idx).padStart(2, '0')}`}</span>
+                                    <span className="w-2.5 h-2.5 shrink-0 rounded-full bg-[#1e8f51]" />
                                   </button>
                                 ))}
                               </div>
@@ -5033,7 +5033,7 @@ function App() {
                               transition={{ duration: 0.24, delay: 0.12 }}
                             >
                               <div className="flex items-center justify-between mb-3">
-                                <h3 className="text-2xl font-semibold text-black">Employees on Leave</h3>
+                                <h3 className="text-2xl font-semibold text-black">Interns on Leave</h3>
                                 <span className="inline-flex rounded-full bg-[#f7ece9] px-3 py-1 text-sm font-semibold text-[#8b3f2f]">
                                   {String(leaveInterns.length).padStart(2, '0')}/{totalInterns}
                                 </span>
@@ -5044,10 +5044,10 @@ function App() {
                                     key={person.name}
                                     type="button"
                                     onClick={() => runAdminAction(`Leave details: ${person.name}`)}
-                                    className="admin-name-card w-full rounded-xl border border-castleton/10 bg-[#fdfdfd] px-3 py-2 flex items-center justify-between hover:border-castleton/30 transition-colors"
+                                    className="admin-name-card w-full rounded-xl border border-castleton/10 bg-[#fdfdfd] px-3 py-2 flex items-center gap-3 hover:border-castleton/30 transition-colors"
                                   >
-                                    <span className="font-medium text-black">{person.name}</span>
-                                    <span className="text-black/75 text-sm">{`${2 + idx}/5 days`}</span>
+                                    <span className="min-w-0 flex-1 font-medium text-black text-left">{person.name}</span>
+                                    <span className="w-[92px] shrink-0 text-right text-black/75 text-sm tabular-nums">{`${2 + idx}/5 days`}</span>
                                   </button>
                                 ))}
                               </div>
