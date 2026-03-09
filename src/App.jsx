@@ -993,6 +993,7 @@ function App() {
   const [openPhilImpactRow, setOpenPhilImpactRow] = useState(null)
   const [signInEmail, setSignInEmail] = useState('')
   const [signInPassword, setSignInPassword] = useState('')
+  const [isSignInPasswordVisible, setIsSignInPasswordVisible] = useState(false)
   const [signInError, setSignInError] = useState('')
   const [signUpError, setSignUpError] = useState('')
   const [signUpSuccess, setSignUpSuccess] = useState('')
@@ -1012,6 +1013,8 @@ function App() {
     phone: '',
     department: '',
   })
+  const [isSignUpPasswordVisible, setIsSignUpPasswordVisible] = useState(false)
+  const [isSignUpConfirmPasswordVisible, setIsSignUpConfirmPasswordVisible] = useState(false)
   const [activeAdminTab, setActiveAdminTab] = useState('Dashboard')
   const [adminNotice, setAdminNotice] = useState('')
   const [internAnalyticsData, setInternAnalyticsData] = useState([])
@@ -2465,9 +2468,19 @@ function App() {
     return (
       <div className="w-full overflow-x-hidden min-h-screen">
         {!isAdminRoute ? <Navigation onNavigate={scrollToSection} onNavigatePath={goToPath} /> : null}
-        <main className={`${isAdminRoute ? 'pt-2 pb-0' : isCareersRoute ? 'pt-14 pb-14' : 'pt-20 pb-14'} px-4 sm:px-6 lg:px-8`}>
+        <main
+          className={`${
+            isAdminRoute
+              ? 'pt-2 pb-0'
+              : currentPath === '/sign-in'
+                ? 'pt-28 sm:pt-32 lg:pt-20 pb-14'
+                : isCareersRoute
+                  ? 'pt-14 pb-14'
+                  : 'pt-20 pb-14'
+          } px-4 sm:px-6 lg:px-8`}
+        >
           {currentPath === '/ai-services' ? (
-            <section className="max-w-6xl mx-auto space-y-8 relative text-black">
+            <section className="max-w-6xl mx-auto space-y-6 sm:space-y-8 relative text-black">
               <div className="absolute -top-20 -left-16 w-72 h-72 rounded-full bg-saffron/20 blur-3xl" />
               <div className="absolute top-40 -right-16 w-72 h-72 rounded-full bg-castleton/15 blur-3xl" />
 
@@ -2734,7 +2747,7 @@ function App() {
                     </h1>
                     <motion.button
                       type="button"
-                      onClick={() => goToPath('/contact-us')}
+                      onClick={() => window.open('https://application-form-ph.vercel.app/', '_blank', 'noopener,noreferrer')}
                       className="focus-brand mt-8 inline-flex items-center rounded-full overflow-hidden border border-saffron bg-saffron text-black font-semibold"
                       whileHover={{ y: -2, boxShadow: '0 12px 24px -14px rgba(244,179,71,0.9)' }}
                       whileTap={{ scale: 0.98 }}
@@ -4370,9 +4383,9 @@ function App() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.35, delay: 0.06 }}
               >
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-7 items-stretch">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-7 items-stretch">
                   <motion.article
-                    className="lg:col-span-5 rounded-3xl bg-serpent text-white p-7 sm:p-9 border border-castleton/35 relative overflow-hidden"
+                    className="order-2 lg:order-1 lg:col-span-5 rounded-3xl bg-serpent text-white p-6 sm:p-9 border border-castleton/35 relative overflow-hidden"
                     initial={{ opacity: 0, x: -16 }}
                     whileInView={{ opacity: 1, x: 0 }}
                     viewport={{ once: true, amount: 0.2 }}
@@ -4399,7 +4412,9 @@ function App() {
                   </motion.article>
 
                   <motion.article
-                    className={`lg:col-span-7 relative ${isSignUpOpen ? 'min-h-[500px] sm:min-h-[520px]' : 'min-h-[420px] sm:min-h-[460px]'}`}
+                    className={`order-1 lg:order-2 lg:col-span-7 relative ${
+                      isSignUpOpen ? 'min-h-[580px] sm:min-h-[520px]' : 'min-h-[500px] sm:min-h-[460px]'
+                    }`}
                     initial={{ opacity: 0, x: 16 }}
                     whileInView={{ opacity: 1, x: 0 }}
                     viewport={{ once: true, amount: 0.2 }}
@@ -4435,16 +4450,25 @@ function App() {
                           </div>
                           <div>
                             <label className="block text-xs uppercase tracking-[0.12em] text-castleton mb-2">Password</label>
-                            <input
-                              type="password"
-                              placeholder="Enter your password"
-                              value={signInPassword}
-                              onChange={(event) => {
-                                setSignInPassword(event.target.value)
-                                if (signInError) setSignInError('')
-                              }}
-                              className="focus-brand w-full rounded-2xl border border-castleton/20 bg-white px-4 py-3 text-black outline-none"
-                            />
+                            <div className="relative">
+                              <input
+                                type={isSignInPasswordVisible ? 'text' : 'password'}
+                                placeholder="Enter your password"
+                                value={signInPassword}
+                                onChange={(event) => {
+                                  setSignInPassword(event.target.value)
+                                  if (signInError) setSignInError('')
+                                }}
+                                className="focus-brand w-full rounded-2xl border border-castleton/20 bg-white px-4 py-3 pr-20 text-black outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setIsSignInPasswordVisible((prev) => !prev)}
+                                className="focus-brand absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-castleton hover:text-serpent transition-colors"
+                              >
+                                {isSignInPasswordVisible ? 'Hide' : 'Show'}
+                              </button>
+                            </div>
                           </div>
 
                           <div className="flex items-center justify-between gap-3 text-sm">
@@ -4497,7 +4521,7 @@ function App() {
                             <ArrowRight className="w-4 h-4" />
                           </button>
 
-                          <p className="text-center text-sm text-black/70">
+                          <p className="px-2 text-center text-sm leading-relaxed text-black/70 sm:px-0">
                             New users can register first, then return here to sign in.
                           </p>
                         </form>
@@ -4557,29 +4581,47 @@ function App() {
                             </div>
                             <div>
                               <label className="block text-xs uppercase tracking-[0.12em] text-castleton mb-2">Password</label>
-                              <input
-                                type="password"
-                                placeholder="Minimum 8 characters"
-                                value={signUpForm.password}
-                                onChange={(event) => {
-                                  setSignUpForm((prev) => ({ ...prev, password: event.target.value }))
-                                  if (signUpError) setSignUpError('')
-                                }}
-                                className="focus-brand w-full rounded-2xl border border-castleton/20 bg-[#f8f8f8] px-4 py-3 text-black outline-none"
-                              />
+                              <div className="relative">
+                                <input
+                                  type={isSignUpPasswordVisible ? 'text' : 'password'}
+                                  placeholder="Minimum 8 characters"
+                                  value={signUpForm.password}
+                                  onChange={(event) => {
+                                    setSignUpForm((prev) => ({ ...prev, password: event.target.value }))
+                                    if (signUpError) setSignUpError('')
+                                  }}
+                                  className="focus-brand w-full rounded-2xl border border-castleton/20 bg-[#f8f8f8] px-4 py-3 pr-20 text-black outline-none"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setIsSignUpPasswordVisible((prev) => !prev)}
+                                  className="focus-brand absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-castleton hover:text-serpent transition-colors"
+                                >
+                                  {isSignUpPasswordVisible ? 'Hide' : 'Show'}
+                                </button>
+                              </div>
                             </div>
                             <div>
                               <label className="block text-xs uppercase tracking-[0.12em] text-castleton mb-2">Confirm Password</label>
-                              <input
-                                type="password"
-                                placeholder="Repeat your password"
-                                value={signUpForm.confirmPassword}
-                                onChange={(event) => {
-                                  setSignUpForm((prev) => ({ ...prev, confirmPassword: event.target.value }))
-                                  if (signUpError) setSignUpError('')
-                                }}
-                                className="focus-brand w-full rounded-2xl border border-castleton/20 bg-[#f8f8f8] px-4 py-3 text-black outline-none"
-                              />
+                              <div className="relative">
+                                <input
+                                  type={isSignUpConfirmPasswordVisible ? 'text' : 'password'}
+                                  placeholder="Repeat your password"
+                                  value={signUpForm.confirmPassword}
+                                  onChange={(event) => {
+                                    setSignUpForm((prev) => ({ ...prev, confirmPassword: event.target.value }))
+                                    if (signUpError) setSignUpError('')
+                                  }}
+                                  className="focus-brand w-full rounded-2xl border border-castleton/20 bg-[#f8f8f8] px-4 py-3 pr-20 text-black outline-none"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setIsSignUpConfirmPasswordVisible((prev) => !prev)}
+                                  className="focus-brand absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-castleton hover:text-serpent transition-colors"
+                                >
+                                  {isSignUpConfirmPasswordVisible ? 'Hide' : 'Show'}
+                                </button>
+                              </div>
                             </div>
                             <div>
                               <label className="block text-xs uppercase tracking-[0.12em] text-castleton mb-2">Phone</label>
