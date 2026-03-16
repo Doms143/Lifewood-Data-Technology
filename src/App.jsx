@@ -958,6 +958,10 @@ const mapCareerApplicationRowToClient = (row) => ({
   createdAt: row.created_at,
   cvFilename: row.cv_filename || '',
   cvPath: row.cv_path || '',
+  cvScore: row.cv_score ?? null,
+  cvBreakdown: row.cv_breakdown || null,
+  cvSummary: row.cv_summary || '',
+  cvScoredAt: row.cv_scored_at || '',
 })
 
 const approvalStatusOrder = {
@@ -1087,6 +1091,10 @@ function App() {
   const [applicationsError, setApplicationsError] = useState('')
   const [applicationNoteDrafts, setApplicationNoteDrafts] = useState({})
   const [selectedApplication, setSelectedApplication] = useState(null)
+  const [isScoringCv, setIsScoringCv] = useState(false)
+  const [cvScoreError, setCvScoreError] = useState('')
+  const [isBatchScoring, setIsBatchScoring] = useState(false)
+  const [batchScoreProgress, setBatchScoreProgress] = useState({ done: 0, total: 0 })
   const [isCvModalOpen, setIsCvModalOpen] = useState(false)
   const [cvModalUrl, setCvModalUrl] = useState('')
   const [cvModalName, setCvModalName] = useState('')
@@ -1098,6 +1106,7 @@ function App() {
   const [analyticsViewMode, setAnalyticsViewMode] = useState('tiles')
   const [evaluationViewMode, setEvaluationViewMode] = useState('tiles')
   const [reportsViewMode, setReportsViewMode] = useState('tiles')
+  const [applicationViewMode, setApplicationViewMode] = useState('cards')
   const [isAdminProfileModalOpen, setIsAdminProfileModalOpen] = useState(false)
   const [adminProfileForm, setAdminProfileForm] = useState({
     firstName: 'Lifewood',
@@ -1141,6 +1150,8 @@ function App() {
   const [approvalSortBy, setApprovalSortBy] = useState('pending-first')
   const [applicationSearch, setApplicationSearch] = useState('')
   const [applicationSortBy, setApplicationSortBy] = useState('newest-first')
+  const [applicationPage, setApplicationPage] = useState(1)
+  const applicationPageSize = 10
   const [settingsSearch, setSettingsSearch] = useState('')
   const [settingsStatusFilter, setSettingsStatusFilter] = useState('All')
   const [settingsPage, setSettingsPage] = useState(1)
@@ -1826,6 +1837,25 @@ function App() {
       return rightDate - leftDate || nameCompare
     })
   }, [applicationSearch, applicationSortBy, careerApplications])
+  const totalApplicationPages = useMemo(
+    () => Math.max(1, Math.ceil(filteredApplications.length / applicationPageSize)),
+    [filteredApplications.length, applicationPageSize]
+  )
+
+  const paginatedApplications = useMemo(() => {
+    const start = (applicationPage - 1) * applicationPageSize
+    return filteredApplications.slice(start, start + applicationPageSize)
+  }, [filteredApplications, applicationPage, applicationPageSize])
+
+  useEffect(() => {
+    if (applicationPage > totalApplicationPages) {
+      setApplicationPage(totalApplicationPages)
+    }
+  }, [applicationPage, totalApplicationPages])
+
+  useEffect(() => {
+    setApplicationPage(1)
+  }, [applicationSearch, applicationSortBy, applicationViewMode])
   const settingsInternRows = useMemo(() => {
     const query = settingsSearch.trim().toLowerCase()
     return internAnalyticsData
@@ -2311,6 +2341,66 @@ function App() {
         },
       })
     })()
+  }
+
+  const handleScoreApplication = async (application) => {
+    setIsScoringCv(true)
+    setCvScoreError('')
+    try {
+      const response = await fetch('/api/score-cv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ applicationId: application.id }),
+      })
+      const rawText = await response.text()
+      const payload = rawText ? JSON.parse(rawText) : {}
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Failed to score CV')
+      }
+      const updated = mapCareerApplicationRowToClient(payload.application)
+      setCareerApplications((prev) => prev.map((item) => (item.id === updated.id ? updated : item)))
+      setSelectedApplication(updated)
+      runAdminAction('CV scored')
+    } catch (error) {
+      setCvScoreError(error?.message || 'Failed to score CV')
+    } finally {
+      setIsScoringCv(false)
+    }
+  }
+
+  const handleScoreAllPending = async () => {
+    const pendingApps = careerApplications.filter((app) => app.status === 'pending')
+    if (!pendingApps.length) {
+      runAdminAction('No pending applications to score')
+      return
+    }
+    setIsBatchScoring(true)
+    setCvScoreError('')
+    setBatchScoreProgress({ done: 0, total: pendingApps.length })
+    try {
+      let completed = 0
+      for (const application of pendingApps) {
+        const response = await fetch('/api/score-cv', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ applicationId: application.id }),
+        })
+        const payload = await response.json()
+        if (response.ok) {
+          const updated = mapCareerApplicationRowToClient(payload.application)
+          setCareerApplications((prev) => prev.map((item) => (item.id === updated.id ? updated : item)))
+        } else {
+          setCvScoreError(payload?.error || 'Failed to score one or more CVs')
+        }
+        completed += 1
+        setBatchScoreProgress({ done: completed, total: pendingApps.length })
+      }
+      runAdminAction('Batch CV scoring complete')
+    } catch (error) {
+      setCvScoreError(error?.message || 'Batch CV scoring failed')
+    } finally {
+      setIsBatchScoring(false)
+    }
   }
 
   const runAdminAction = (message) => {
@@ -6302,6 +6392,21 @@ function App() {
                                 Review applicant details, open CVs, and record approval or rejection status.
                               </p>
                             </div>
+                            <div className="flex flex-wrap items-center gap-3">
+                              <button
+                                type="button"
+                                onClick={handleScoreAllPending}
+                                disabled={isBatchScoring}
+                                className="focus-brand rounded-full border border-castleton/20 bg-white px-4 py-2 text-sm font-semibold text-castleton transition-colors hover:bg-[#eef3ef] disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {isBatchScoring ? 'Scoring Pending...' : 'Score All Pending'}
+                              </button>
+                              {isBatchScoring ? (
+                                <span className="text-xs text-black/60">
+                                  {batchScoreProgress.done}/{batchScoreProgress.total} scored
+                                </span>
+                              ) : null}
+                            </div>
                             <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 min-w-[240px]">
                               {[
                                 ['Pending', careerApplications.filter((item) => item.status === 'pending').length, 'bg-[#fff6e4] text-[#8a5a14]'],
@@ -6316,7 +6421,7 @@ function App() {
                             </div>
                           </div>
 
-                          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px] mb-5">
+                          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_200px] mb-5">
                             <label className="flex items-center gap-3 rounded-2xl border border-castleton/15 bg-[#f7faf8] px-4 py-3">
                               <Search size={18} className="text-castleton/60" />
                               <input
@@ -6344,6 +6449,36 @@ function App() {
                                 <option value="name-asc">A-Z</option>
                               </select>
                             </label>
+                            <div className="rounded-3xl border border-castleton/15 bg-white/80 px-2 py-2 flex items-center justify-between gap-2 shadow-sm">
+                              <button
+                                type="button"
+                                onClick={() => setApplicationViewMode('cards')}
+                                className={`flex-1 rounded-2xl px-3 py-2 text-sm font-semibold transition-colors ${
+                                  applicationViewMode === 'cards'
+                                    ? 'bg-castleton text-white'
+                                    : 'text-castleton hover:bg-[#eef3ef]'
+                                }`}
+                              >
+                                <span className="inline-flex items-center justify-center gap-2">
+                                  <LayoutGrid className="h-4 w-4" />
+                                  Card View
+                                </span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setApplicationViewMode('list')}
+                                className={`flex-1 rounded-2xl px-3 py-2 text-sm font-semibold transition-colors ${
+                                  applicationViewMode === 'list'
+                                    ? 'bg-castleton text-white'
+                                    : 'text-castleton hover:bg-[#eef3ef]'
+                                }`}
+                              >
+                                <span className="inline-flex items-center justify-center gap-2">
+                                  <AlignJustify className="h-4 w-4" />
+                                  List View
+                                </span>
+                              </button>
+                            </div>
                           </div>
 
                           {applicationsError ? (
@@ -6354,50 +6489,116 @@ function App() {
                         </motion.div>
 
                         <div className="space-y-4">
-                          {filteredApplications.length ? (
-                            filteredApplications.map((application, index) => (
-                              <motion.article
-                                key={application.id}
-                                className={`rounded-[22px] border bg-white p-5 transition-colors ${
-                                  application.status === 'pending'
-                                    ? 'border-[#e2c676] shadow-[0_16px_40px_-30px_rgba(138,90,20,0.45)]'
-                                    : application.status === 'approved'
-                                      ? 'border-castleton/20'
-                                      : 'border-[#dfc1bb]'
-                                }`}
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.22, delay: Math.min(index * 0.03, 0.18) }}
-                              >
-                                <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
-                                  <div>
-                                    <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
-                                      <div>
-                                        <p className="text-xs uppercase tracking-[0.12em] text-castleton mb-1">Applicant</p>
-                                        <h3 className="text-2xl font-semibold text-black">
-                                          {application.firstName} {application.lastName}
-                                        </h3>
-                                        <p className="text-sm text-black/65 mt-1">{application.email}</p>
-                                      </div>
-                                      <div className="text-right">
-                                        <p className="text-xs uppercase tracking-[0.12em] text-black/45 mb-2">Submitted</p>
-                                        <p className="text-sm text-black/65">{new Date(application.createdAt).toLocaleString()}</p>
-                                      </div>
+                          {paginatedApplications.length ? (
+                            applicationViewMode === 'list' ? (
+                              <div className="rounded-[22px] border border-castleton/15 bg-white overflow-hidden">
+                                <div className="grid grid-cols-[1.2fr_1fr_0.7fr_0.6fr_140px] gap-3 px-4 py-3 text-xs uppercase tracking-[0.12em] text-black/50 border-b border-castleton/10">
+                                  <span>Applicant</span>
+                                  <span>Position</span>
+                                  <span>Status</span>
+                                  <span>Score</span>
+                                  <span>Action</span>
+                                </div>
+                                {paginatedApplications.map((application) => (
+                                  <div
+                                    key={application.id}
+                                    className="grid grid-cols-[1.2fr_1fr_0.7fr_0.6fr_140px] gap-3 px-4 py-3 border-b border-castleton/10 last:border-b-0"
+                                  >
+                                    <div>
+                                      <p className="text-sm font-semibold text-black">
+                                        {application.firstName} {application.lastName}
+                                      </p>
+                                      <p className="text-xs text-black/60">{application.email}</p>
                                     </div>
+                                    <div className="text-sm text-black/80">
+                                      {(application.positions || []).join(', ') || 'Not specified'}
+                                    </div>
+                                    <div>
+                                      <span
+                                        className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                                          application.status === 'approved'
+                                            ? 'bg-[#e9f3ee] text-castleton'
+                                            : application.status === 'rejected'
+                                              ? 'bg-[#fde8e8] text-[#8a3528]'
+                                              : 'bg-[#fff6e4] text-[#8a5a14]'
+                                        }`}
+                                      >
+                                        {application.status}
+                                      </span>
+                                    </div>
+                                    <div className="text-sm font-semibold text-black">
+                                      {application.cvScore !== null && application.cvScore !== undefined ? (
+                                        <span
+                                          className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                                            application.cvScore >= 85
+                                              ? 'bg-[#e9f3ee] text-castleton'
+                                              : application.cvScore >= 70
+                                                ? 'bg-[#fff6e4] text-[#8a5a14]'
+                                                : 'bg-[#fde8e8] text-[#8a3528]'
+                                          }`}
+                                        >
+                                          {application.cvScore}
+                                        </span>
+                                      ) : (
+                                        '—'
+                                      )}
+                                    </div>
+                                    <div>
+                                      <button
+                                        type="button"
+                                        onClick={() => setSelectedApplication(application)}
+                                        className="focus-brand rounded-full border border-castleton/20 bg-white px-3 py-1.5 text-xs font-semibold text-castleton transition-colors hover:bg-[#eef3ef]"
+                                      >
+                                        Review
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              paginatedApplications.map((application, index) => (
+                                <motion.article
+                                  key={application.id}
+                                  className={`rounded-[22px] border bg-white p-5 transition-colors ${
+                                    application.status === 'pending'
+                                      ? 'border-[#e2c676] shadow-[0_16px_40px_-30px_rgba(138,90,20,0.45)]'
+                                      : application.status === 'approved'
+                                        ? 'border-castleton/20'
+                                        : 'border-[#dfc1bb]'
+                                  }`}
+                                  initial={{ opacity: 0, y: 10 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{ duration: 0.22, delay: Math.min(index * 0.03, 0.18) }}
+                                >
+                                  <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
+                                    <div>
+                                      <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
+                                        <div>
+                                          <p className="text-xs uppercase tracking-[0.12em] text-castleton mb-1">Applicant</p>
+                                          <h3 className="text-2xl font-semibold text-black">
+                                            {application.firstName} {application.lastName}
+                                          </h3>
+                                          <p className="text-sm text-black/65 mt-1">{application.email}</p>
+                                        </div>
+                                        <div className="text-right">
+                                          <p className="text-xs uppercase tracking-[0.12em] text-black/45 mb-2">Submitted</p>
+                                          <p className="text-sm text-black/65">{new Date(application.createdAt).toLocaleString()}</p>
+                                        </div>
+                                      </div>
 
-                                    <div className="grid gap-3 sm:grid-cols-3">
-                                      <div className="rounded-2xl border border-castleton/12 bg-[#f8faf9] px-4 py-3">
-                                        <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Phone</p>
-                                        <p className="mt-2 text-sm font-medium text-black">
-                                          {application.phoneCode} {application.phoneNumber}
-                                        </p>
-                                      </div>
-                                      <div className="rounded-2xl border border-castleton/12 bg-[#f8faf9] px-4 py-3">
-                                        <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Position</p>
-                                        <p className="mt-2 text-sm font-medium text-black">
-                                          {(application.positions || []).join(', ') || 'Not specified'}
-                                        </p>
-                                      </div>
+                                      <div className="grid gap-3 sm:grid-cols-3">
+                                        <div className="rounded-2xl border border-castleton/12 bg-[#f8faf9] px-4 py-3">
+                                          <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Phone</p>
+                                          <p className="mt-2 text-sm font-medium text-black">
+                                            {application.phoneCode} {application.phoneNumber}
+                                          </p>
+                                        </div>
+                                        <div className="rounded-2xl border border-castleton/12 bg-[#f8faf9] px-4 py-3">
+                                          <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Position</p>
+                                          <p className="mt-2 text-sm font-medium text-black">
+                                            {(application.positions || []).join(', ') || 'Not specified'}
+                                          </p>
+                                        </div>
                                       <div className="rounded-2xl border border-castleton/12 bg-[#f8faf9] px-4 py-3">
                                         <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Status</p>
                                         <span
@@ -6411,50 +6612,68 @@ function App() {
                                         >
                                           {application.status}
                                         </span>
+                                        <div className="mt-2">
+                                          {application.cvScore !== null && application.cvScore !== undefined ? (
+                                            <span
+                                              className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                                                application.cvScore >= 85
+                                                  ? 'bg-[#e9f3ee] text-castleton'
+                                                  : application.cvScore >= 70
+                                                    ? 'bg-[#fff6e4] text-[#8a5a14]'
+                                                    : 'bg-[#fde8e8] text-[#8a3528]'
+                                              }`}
+                                            >
+                                              Score: {application.cvScore}
+                                            </span>
+                                          ) : (
+                                            <span className="text-sm text-black/60">Score: —</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      </div>
+                                    </div>
+
+                                    <div className="rounded-[20px] border border-castleton/12 bg-[#fbfcfb] p-4">
+                                      <span
+                                        className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] ${
+                                          application.status === 'approved'
+                                            ? 'bg-[#e9f3ee] text-castleton'
+                                            : application.status === 'rejected'
+                                              ? 'bg-[#fde8e8] text-[#8a3528]'
+                                              : 'bg-[#fff6e4] text-[#8a5a14]'
+                                        }`}
+                                      >
+                                        {application.status === 'pending' ? 'Needs Review' : `Status: ${application.status}`}
+                                      </span>
+                                      <p className="mt-3 text-sm text-black/65">
+                                        {application.reviewedAt
+                                          ? `Reviewed ${new Date(application.reviewedAt).toLocaleString()}`
+                                          : 'Awaiting admin review'}
+                                      </p>
+                                      <textarea
+                                        value={applicationNoteDrafts[application.id] ?? application.adminNote}
+                                        onChange={(event) =>
+                                          setApplicationNoteDrafts((prev) => ({ ...prev, [application.id]: event.target.value }))
+                                        }
+                                        placeholder="Add an internal note for this application"
+                                        rows={4}
+                                        className="focus-brand mt-4 w-full rounded-2xl border border-castleton/20 bg-white px-4 py-3 text-black outline-none resize-y"
+                                      />
+
+                                      <div className="mt-4 flex flex-wrap gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => setSelectedApplication(application)}
+                                          className="focus-brand rounded-full border border-castleton/20 bg-white px-4 py-2 text-sm font-semibold text-castleton transition-colors hover:bg-[#eef3ef]"
+                                        >
+                                          Review Applicant
+                                        </button>
                                       </div>
                                     </div>
                                   </div>
-
-                                  <div className="rounded-[20px] border border-castleton/12 bg-[#fbfcfb] p-4">
-                                    <span
-                                      className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] ${
-                                        application.status === 'approved'
-                                          ? 'bg-[#e9f3ee] text-castleton'
-                                          : application.status === 'rejected'
-                                            ? 'bg-[#fde8e8] text-[#8a3528]'
-                                            : 'bg-[#fff6e4] text-[#8a5a14]'
-                                      }`}
-                                    >
-                                      {application.status === 'pending' ? 'Needs Review' : `Status: ${application.status}`}
-                                    </span>
-                                    <p className="mt-3 text-sm text-black/65">
-                                      {application.reviewedAt
-                                        ? `Reviewed ${new Date(application.reviewedAt).toLocaleString()}`
-                                        : 'Awaiting admin review'}
-                                    </p>
-                                    <textarea
-                                      value={applicationNoteDrafts[application.id] ?? application.adminNote}
-                                      onChange={(event) =>
-                                        setApplicationNoteDrafts((prev) => ({ ...prev, [application.id]: event.target.value }))
-                                      }
-                                      placeholder="Add an internal note for this application"
-                                      rows={4}
-                                      className="focus-brand mt-4 w-full rounded-2xl border border-castleton/20 bg-white px-4 py-3 text-black outline-none resize-y"
-                                    />
-
-                                    <div className="mt-4 flex flex-wrap gap-2">
-                                      <button
-                                        type="button"
-                                        onClick={() => setSelectedApplication(application)}
-                                        className="focus-brand rounded-full border border-castleton/20 bg-white px-4 py-2 text-sm font-semibold text-castleton transition-colors hover:bg-[#eef3ef]"
-                                      >
-                                        Review Applicant
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
-                              </motion.article>
-                            ))
+                                </motion.article>
+                              ))
+                            )
                           ) : (
                             <motion.article
                               className="rounded-[22px] border border-castleton/15 bg-white p-6"
@@ -6472,6 +6691,31 @@ function App() {
                               </p>
                             </motion.article>
                           )}
+                          {totalApplicationPages > 1 ? (
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                              <p className="text-sm text-black/60">
+                                Page {applicationPage} of {totalApplicationPages}
+                              </p>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setApplicationPage((prev) => Math.max(1, prev - 1))}
+                                  disabled={applicationPage === 1}
+                                  className="focus-brand rounded-full border border-castleton/15 bg-white px-4 py-2 text-sm font-semibold text-castleton hover:bg-[#f4f7f5] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  Previous
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setApplicationPage((prev) => Math.min(totalApplicationPages, prev + 1))}
+                                  disabled={applicationPage === totalApplicationPages}
+                                  className="focus-brand rounded-full border border-castleton/15 bg-white px-4 py-2 text-sm font-semibold text-castleton hover:bg-[#f4f7f5] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  Next
+                                </button>
+                              </div>
+                            </div>
+                          ) : null}
                         </div>
                       </div>
                     ) : activeAdminTab === 'Approvals' ? (
@@ -7660,30 +7904,78 @@ function App() {
                           </div>
                         </div>
 
-                          <div className="rounded-2xl border border-castleton/12 bg-[#fbfcfb] p-4 mb-4">
-                            <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Current Address</p>
-                            <p className="mt-2 text-sm font-medium text-black">
-                              {selectedApplication.address || 'Not specified'}
+                        <div className="rounded-2xl border border-castleton/12 bg-[#fbfcfb] p-4 mb-4">
+                          <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Current Address</p>
+                          <p className="mt-2 text-sm font-medium text-black">
+                            {selectedApplication.address || 'Not specified'}
+                          </p>
+                        </div>
+
+                        <div className="grid gap-3 sm:grid-cols-2 mb-4">
+                          <div className="rounded-2xl border border-castleton/12 bg-[#fbfcfb] p-4">
+                            <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">CV Score</p>
+                            <p className="mt-2 text-3xl font-semibold text-black">
+                              {selectedApplication.cvScore ?? '—'}
+                            </p>
+                            <p className="text-xs text-black/60 mt-1">
+                              {selectedApplication.cvScoredAt
+                                ? `Scored ${new Date(selectedApplication.cvScoredAt).toLocaleString()}`
+                                : 'Not scored yet'}
                             </p>
                           </div>
-
                           <div className="rounded-2xl border border-castleton/12 bg-[#fbfcfb] p-4">
-                            <p className="text-sm text-black/65">
-                              Submitted: {new Date(selectedApplication.createdAt).toLocaleString()}
+                            <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Summary</p>
+                            <p className="mt-2 text-sm text-black/75">
+                              {selectedApplication.cvSummary || 'No summary yet.'}
                             </p>
-                            <textarea
-                              value={applicationNoteDrafts[selectedApplication.id] ?? selectedApplication.adminNote}
-                              onChange={(event) =>
-                                setApplicationNoteDrafts((prev) => ({ ...prev, [selectedApplication.id]: event.target.value }))
-                              }
-                              placeholder="Add an internal note for this application"
-                              rows={4}
-                              className="focus-brand mt-3 w-full rounded-2xl border border-castleton/20 bg-white px-4 py-3 text-black outline-none resize-y"
-                            />
                           </div>
                         </div>
 
+                        {selectedApplication.cvBreakdown ? (
+                          <div className="rounded-2xl border border-castleton/12 bg-[#fbfcfb] p-4 mb-4">
+                            <p className="text-[11px] uppercase tracking-[0.12em] text-black/45 mb-2">Breakdown</p>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              {Object.entries(selectedApplication.cvBreakdown).map(([label, value]) => (
+                                <div key={label} className="flex items-center justify-between rounded-xl bg-white/70 px-3 py-2 text-sm">
+                                  <span className="text-black/70 capitalize">{label.replace(/_/g, ' ')}</span>
+                                  <span className="font-semibold text-black">{value}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {cvScoreError ? (
+                          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 mb-4">
+                            {cvScoreError}
+                          </div>
+                        ) : null}
+
+                        <div className="rounded-2xl border border-castleton/12 bg-[#fbfcfb] p-4">
+                          <p className="text-sm text-black/65">
+                            Submitted: {new Date(selectedApplication.createdAt).toLocaleString()}
+                          </p>
+                          <textarea
+                            value={applicationNoteDrafts[selectedApplication.id] ?? selectedApplication.adminNote}
+                            onChange={(event) =>
+                              setApplicationNoteDrafts((prev) => ({ ...prev, [selectedApplication.id]: event.target.value }))
+                            }
+                            placeholder="Add an internal note for this application"
+                            rows={4}
+                            className="focus-brand mt-3 w-full rounded-2xl border border-castleton/20 bg-white px-4 py-3 text-black outline-none resize-y"
+                          />
+                        </div>
+                        </div>
+
                         <div className="mt-auto flex flex-wrap justify-end gap-2 px-5 sm:px-6 pb-5 sm:pb-6 pt-4 border-t border-castleton/10 bg-white/70 backdrop-blur">
+                          <button
+                            type="button"
+                            onClick={() => handleScoreApplication(selectedApplication)}
+                            disabled={isScoringCv}
+                            className="focus-brand rounded-full border border-castleton/15 bg-white px-4 py-2 text-sm font-semibold text-castleton hover:bg-[#f4f7f5] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {selectedApplication.cvScore ? 'Rescore CV' : 'Score CV'}
+                          </button>
                           <button
                             type="button"
                             onClick={() => handleOpenApplicationCv(selectedApplication)}

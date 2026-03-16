@@ -176,7 +176,7 @@ export default function ApplicationFormRoute() {
       return
     }
 
-    const { error: insertError } = await supabase.from('career_applications').insert({
+    const { data: insertedApplication, error: insertError } = await supabase.from('career_applications').insert({
       created_at: new Date().toISOString(),
       first_name: formData.firstName.trim(),
       last_name: formData.lastName.trim(),
@@ -190,11 +190,23 @@ export default function ApplicationFormRoute() {
       positions: [formData.position],
       cv_filename: resumeFile.name,
       cv_path: fileName,
-    })
+    }).select('*').single()
 
     if (insertError) {
       setStatus({ type: 'error', message: `Submission failed: ${insertError.message}` })
       return
+    }
+
+    if (insertedApplication?.id) {
+      try {
+        await fetch('/api/score-cv', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ applicationId: insertedApplication.id }),
+        })
+      } catch {
+        // scoring is best-effort; ignore failures here
+      }
     }
 
     setStatus({ type: 'success', message: 'Application submitted. We will contact you soon.' })
