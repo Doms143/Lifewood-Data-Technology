@@ -9,6 +9,29 @@ const supabase = supabaseUrl && supabaseServiceKey
   ? createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } })
   : null
 
+const resolveModelName = async (apiKey) => {
+  const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models?key=' + apiKey)
+  if (!res.ok) {
+    return 'gemini-1.5-flash-latest'
+  }
+  const data = await res.json()
+  const models = data.models || []
+  const supportsGenerateContent = (model) => (model.supportedGenerationMethods || []).includes('generateContent')
+  const preferred = [
+    'gemini-1.5-flash-latest',
+    'gemini-1.5-flash-002',
+    'gemini-1.5-flash-001',
+    'gemini-2.5-flash',
+    'gemini-2.0-flash',
+  ]
+  for (const name of preferred) {
+    const found = models.find((m) => m.name === 'models/' + name && supportsGenerateContent(m))
+    if (found) return name
+  }
+  const anyFlash = models.find((m) => m.name.includes('gemini-1.5-flash') && supportsGenerateContent(m))
+  if (anyFlash) return anyFlash.name.replace('models/', '')
+  return 'gemini-1.5-flash-latest'
+}
 const buildPrompt = (cvText) => `
 You are a hiring analyst. Score the following CV text from 1-100 using this weighted rubric:
 1) Relevance to applied role: 30%
@@ -99,8 +122,10 @@ export default async function handler(req, res) {
       return
     }
 
+    const modelName = await resolveModelName(geminiApiKey)
+
     const geminiResponse = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
+      'https://generativelanguage.googleapis.com/v1beta/models/' + modelName + ':generateContent',
       {
         method: 'POST',
         headers: {
@@ -170,3 +195,4 @@ export default async function handler(req, res) {
     res.status(500).json({ error: error?.message || 'Unexpected server error' })
   }
 }
+
