@@ -2353,9 +2353,15 @@ function App() {
         body: JSON.stringify({ applicationId: application.id }),
       })
       const rawText = await response.text()
-      const payload = rawText ? JSON.parse(rawText) : {}
+      let payload = {}
+      try {
+        payload = rawText ? JSON.parse(rawText) : {}
+      } catch {
+        payload = { error: rawText }
+      }
       if (!response.ok) {
-        throw new Error(payload?.error || rawText || `Failed to score CV (HTTP ${response.status})`)
+        const message = typeof payload?.error === 'string' ? payload.error : rawText
+        throw new Error(message || `Failed to score CV (HTTP ${response.status})`)
       }
       const updated = mapCareerApplicationRowToClient(payload.application)
       setCareerApplications((prev) => prev.map((item) => (item.id === updated.id ? updated : item)))
