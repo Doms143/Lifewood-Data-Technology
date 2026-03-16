@@ -10,12 +10,12 @@ const supabase = supabaseUrl && supabaseServiceKey
   : null
 
 const buildPrompt = (cvText) => `
-You are a hiring analyst. Score the following CV text from 1-100 based on:
-1) Relevance to applied role
-2) Experience depth and impact
-3) Skills and tools match
-4) Education and certifications
-5) Clarity, structure, and professionalism
+You are a hiring analyst. Score the following CV text from 1-100 using this weighted rubric:
+1) Relevance to applied role: 30%
+2) Experience depth and impact: 25%
+3) Skills and tools match: 20%
+4) Education and certifications: 15%
+5) Clarity, structure, and professionalism: 10%
 
 Return ONLY valid JSON with this schema:
 {
@@ -35,128 +35,138 @@ ${cvText}
 `
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    res.status(405).json({ error: 'Method not allowed' })
-    return
-  }
-
-  if (!supabase || !geminiApiKey) {
-    res.status(500).json({ error: 'Server is not configured' })
-    return
-  }
-
-  const { applicationId } = req.body || {}
-  if (!applicationId) {
-    res.status(400).json({ error: 'applicationId is required' })
-    return
-  }
-
-  const { data: application, error: fetchError } = await supabase
-    .from('career_applications')
-    .select('*')
-    .eq('id', applicationId)
-    .single()
-
-  if (fetchError || !application) {
-    res.status(404).json({ error: 'Application not found' })
-    return
-  }
-
-  const cvPath = application.cv_path || ''
-  if (!cvPath) {
-    res.status(400).json({ error: 'CV path missing' })
-    return
-  }
-
-  const normalizedPath = cvPath.replace(/^career-cv\//, '').replace(/^CAREER-CV\//, '')
-
-  const { data: signedData, error: signedError } = await supabase
-    .storage
-    .from('career-cv')
-    .createSignedUrl(normalizedPath, 60 * 10)
-
-  if (signedError || !signedData?.signedUrl) {
-    res.status(500).json({ error: 'Unable to access CV file' })
-    return
-  }
-
-  const pdfResponse = await fetch(signedData.signedUrl)
-  if (!pdfResponse.ok) {
-    res.status(500).json({ error: 'Failed to download CV' })
-    return
-  }
-  const pdfBuffer = Buffer.from(await pdfResponse.arrayBuffer())
-  const parsed = await pdf(pdfBuffer)
-  const cvText = (parsed.text || '').replace(/\s+/g, ' ').trim().slice(0, 12000)
-  if (!cvText) {
-    res.status(500).json({ error: 'Unable to extract text from CV' })
-    return
-  }
-
-  const geminiResponse = await fetch(
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': geminiApiKey,
-      },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: buildPrompt(cvText) }] }],
-        generationConfig: { temperature: 0.2, maxOutputTokens: 600 },
-      }),
-    }
-  )
-
-  if (!geminiResponse.ok) {
-    const errorText = await geminiResponse.text()
-    res.status(500).json({ error: `Gemini error: ${errorText}` })
-    return
-  }
-
-  const geminiJson = await geminiResponse.json()
-  const rawText = geminiJson?.candidates?.[0]?.content?.parts?.[0]?.text || ''
-  const jsonMatch = rawText.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) {
-    res.status(500).json({ error: 'Invalid Gemini response' })
-    return
-  }
-
-  let scorePayload
   try {
-    scorePayload = JSON.parse(jsonMatch[0])
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to parse Gemini response' })
-    return
-  }
+    if (req.method !== 'POST') {
+      res.status(405).json({ error: 'Method not allowed' })
+      return
+    }
 
-  const overallScore = Number(scorePayload.overall_score || 0)
-  const breakdown = scorePayload.breakdown || {}
-  const summary = scorePayload.summary || ''
+    if (!supabase || !geminiApiKey) {
+      res.status(500).json({ error: 'Server is not configured' })
+      return
+    }
 
-  const { data: updated, error: updateError } = await supabase
-    .from('career_applications')
-    .update({
-      cv_score: overallScore,
-      cv_breakdown: breakdown,
-      cv_summary: summary,
-      cv_scored_at: new Date().toISOString(),
+    const { applicationId } = req.body || {}
+    if (!applicationId) {
+      res.status(400).json({ error: 'applicationId is required' })
+      return
+    }
+
+    const { data: application, error: fetchError } = await supabase
+      .from('career_applications')
+      .select('*')
+      .eq('id', applicationId)
+      .single()
+
+    if (fetchError || !application) {
+      res.status(404).json({ error: 'Application not found' })
+      return
+    }
+
+    if (application.cv_score !== null && application.cv_score !== undefined) {
+      res.status(200).json({ application })
+      return
+    }
+
+    const cvPath = application.cv_path || ''
+    if (!cvPath) {
+      res.status(400).json({ error: 'CV path missing' })
+      return
+    }
+
+    const normalizedPath = cvPath.replace(/^career-cv\//, '').replace(/^CAREER-CV\//, '')
+
+    const { data: signedData, error: signedError } = await supabase
+      .storage
+      .from('career-cv')
+      .createSignedUrl(normalizedPath, 60 * 10)
+
+    if (signedError || !signedData?.signedUrl) {
+      res.status(500).json({ error: 'Unable to access CV file', details: signedError?.message })
+      return
+    }
+
+    const pdfResponse = await fetch(signedData.signedUrl)
+    if (!pdfResponse.ok) {
+      res.status(500).json({ error: `Failed to download CV (${pdfResponse.status})` })
+      return
+    }
+    const pdfBuffer = Buffer.from(await pdfResponse.arrayBuffer())
+    const parsed = await pdf(pdfBuffer)
+    const cvText = (parsed.text || '').replace(/\s+/g, ' ').trim().slice(0, 12000)
+    if (!cvText) {
+      res.status(500).json({ error: 'Unable to extract text from CV' })
+      return
+    }
+
+    const geminiResponse = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': geminiApiKey,
+        },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: buildPrompt(cvText) }] }],
+          generationConfig: { temperature: 0.2, maxOutputTokens: 600 },
+        }),
+      }
+    )
+
+    if (!geminiResponse.ok) {
+      const errorText = await geminiResponse.text()
+      res.status(500).json({ error: `Gemini error: ${errorText}` })
+      return
+    }
+
+    const geminiJson = await geminiResponse.json()
+    const rawText = geminiJson?.candidates?.[0]?.content?.parts?.[0]?.text || ''
+    const jsonMatch = rawText.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) {
+      res.status(500).json({ error: 'Invalid Gemini response' })
+      return
+    }
+
+    let scorePayload
+    try {
+      scorePayload = JSON.parse(jsonMatch[0])
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to parse Gemini response' })
+      return
+    }
+
+    const overallScore = Number(scorePayload.overall_score || 0)
+    const breakdown = scorePayload.breakdown || {}
+    const summary = scorePayload.summary || ''
+
+    const { data: updated, error: updateError } = await supabase
+      .from('career_applications')
+      .update({
+        cv_score: overallScore,
+        cv_breakdown: breakdown,
+        cv_summary: summary,
+        cv_scored_at: new Date().toISOString(),
+      })
+      .eq('id', applicationId)
+      .select('*')
+      .single()
+
+    if (updateError || !updated) {
+      res.status(500).json({ error: 'Failed to save score' })
+      return
+    }
+
+    res.status(200).json({
+      application: {
+        ...updated,
+        cv_score: updated.cv_score,
+        cv_breakdown: updated.cv_breakdown,
+        cv_summary: updated.cv_summary,
+        cv_scored_at: updated.cv_scored_at,
+      },
     })
-    .eq('id', applicationId)
-    .select('*')
-    .single()
-
-  if (updateError || !updated) {
-    res.status(500).json({ error: 'Failed to save score' })
-    return
+  } catch (error) {
+    res.status(500).json({ error: error?.message || 'Unexpected server error' })
   }
-
-  res.status(200).json({ application: {
-    ...updated,
-    cv_score: updated.cv_score,
-    cv_breakdown: updated.cv_breakdown,
-    cv_summary: updated.cv_summary,
-    cv_scored_at: updated.cv_scored_at,
-  }})
 }
-

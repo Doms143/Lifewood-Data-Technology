@@ -2355,7 +2355,7 @@ function App() {
       const rawText = await response.text()
       const payload = rawText ? JSON.parse(rawText) : {}
       if (!response.ok) {
-        throw new Error(payload?.error || 'Failed to score CV')
+        throw new Error(payload?.error || rawText || `Failed to score CV (HTTP ${response.status})`)
       }
       const updated = mapCareerApplicationRowToClient(payload.application)
       setCareerApplications((prev) => prev.map((item) => (item.id === updated.id ? updated : item)))
