@@ -134,7 +134,11 @@ export default async function handler(req, res) {
         },
         body: JSON.stringify({
           contents: [{ role: 'user', parts: [{ text: buildPrompt(cvText) }] }],
-          generationConfig: { temperature: 0.2, maxOutputTokens: 600 },
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 600,
+            responseMimeType: 'application/json',
+          },
         }),
       }
     )
@@ -147,9 +151,14 @@ export default async function handler(req, res) {
 
     const geminiJson = await geminiResponse.json()
     const rawText = geminiJson?.candidates?.[0]?.content?.parts?.[0]?.text || ''
-    const jsonMatch = rawText.match(/\{[\s\S]*\}/)
+    let jsonText = rawText
+    const fencedMatch = rawText.match(/```json\s*([\s\S]*?)\s*```/i)
+    if (fencedMatch) {
+      jsonText = fencedMatch[1]
+    }
+    const jsonMatch = jsonText.match(/\{[\s\S]*\}/)
     if (!jsonMatch) {
-      res.status(500).json({ error: 'Invalid Gemini response' })
+      res.status(500).json({ error: 'Invalid Gemini response', details: rawText || geminiJson })
       return
     }
 
@@ -157,7 +166,7 @@ export default async function handler(req, res) {
     try {
       scorePayload = JSON.parse(jsonMatch[0])
     } catch (error) {
-      res.status(500).json({ error: 'Failed to parse Gemini response' })
+      res.status(500).json({ error: 'Failed to parse Gemini response', details: jsonMatch[0] })
       return
     }
 
@@ -195,4 +204,5 @@ export default async function handler(req, res) {
     res.status(500).json({ error: error?.message || 'Unexpected server error' })
   }
 }
+
 
