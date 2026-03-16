@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import emailjs from '@emailjs/browser'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Sparkles,
@@ -38,6 +39,7 @@ import Footer from './components/Footer'
 import Navigation from './components/Navigation'
 import OurClientsPartners from './components/OurClientsPartners'
 import OfficesMap from './components/OfficesMap'
+import ApplicationFormRoute from './components/ApplicationFormRoute'
 import { isBootstrapAdmin } from './lib/adminAccess'
 import { isSupabaseConfigured, supabase } from './lib/supabaseClient'
 
@@ -396,7 +398,7 @@ const careersCultureChips = [
   'Balanced (work-life balance)',
 ]
 
-const adminMenuItems = ['Dashboard', 'Analytics', 'Evaluation', 'Reports', 'Approvals', 'Manage Interns']
+const adminMenuItems = ['Dashboard', 'Analytics', 'Evaluation', 'Reports', 'Applications', 'Approvals', 'Manage Interns']
 
 const adminPanelContent = {
   Dashboard: {
@@ -502,6 +504,27 @@ const adminPanelContent = {
       ['New', 'Incoming Requests', 'Awaiting admin review'],
       ['Queue', 'Approval Status', 'Track approved and rejected requests'],
       ['Next', 'Provision Accounts', 'Backend function can automate final auth creation'],
+    ],
+  },
+  Applications: {
+    heading: 'Applications',
+    badge: 'Career Pipeline',
+    status: 'Review Queue',
+    titleA: 'Applicant',
+    titleB: 'Review',
+    titleC: '& Decisions',
+    module: 'Career applications',
+    completion: '100%',
+    spent: '6h',
+    grade: 'A',
+    efficiency: '95%',
+    level: '06',
+    levelLabel: 'HR Admin',
+    weekly: 'Review pending applicants',
+    activity: [
+      ['New', 'Incoming Applications', 'CVs and details ready'],
+      ['Queue', 'Decision Status', 'Approve or reject applicants'],
+      ['Next', 'Notify Candidates', 'Email status update'],
     ],
   },
   'Manage Interns': {
@@ -917,11 +940,49 @@ const mapSignupRequestRowToClient = (row) => ({
   createdAt: row.created_at,
 })
 
+const mapCareerApplicationRowToClient = (row) => ({
+  id: row.id,
+  firstName: row.first_name || '',
+  lastName: row.last_name || '',
+  email: row.email || '',
+  phoneCode: row.phone_code || '',
+  phoneNumber: row.phone_number || '',
+  gender: row.gender || '',
+  age: row.age ?? '',
+  country: row.country || '',
+  address: row.address || '',
+  positions: row.positions || [],
+  status: row.status || 'pending',
+  adminNote: row.admin_note || '',
+  reviewedAt: row.reviewed_at || '',
+  createdAt: row.created_at,
+  cvFilename: row.cv_filename || '',
+  cvPath: row.cv_path || '',
+})
+
 const approvalStatusOrder = {
   pending: 0,
   approved: 1,
   suspended: 2,
   rejected: 3,
+}
+
+const applicationStatusOrder = {
+  pending: 0,
+  approved: 1,
+  rejected: 2,
+}
+
+const emailJsConfig = {
+  publicKey: import.meta.env.VITE_EMAILJS_PUBLIC_KEY || '',
+  serviceId: import.meta.env.VITE_EMAILJS_SERVICE_ID || '',
+  templateApproved: import.meta.env.VITE_EMAILJS_TEMPLATE_APPROVED || '',
+  templateRejected: import.meta.env.VITE_EMAILJS_TEMPLATE_REJECTED || '',
+  fromName: import.meta.env.VITE_EMAILJS_FROM_NAME || 'Lifewood HR',
+  replyTo: import.meta.env.VITE_EMAILJS_REPLY_TO || '',
+  companyEmail: import.meta.env.VITE_EMAILJS_COMPANY_EMAIL || '',
+  companyUrl: import.meta.env.VITE_EMAILJS_COMPANY_URL || '',
+  logoUrl: import.meta.env.VITE_EMAILJS_LOGO_URL || '',
 }
 
 function ViewModeToggle({ value, onChange }) {
@@ -1022,6 +1083,13 @@ function App() {
   const [adminDataError, setAdminDataError] = useState('')
   const [signupRequests, setSignupRequests] = useState([])
   const [approvalNoteDrafts, setApprovalNoteDrafts] = useState({})
+  const [careerApplications, setCareerApplications] = useState([])
+  const [applicationsError, setApplicationsError] = useState('')
+  const [applicationNoteDrafts, setApplicationNoteDrafts] = useState({})
+  const [selectedApplication, setSelectedApplication] = useState(null)
+  const [isCvModalOpen, setIsCvModalOpen] = useState(false)
+  const [cvModalUrl, setCvModalUrl] = useState('')
+  const [cvModalName, setCvModalName] = useState('')
   const [selectedAnalyticsIntern, setSelectedAnalyticsIntern] = useState(null)
   const [selectedDashboardGroup, setSelectedDashboardGroup] = useState(null)
   const [analyticsSortBy, setAnalyticsSortBy] = useState('name-asc')
@@ -1071,6 +1139,8 @@ function App() {
   const [reportsSearch, setReportsSearch] = useState('')
   const [approvalSearch, setApprovalSearch] = useState('')
   const [approvalSortBy, setApprovalSortBy] = useState('pending-first')
+  const [applicationSearch, setApplicationSearch] = useState('')
+  const [applicationSortBy, setApplicationSortBy] = useState('newest-first')
   const [settingsSearch, setSettingsSearch] = useState('')
   const [settingsStatusFilter, setSettingsStatusFilter] = useState('All')
   const [settingsPage, setSettingsPage] = useState(1)
@@ -1304,7 +1374,7 @@ function App() {
   }, [currentPath, hasAdminAccess])
 
   useEffect(() => {
-    if (activeAdminTab === 'Approvals' && !canManageApprovals) {
+    if (['Approvals', 'Applications'].includes(activeAdminTab) && !canManageApprovals) {
       setActiveAdminTab('Dashboard')
     }
   }, [activeAdminTab, canManageApprovals])
@@ -1328,6 +1398,39 @@ function App() {
     void refreshSignupRequests()
     const intervalId = window.setInterval(() => {
       void refreshSignupRequests()
+    }, 5000)
+
+    return () => {
+      isMounted = false
+      window.clearInterval(intervalId)
+    }
+  }, [activeAdminTab, canManageApprovals])
+
+  useEffect(() => {
+    if (!supabase || !canManageApprovals || activeAdminTab !== 'Applications') return undefined
+
+    let isMounted = true
+
+    const refreshCareerApplications = async () => {
+      const { data, error } = await supabase
+        .from('career_applications')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (!isMounted || error) {
+        if (isMounted && error) {
+          setApplicationsError(error.message)
+        }
+        return
+      }
+
+      setApplicationsError('')
+      setCareerApplications((data || []).map(mapCareerApplicationRowToClient))
+    }
+
+    void refreshCareerApplications()
+    const intervalId = window.setInterval(() => {
+      void refreshCareerApplications()
     }, 5000)
 
     return () => {
@@ -1669,6 +1772,60 @@ function App() {
       return (approvalStatusOrder[left.status] ?? 99) - (approvalStatusOrder[right.status] ?? 99) || nameCompare
     })
   }, [approvalSearch, approvalSortBy, signupRequests])
+  const filteredApplications = useMemo(() => {
+    const query = applicationSearch.trim().toLowerCase()
+    const visibleApplications = careerApplications.filter((application) => {
+      if (!query) return true
+      const source = [
+        application.firstName,
+        application.lastName,
+        application.email,
+        application.phoneNumber,
+        application.country,
+        application.status,
+        ...(application.positions || []),
+      ]
+        .join(' ')
+        .toLowerCase()
+      return source.includes(query)
+    })
+
+    return [...visibleApplications].sort((left, right) => {
+      const leftDate = new Date(left.createdAt || 0).getTime()
+      const rightDate = new Date(right.createdAt || 0).getTime()
+      const nameCompare = `${left.lastName} ${left.firstName}`.localeCompare(
+        `${right.lastName} ${right.firstName}`,
+        undefined,
+        { sensitivity: 'base' }
+      )
+
+      if (applicationSortBy === 'name-asc') return nameCompare
+      if (applicationSortBy === 'oldest-first') return leftDate - rightDate || nameCompare
+      if (applicationSortBy === 'approved-first') {
+        return (
+          (applicationStatusOrder[left.status] === applicationStatusOrder.approved ? -1 : applicationStatusOrder[left.status]) -
+            (applicationStatusOrder[right.status] === applicationStatusOrder.approved ? -1 : applicationStatusOrder[right.status]) ||
+          nameCompare
+        )
+      }
+      if (applicationSortBy === 'rejected-first') {
+        return (
+          (applicationStatusOrder[left.status] === applicationStatusOrder.rejected ? -1 : applicationStatusOrder[left.status]) -
+            (applicationStatusOrder[right.status] === applicationStatusOrder.rejected ? -1 : applicationStatusOrder[right.status]) ||
+          nameCompare
+        )
+      }
+      if (applicationSortBy === 'pending-first') {
+        return (
+          (applicationStatusOrder[left.status] === applicationStatusOrder.pending ? -1 : applicationStatusOrder[left.status]) -
+            (applicationStatusOrder[right.status] === applicationStatusOrder.pending ? -1 : applicationStatusOrder[right.status]) ||
+          nameCompare
+        )
+      }
+
+      return rightDate - leftDate || nameCompare
+    })
+  }, [applicationSearch, applicationSortBy, careerApplications])
   const settingsInternRows = useMemo(() => {
     const query = settingsSearch.trim().toLowerCase()
     return internAnalyticsData
@@ -1986,6 +2143,171 @@ function App() {
             return next
           })
           runAdminAction('Request deleted')
+        },
+      })
+    })()
+  }
+
+  const normalizeCvPath = (cvPath = '') => {
+    if (!cvPath) return ''
+    if (cvPath.startsWith('career-cv/')) return cvPath.replace('career-cv/', '')
+    if (cvPath.startsWith('CAREER-CV/')) return cvPath.replace('CAREER-CV/', '')
+    return cvPath
+  }
+
+  const handleOpenApplicationCv = async (application) => {
+    if (!supabase) {
+      runAdminAction('Supabase is not ready for file access')
+      return
+    }
+    const normalizedPath = normalizeCvPath(application.cvPath)
+    const candidateBuckets = ['career-cv', 'CAREER-CV']
+    const resolvedPath = normalizedPath || application.cvFilename || ''
+    if (!resolvedPath) {
+      runAdminAction('CV path is missing')
+      return
+    }
+
+    let signedData = null
+    let error = null
+    let usedBucket = null
+
+    for (const bucket of candidateBuckets) {
+      const result = await supabase.storage.from(bucket).createSignedUrl(resolvedPath, 60 * 10)
+      if (!result.error) {
+        signedData = result.data
+        error = null
+        usedBucket = bucket
+        break
+      }
+      error = result.error
+    }
+
+    if (error) {
+      setApplicationsError(error.message)
+      const publicUrl = usedBucket
+        ? supabase.storage.from(usedBucket).getPublicUrl(resolvedPath).data?.publicUrl
+        : null
+      if (!publicUrl) {
+        runAdminAction('Unable to open CV')
+        return
+      }
+      setCvModalUrl(publicUrl)
+      setCvModalName(application.cvFilename || 'CV.pdf')
+      setIsCvModalOpen(true)
+      return
+    }
+
+    if (signedData?.signedUrl) {
+      setCvModalUrl(signedData.signedUrl)
+      setCvModalName(application.cvFilename || 'CV.pdf')
+      setIsCvModalOpen(true)
+    }
+  }
+
+  const sendApplicationEmail = async (application, status, adminNote) => {
+    if (!emailJsConfig.publicKey || !emailJsConfig.serviceId) {
+      return { ok: false, message: 'EmailJS is not configured' }
+    }
+    if (!application.email) {
+      return { ok: false, message: 'Applicant email is missing' }
+    }
+    const templateId =
+      status === 'approved' ? emailJsConfig.templateApproved : emailJsConfig.templateRejected
+    if (!templateId) {
+      return { ok: false, message: 'EmailJS template is missing' }
+    }
+
+    const templateParams = {
+      to_name: `${application.firstName} ${application.lastName}`.trim(),
+      to_email: application.email,
+      email: application.email,
+      user_email: application.email,
+      recipient: application.email,
+      position: (application.positions || []).join(', ') || 'Applicant',
+      application_id: application.id,
+      status,
+      admin_note: adminNote || '',
+      reviewed_at: new Date().toISOString(),
+      company_name: 'Lifewood',
+      company_email: emailJsConfig.companyEmail,
+      company_url: emailJsConfig.companyUrl,
+      logo_url: emailJsConfig.logoUrl,
+      from_name: emailJsConfig.fromName,
+      reply_to: emailJsConfig.replyTo,
+    }
+
+    try {
+      await emailjs.send(
+        emailJsConfig.serviceId,
+        templateId,
+        templateParams,
+        { publicKey: emailJsConfig.publicKey }
+      )
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, message: error?.text || error?.message || 'Email send failed' }
+    }
+  }
+
+  const handleApplicationDecision = (applicationId, status) => {
+    void (async () => {
+      if (!supabase || !authUser?.id) {
+        runAdminAction('Supabase is not ready for application actions')
+        return
+      }
+
+      const currentApplication = careerApplications.find((item) => item.id === applicationId)
+      if (!currentApplication) {
+        runAdminAction('Application not found')
+        return
+      }
+      if (!(currentApplication.status === 'pending' && ['approved', 'rejected'].includes(status))) {
+        runAdminAction('Decision already recorded')
+        return
+      }
+
+      const actionLabel = status === 'approved' ? 'approve' : 'reject'
+      confirmAdminAction({
+        message: `Are you sure you want to ${actionLabel} ${currentApplication.firstName} ${currentApplication.lastName}?`,
+        confirmLabel: actionLabel.charAt(0).toUpperCase() + actionLabel.slice(1),
+        tone: status === 'rejected' ? 'danger' : 'default',
+        onConfirm: async () => {
+          const note = applicationNoteDrafts[applicationId] || ''
+          const { data, error } = await supabase
+            .from('career_applications')
+            .update({
+              status,
+              admin_note: note,
+              reviewed_by: authUser.id,
+              reviewed_at: new Date().toISOString(),
+            })
+            .eq('id', applicationId)
+            .select('*')
+            .maybeSingle()
+
+          if (error) {
+            setApplicationsError(error.message)
+            runAdminAction(`${status} failed`)
+            return
+          }
+          if (!data) {
+            setApplicationsError('No rows updated. Check RLS policy for career_applications.')
+            runAdminAction(`${status} failed`)
+            return
+          }
+
+          const updatedApplication = mapCareerApplicationRowToClient(data)
+          setCareerApplications((prev) => prev.map((item) => (item.id === updatedApplication.id ? updatedApplication : item)))
+          setApplicationNoteDrafts((prev) => ({ ...prev, [applicationId]: updatedApplication.adminNote }))
+          const emailResult = await sendApplicationEmail(updatedApplication, status, note)
+          if (!emailResult.ok) {
+            setApplicationsError(emailResult.message || 'Email send failed')
+            runAdminAction(`Application ${status}, email failed`)
+            return
+          }
+          setSelectedApplication(null)
+          runAdminAction(`Application ${status}, email sent`)
         },
       })
     })()
@@ -2747,7 +3069,7 @@ function App() {
                     </h1>
                     <motion.button
                       type="button"
-                      onClick={() => window.open('https://application-form-ph.vercel.app/', '_blank', 'noopener,noreferrer')}
+                      onClick={() => goToPath('/application-form')}
                       className="focus-brand mt-8 inline-flex items-center rounded-full overflow-hidden border border-saffron bg-saffron text-black font-semibold"
                       whileHover={{ y: -2, boxShadow: '0 12px 24px -14px rgba(244,179,71,0.9)' }}
                       whileTap={{ scale: 0.98 }}
@@ -4740,7 +5062,9 @@ function App() {
                       </button>
                     </div>
                     <nav className="px-3 pb-4 space-y-2">
-                      {adminMenuItems.filter((item) => item !== 'Approvals' || canManageApprovals).map((item) => (
+                      {adminMenuItems
+                        .filter((item) => !['Approvals', 'Applications'].includes(item) || canManageApprovals)
+                        .map((item) => (
                         <button
                           key={item}
                           type="button"
@@ -4770,7 +5094,7 @@ function App() {
                     </aside>
                   </div>
 
-                  <main className="p-1 sm:p-2 lg:ml-[280px] lg:min-h-screen">
+                  <main className="admin-glass p-1 sm:p-2 lg:ml-[280px] lg:min-h-screen">
                     <div className="flex items-center justify-between mb-4">
                       <h1 className="text-3xl sm:text-4xl font-semibold">{activeAdminData.heading}</h1>
                       <span className="inline-flex items-center rounded-full bg-white border border-castleton/15 px-4 py-2 text-sm font-semibold">
@@ -5963,6 +6287,193 @@ function App() {
                           ) : null}
                         </AnimatePresence>
                       </div>
+                    ) : activeAdminTab === 'Applications' ? (
+                      <div className="space-y-5">
+                        <motion.div
+                          className="rounded-[24px] border border-castleton/20 bg-white p-5 sm:p-6"
+                          initial={{ opacity: 0, y: 12 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.25 }}
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
+                            <div>
+                              <h2 className="text-3xl sm:text-4xl font-semibold text-black mb-1">Career Applications</h2>
+                              <p className="text-black/70 text-base sm:text-lg">
+                                Review applicant details, open CVs, and record approval or rejection status.
+                              </p>
+                            </div>
+                            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 min-w-[240px]">
+                              {[
+                                ['Pending', careerApplications.filter((item) => item.status === 'pending').length, 'bg-[#fff6e4] text-[#8a5a14]'],
+                                ['Approved', careerApplications.filter((item) => item.status === 'approved').length, 'bg-[#e9f3ee] text-castleton'],
+                                ['Rejected', careerApplications.filter((item) => item.status === 'rejected').length, 'bg-[#fde8e8] text-[#8a3528]'],
+                              ].map(([label, value, tone]) => (
+                                <div key={label} className="rounded-2xl border border-castleton/15 bg-[#f7faf8] p-3">
+                                  <p className="text-xs uppercase tracking-[0.12em] text-castleton">{label}</p>
+                                  <p className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-sm font-semibold ${tone}`}>{value}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px] mb-5">
+                            <label className="flex items-center gap-3 rounded-2xl border border-castleton/15 bg-[#f7faf8] px-4 py-3">
+                              <Search size={18} className="text-castleton/60" />
+                              <input
+                                type="search"
+                                value={applicationSearch}
+                                onChange={(event) => setApplicationSearch(event.target.value)}
+                                placeholder="Search name, email, position, status"
+                                className="w-full bg-transparent text-sm text-black outline-none placeholder:text-black/40"
+                              />
+                            </label>
+                            <label className="rounded-2xl border border-castleton/15 bg-[#f7faf8] px-4 py-3">
+                              <span className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-castleton/70 mb-2">
+                                Sort By
+                              </span>
+                              <select
+                                value={applicationSortBy}
+                                onChange={(event) => setApplicationSortBy(event.target.value)}
+                                className="w-full bg-transparent text-sm text-black outline-none"
+                              >
+                                <option value="newest-first">Newest First</option>
+                                <option value="oldest-first">Oldest First</option>
+                                <option value="pending-first">Pending First</option>
+                                <option value="approved-first">Approved First</option>
+                                <option value="rejected-first">Rejected First</option>
+                                <option value="name-asc">A-Z</option>
+                              </select>
+                            </label>
+                          </div>
+
+                          {applicationsError ? (
+                            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                              {applicationsError}
+                            </div>
+                          ) : null}
+                        </motion.div>
+
+                        <div className="space-y-4">
+                          {filteredApplications.length ? (
+                            filteredApplications.map((application, index) => (
+                              <motion.article
+                                key={application.id}
+                                className={`rounded-[22px] border bg-white p-5 transition-colors ${
+                                  application.status === 'pending'
+                                    ? 'border-[#e2c676] shadow-[0_16px_40px_-30px_rgba(138,90,20,0.45)]'
+                                    : application.status === 'approved'
+                                      ? 'border-castleton/20'
+                                      : 'border-[#dfc1bb]'
+                                }`}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.22, delay: Math.min(index * 0.03, 0.18) }}
+                              >
+                                <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
+                                  <div>
+                                    <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
+                                      <div>
+                                        <p className="text-xs uppercase tracking-[0.12em] text-castleton mb-1">Applicant</p>
+                                        <h3 className="text-2xl font-semibold text-black">
+                                          {application.firstName} {application.lastName}
+                                        </h3>
+                                        <p className="text-sm text-black/65 mt-1">{application.email}</p>
+                                      </div>
+                                      <div className="text-right">
+                                        <p className="text-xs uppercase tracking-[0.12em] text-black/45 mb-2">Submitted</p>
+                                        <p className="text-sm text-black/65">{new Date(application.createdAt).toLocaleString()}</p>
+                                      </div>
+                                    </div>
+
+                                    <div className="grid gap-3 sm:grid-cols-3">
+                                      <div className="rounded-2xl border border-castleton/12 bg-[#f8faf9] px-4 py-3">
+                                        <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Phone</p>
+                                        <p className="mt-2 text-sm font-medium text-black">
+                                          {application.phoneCode} {application.phoneNumber}
+                                        </p>
+                                      </div>
+                                      <div className="rounded-2xl border border-castleton/12 bg-[#f8faf9] px-4 py-3">
+                                        <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Position</p>
+                                        <p className="mt-2 text-sm font-medium text-black">
+                                          {(application.positions || []).join(', ') || 'Not specified'}
+                                        </p>
+                                      </div>
+                                      <div className="rounded-2xl border border-castleton/12 bg-[#f8faf9] px-4 py-3">
+                                        <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Status</p>
+                                        <span
+                                          className={`mt-2 inline-flex rounded-full px-3 py-1 text-sm font-semibold ${
+                                            application.status === 'approved'
+                                              ? 'bg-[#e9f3ee] text-castleton'
+                                              : application.status === 'rejected'
+                                                ? 'bg-[#fde8e8] text-[#8a3528]'
+                                                : 'bg-[#fff6e4] text-[#8a5a14]'
+                                          }`}
+                                        >
+                                          {application.status}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="rounded-[20px] border border-castleton/12 bg-[#fbfcfb] p-4">
+                                    <span
+                                      className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] ${
+                                        application.status === 'approved'
+                                          ? 'bg-[#e9f3ee] text-castleton'
+                                          : application.status === 'rejected'
+                                            ? 'bg-[#fde8e8] text-[#8a3528]'
+                                            : 'bg-[#fff6e4] text-[#8a5a14]'
+                                      }`}
+                                    >
+                                      {application.status === 'pending' ? 'Needs Review' : `Status: ${application.status}`}
+                                    </span>
+                                    <p className="mt-3 text-sm text-black/65">
+                                      {application.reviewedAt
+                                        ? `Reviewed ${new Date(application.reviewedAt).toLocaleString()}`
+                                        : 'Awaiting admin review'}
+                                    </p>
+                                    <textarea
+                                      value={applicationNoteDrafts[application.id] ?? application.adminNote}
+                                      onChange={(event) =>
+                                        setApplicationNoteDrafts((prev) => ({ ...prev, [application.id]: event.target.value }))
+                                      }
+                                      placeholder="Add an internal note for this application"
+                                      rows={4}
+                                      className="focus-brand mt-4 w-full rounded-2xl border border-castleton/20 bg-white px-4 py-3 text-black outline-none resize-y"
+                                    />
+
+                                    <div className="mt-4 flex flex-wrap gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => setSelectedApplication(application)}
+                                        className="focus-brand rounded-full border border-castleton/20 bg-white px-4 py-2 text-sm font-semibold text-castleton transition-colors hover:bg-[#eef3ef]"
+                                      >
+                                        Review Applicant
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </motion.article>
+                            ))
+                          ) : (
+                            <motion.article
+                              className="rounded-[22px] border border-castleton/15 bg-white p-6"
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ duration: 0.22 }}
+                            >
+                              <h3 className="text-2xl font-semibold text-black mb-2">
+                                {careerApplications.length ? 'No matching applications' : 'No applications yet'}
+                              </h3>
+                              <p className="text-black/70 text-base">
+                                {careerApplications.length
+                                  ? 'Try a different search term or sort order.'
+                                  : 'Applications submitted from the application form will appear here.'}
+                              </p>
+                            </motion.article>
+                          )}
+                        </div>
+                      </div>
                     ) : activeAdminTab === 'Approvals' ? (
                       <div className="space-y-5">
                         <motion.div
@@ -7010,6 +7521,197 @@ function App() {
                     </motion.div>
                   ) : null}
                 </AnimatePresence>
+
+                <AnimatePresence>
+                  {isCvModalOpen ? (
+                    <motion.div
+                      className="fixed inset-0 z-[97] bg-black/60 backdrop-blur-[3px] flex items-center justify-center p-4"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      onClick={() => setIsCvModalOpen(false)}
+                    >
+                      <motion.div
+                        className="w-full max-w-3xl rounded-[26px] border border-castleton/20 bg-white p-4 sm:p-5 shadow-2xl"
+                        initial={{ opacity: 0, y: 16, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 12, scale: 0.98 }}
+                        transition={{ duration: 0.22 }}
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <div className="flex items-center justify-between gap-4 mb-4">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.12em] text-castleton mb-1">Applicant CV</p>
+                            <h2 className="text-xl font-semibold text-black">{cvModalName}</h2>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setIsCvModalOpen(false)}
+                            className="focus-brand inline-flex h-9 w-9 items-center justify-center rounded-full border border-castleton/15 text-castleton hover:bg-[#f4f7f5] transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <div className="w-full overflow-hidden rounded-2xl border border-castleton/15 bg-[#f7f7f7]" style={{ height: 'min(70vh, 780px)' }}>
+                          {cvModalUrl ? (
+                            <object data={cvModalUrl} type="application/pdf" className="h-full w-full">
+                              <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-black/60">
+                                <p>PDF preview not available.</p>
+                                <a
+                                  href={cvModalUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="focus-brand rounded-full border border-castleton/20 bg-white px-4 py-2 text-sm font-semibold text-castleton hover:bg-[#eef3ef] transition-colors"
+                                >
+                                  Open in new tab
+                                </a>
+                              </div>
+                            </object>
+                          ) : (
+                            <div className="flex h-full items-center justify-center text-sm text-black/60">
+                              Unable to load PDF preview.
+                            </div>
+                          )}
+                        </div>
+                      </motion.div>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
+
+                <AnimatePresence>
+                  {selectedApplication ? (
+                    <motion.div
+                      className="fixed inset-0 z-[95] bg-black/55 backdrop-blur-[3px] flex items-center justify-center p-4"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      onClick={() => setSelectedApplication(null)}
+                    >
+                      <motion.div
+                        className="w-full max-w-3xl max-h-[90vh] rounded-[26px] border border-castleton/20 bg-white shadow-2xl flex flex-col"
+                        initial={{ opacity: 0, y: 16, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 12, scale: 0.98 }}
+                        transition={{ duration: 0.22 }}
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <div className="flex items-start justify-between gap-4 px-5 sm:px-6 pt-5 sm:pt-6 pb-4 border-b border-castleton/10">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.12em] text-castleton mb-1">Applicant Review</p>
+                            <h2 className="text-2xl font-semibold text-black">
+                              {selectedApplication.firstName} {selectedApplication.lastName}
+                            </h2>
+                            <p className="text-sm text-black/65 mt-1">{selectedApplication.email}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedApplication(null)}
+                            className="focus-brand inline-flex h-9 w-9 items-center justify-center rounded-full border border-castleton/15 text-castleton hover:bg-[#f4f7f5] transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto px-5 sm:px-6 pb-5 sm:pb-6">
+                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-4">
+                            <div className="rounded-2xl border border-castleton/12 bg-[#f8faf9] px-4 py-3">
+                            <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Phone</p>
+                            <p className="mt-2 text-sm font-medium text-black">
+                              {selectedApplication.phoneCode} {selectedApplication.phoneNumber}
+                            </p>
+                          </div>
+                            <div className="rounded-2xl border border-castleton/12 bg-[#f8faf9] px-4 py-3">
+                            <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Position</p>
+                            <p className="mt-2 text-sm font-medium text-black">
+                              {(selectedApplication.positions || []).join(', ') || 'Not specified'}
+                            </p>
+                          </div>
+                            <div className="rounded-2xl border border-castleton/12 bg-[#f8faf9] px-4 py-3">
+                            <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Status</p>
+                            <span
+                              className={`mt-2 inline-flex rounded-full px-3 py-1 text-sm font-semibold ${
+                                selectedApplication.status === 'approved'
+                                  ? 'bg-[#e9f3ee] text-castleton'
+                                  : selectedApplication.status === 'rejected'
+                                    ? 'bg-[#fde8e8] text-[#8a3528]'
+                                    : 'bg-[#fff6e4] text-[#8a5a14]'
+                              }`}
+                            >
+                              {selectedApplication.status}
+                            </span>
+                          </div>
+                            <div className="rounded-2xl border border-castleton/12 bg-[#f8faf9] px-4 py-3">
+                            <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Gender</p>
+                            <p className="mt-2 text-sm font-medium text-black">
+                              {selectedApplication.gender || 'Not specified'}
+                            </p>
+                          </div>
+                            <div className="rounded-2xl border border-castleton/12 bg-[#f8faf9] px-4 py-3">
+                            <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Age</p>
+                            <p className="mt-2 text-sm font-medium text-black">
+                              {selectedApplication.age || 'Not specified'}
+                            </p>
+                          </div>
+                            <div className="rounded-2xl border border-castleton/12 bg-[#f8faf9] px-4 py-3">
+                            <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Country</p>
+                            <p className="mt-2 text-sm font-medium text-black">
+                              {selectedApplication.country || 'Not specified'}
+                            </p>
+                          </div>
+                        </div>
+
+                          <div className="rounded-2xl border border-castleton/12 bg-[#fbfcfb] p-4 mb-4">
+                            <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Current Address</p>
+                            <p className="mt-2 text-sm font-medium text-black">
+                              {selectedApplication.address || 'Not specified'}
+                            </p>
+                          </div>
+
+                          <div className="rounded-2xl border border-castleton/12 bg-[#fbfcfb] p-4">
+                            <p className="text-sm text-black/65">
+                              Submitted: {new Date(selectedApplication.createdAt).toLocaleString()}
+                            </p>
+                            <textarea
+                              value={applicationNoteDrafts[selectedApplication.id] ?? selectedApplication.adminNote}
+                              onChange={(event) =>
+                                setApplicationNoteDrafts((prev) => ({ ...prev, [selectedApplication.id]: event.target.value }))
+                              }
+                              placeholder="Add an internal note for this application"
+                              rows={4}
+                              className="focus-brand mt-3 w-full rounded-2xl border border-castleton/20 bg-white px-4 py-3 text-black outline-none resize-y"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="mt-auto flex flex-wrap justify-end gap-2 px-5 sm:px-6 pb-5 sm:pb-6 pt-4 border-t border-castleton/10 bg-white/70 backdrop-blur">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenApplicationCv(selectedApplication)}
+                            className="focus-brand rounded-full border border-black/10 bg-[#f4f4f4] px-4 py-2 text-sm font-semibold text-black/75 transition-colors hover:bg-[#e8e8e8]"
+                          >
+                            View CV
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleApplicationDecision(selectedApplication.id, 'rejected')}
+                            disabled={selectedApplication.status !== 'pending'}
+                            className="focus-brand rounded-full border border-[#dcb7b0] bg-white px-4 py-2 text-sm font-semibold text-[#8a3528] transition-colors enabled:hover:bg-[#fde8e8] disabled:cursor-not-allowed disabled:opacity-45"
+                          >
+                            Reject
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleApplicationDecision(selectedApplication.id, 'approved')}
+                            disabled={selectedApplication.status !== 'pending'}
+                            className="focus-brand rounded-full border border-castleton/20 bg-castleton px-4 py-2 text-sm font-semibold text-white transition-colors enabled:hover:bg-serpent disabled:cursor-not-allowed disabled:opacity-45"
+                          >
+                            Approve
+                          </button>
+                        </div>
+                      </motion.div>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
               </section>
             ) : (
               <section className="max-w-xl mx-auto">
@@ -7616,6 +8318,12 @@ function App() {
                   </div>
                 </div>
               </motion.section>
+            </section>
+          ) : currentPath === '/application-form' ? (
+            <section className="max-w-6xl mx-auto space-y-8 relative text-black">
+              <div className="absolute -top-20 -left-16 w-72 h-72 rounded-full bg-saffron/20 blur-3xl" />
+              <div className="absolute top-40 -right-16 w-72 h-72 rounded-full bg-castleton/15 blur-3xl" />
+              <ApplicationFormRoute />
             </section>
           ) : (
             <section className="max-w-5xl mx-auto bg-white border border-castleton/15 shadow-soft rounded-3xl p-8 sm:p-12">

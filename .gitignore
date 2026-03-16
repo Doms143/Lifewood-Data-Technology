@@ -18,3 +18,4 @@ yarn-error.log*
 *.swo
 *~
 .cache/
+applicants-489906-*.json
