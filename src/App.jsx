@@ -1402,7 +1402,7 @@ function App() {
   }, [currentPath, hasAdminAccess])
 
   useEffect(() => {
-    if (['Approvals', 'Applications'].includes(activeAdminTab) && !canManageApprovals) {
+    if (activeAdminTab === 'Approvals' && !canManageApprovals) {
       setActiveAdminTab('Dashboard')
     }
   }, [activeAdminTab, canManageApprovals])
@@ -1435,7 +1435,7 @@ function App() {
   }, [activeAdminTab, canManageApprovals])
 
   useEffect(() => {
-    if (!supabase || !canManageApprovals || activeAdminTab !== 'Applications') return undefined
+    if (!supabase || activeAdminTab !== 'Applications') return undefined
 
     let isMounted = true
 
@@ -5224,7 +5224,7 @@ function App() {
                         </div>
                       <nav className="px-3 pb-4 space-y-2">
                           {adminMenuItems
-                            .filter((item) => !['Approvals', 'Applications'].includes(item.label) || canManageApprovals)
+                            .filter((item) => item.label !== 'Approvals' || canManageApprovals)
                             .map((item) => {
                               const Icon = item.icon
                               return (
@@ -5265,7 +5265,7 @@ function App() {
                       <div className="mt-2 w-full flex-1 flex flex-col items-center justify-between pb-3">
                         <nav className="w-full flex flex-col items-center gap-2">
                           {adminMenuItems
-                            .filter((item) => !['Approvals', 'Applications'].includes(item.label) || canManageApprovals)
+                            .filter((item) => item.label !== 'Approvals' || canManageApprovals)
                             .map((item) => {
                               const Icon = item.icon
                               const isActive = activeAdminTab === item.label
@@ -5544,7 +5544,7 @@ function App() {
                               transition={{ duration: 0.24, delay: 0.08 }}
                             >
                               <div className="flex items-center justify-between mb-3">
-                                <h3 className="text-2xl font-semibold text-black">Interns Present</h3>
+                                <h3 className="text-xl font-semibold text-black">Interns Present</h3>
                                 <span className="inline-flex rounded-full bg-[#edf3ef] px-3 py-1 text-sm font-semibold text-castleton">
                                   {presentInterns.length}/{totalInterns}
                                 </span>
@@ -5572,7 +5572,7 @@ function App() {
                               transition={{ duration: 0.24, delay: 0.12 }}
                             >
                               <div className="flex items-center justify-between mb-3">
-                                <h3 className="text-2xl font-semibold text-black">Interns on Leave</h3>
+                                <h3 className="text-xl font-semibold text-black">Interns on Leave</h3>
                                 <span className="inline-flex rounded-full bg-[#f7ece9] px-3 py-1 text-sm font-semibold text-[#8b3f2f]">
                                   {String(leaveInterns.length).padStart(2, '0')}/{totalInterns}
                                 </span>
@@ -5599,7 +5599,7 @@ function App() {
                               transition={{ duration: 0.24, delay: 0.16 }}
                             >
                               <div className="flex items-center justify-between mb-3">
-                                <h3 className="text-2xl font-semibold text-black">Birthdays</h3>
+                                <h3 className="text-xl font-semibold text-black">Birthdays</h3>
                                 <span className="inline-flex rounded-full bg-[#f0f0f8] px-3 py-1 text-sm font-semibold text-[#35417c]">
                                   {birthdayInterns.length}/{totalInterns}
                                 </span>
@@ -5654,7 +5654,7 @@ function App() {
                           <select
                             value={analyticsSortBy}
                             onChange={(event) => setAnalyticsSortBy(event.target.value)}
-                            className="focus-brand rounded-full border border-castleton/20 bg-white px-4 py-2 text-sm font-semibold text-castleton"
+                            className="focus-brand rounded-full border border-castleton/20 bg-white px-3 py-1.5 text-sm font-semibold text-castleton"
                           >
                             <option value="name-asc">Sort: Name A-Z</option>
                             <option value="name-desc">Sort: Name Z-A</option>
@@ -5672,7 +5672,7 @@ function App() {
                           transition={{ duration: 0.22, delay: 0.04 }}
                         >
                           <div className="flex items-center justify-between gap-3 mb-3">
-                            <h3 className="text-xl sm:text-2xl font-semibold text-black">Recent Task Entries</h3>
+                            <h3 className="text-xl sm:text-xl font-semibold text-black">Recent Task Entries</h3>
                             <span className="inline-flex rounded-full bg-[#edf3ef] px-3 py-1 text-xs sm:text-sm font-semibold text-castleton">
                               {analyticsTaskEntries.length} item{analyticsTaskEntries.length === 1 ? '' : 's'}
                             </span>
@@ -6044,7 +6044,7 @@ function App() {
                                   <button
                                     type="button"
                                     onClick={() => setIsAnalyticsTaskModalOpen(false)}
-                                    className="focus-brand rounded-full border border-castleton/20 px-4 py-2 text-sm font-semibold text-castleton hover:bg-castleton hover:text-white transition-colors"
+                                    className="focus-brand rounded-full border border-castleton/20 px-3 py-1.5 text-sm font-semibold text-castleton hover:bg-castleton hover:text-white transition-colors"
                                   >
                                     Cancel
                                   </button>
@@ -6078,7 +6078,7 @@ function App() {
                             <select
                               value={evaluationSortBy}
                               onChange={(event) => setEvaluationSortBy(event.target.value)}
-                              className="focus-brand rounded-full border border-castleton/20 bg-white px-4 py-2 text-sm font-semibold text-castleton"
+                              className="focus-brand rounded-full border border-castleton/20 bg-white px-3 py-1.5 text-sm font-semibold text-castleton"
                             >
                               <option value="score-desc">Sort: Score High-Low</option>
                               <option value="score-asc">Sort: Score Low-High</option>
@@ -6309,7 +6309,7 @@ function App() {
                             <select
                               value={reportsSortBy}
                               onChange={(event) => setReportsSortBy(event.target.value)}
-                              className="focus-brand rounded-full border border-castleton/20 bg-white px-4 py-2 text-sm font-semibold text-castleton"
+                              className="focus-brand rounded-full border border-castleton/20 bg-white px-3 py-1.5 text-sm font-semibold text-castleton"
                             >
                               <option value="score-desc">Sort: Score High-Low</option>
                               <option value="score-asc">Sort: Score Low-High</option>
@@ -6335,7 +6335,7 @@ function App() {
                             ].map(([label, value, suffix]) => (
                               <div key={label} className="rounded-2xl border border-castleton/15 bg-[#f6f9f7] p-3">
                                 <p className="text-xs uppercase tracking-[0.12em] text-castleton">{label}</p>
-                                <p className="text-2xl font-semibold text-black">
+                                <p className="text-xl font-semibold text-black">
                                   {value}
                                   {suffix}
                                 </p>
@@ -6522,7 +6522,7 @@ function App() {
                                 type="button"
                                 onClick={handleScoreAllPending}
                                 disabled={isBatchScoring}
-                                className="focus-brand rounded-full border border-castleton/20 bg-white px-4 py-2 text-sm font-semibold text-castleton transition-colors hover:bg-[#eef3ef] disabled:cursor-not-allowed disabled:opacity-60"
+                                className="focus-brand rounded-full border border-castleton/20 bg-white px-3 py-1.5 text-sm font-semibold text-castleton transition-colors hover:bg-[#eef3ef] disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 {isBatchScoring ? 'Scoring Pending...' : 'Score All Pending'}
                               </button>
@@ -6684,7 +6684,7 @@ function App() {
                               paginatedApplications.map((application, index) => (
                                 <motion.article
                                   key={application.id}
-                                  className={`rounded-[22px] border bg-white p-5 transition-colors ${
+                                  className={`rounded-[18px] border bg-white p-3.5 transition-colors ${
                                     application.status === 'pending'
                                       ? 'border-[#e2c676] shadow-[0_16px_40px_-30px_rgba(138,90,20,0.45)]'
                                       : application.status === 'approved'
@@ -6695,12 +6695,12 @@ function App() {
                                   animate={{ opacity: 1, y: 0 }}
                                   transition={{ duration: 0.22, delay: Math.min(index * 0.03, 0.18) }}
                                 >
-                                  <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
+                                  <div className="grid gap-3 xl:grid-cols-[minmax(0,1.1fr)_minmax(260px,0.9fr)]">
                                     <div>
-                                      <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
+                                      <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
                                         <div>
                                           <p className="text-xs uppercase tracking-[0.12em] text-castleton mb-1">Applicant</p>
-                                          <h3 className="text-2xl font-semibold text-black">
+                                          <h3 className="text-xl font-semibold text-black">
                                             {application.firstName} {application.lastName}
                                           </h3>
                                           <p className="text-sm text-black/65 mt-1">{application.email}</p>
@@ -6711,23 +6711,23 @@ function App() {
                                         </div>
                                       </div>
 
-                                      <div className="grid gap-3 sm:grid-cols-3">
-                                        <div className="rounded-2xl border border-castleton/12 bg-[#f8faf9] px-4 py-3">
+                                      <div className="grid gap-2.5 sm:grid-cols-3">
+                                        <div className="rounded-xl border border-castleton/12 bg-[#f8faf9] px-3 py-2.5">
                                           <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Phone</p>
-                                          <p className="mt-2 text-sm font-medium text-black">
+                                          <p className="mt-1.5 text-sm font-medium text-black">
                                             {application.phoneCode} {application.phoneNumber}
                                           </p>
                                         </div>
-                                        <div className="rounded-2xl border border-castleton/12 bg-[#f8faf9] px-4 py-3">
+                                        <div className="rounded-xl border border-castleton/12 bg-[#f8faf9] px-3 py-2.5">
                                           <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Position</p>
-                                          <p className="mt-2 text-sm font-medium text-black">
+                                          <p className="mt-1.5 text-sm font-medium text-black">
                                             {(application.positions || []).join(', ') || 'Not specified'}
                                           </p>
                                         </div>
-                                      <div className="rounded-2xl border border-castleton/12 bg-[#f8faf9] px-4 py-3">
+                                      <div className="rounded-xl border border-castleton/12 bg-[#f8faf9] px-3 py-2.5">
                                         <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Status</p>
                                         <span
-                                          className={`mt-2 inline-flex rounded-full px-3 py-1 text-sm font-semibold ${
+                                          className={`mt-1.5 inline-flex rounded-full px-2.5 py-1 text-sm font-semibold ${
                                             application.status === 'approved'
                                               ? 'bg-[#e9f3ee] text-castleton'
                                               : application.status === 'rejected'
@@ -6758,9 +6758,9 @@ function App() {
                                       </div>
                                     </div>
 
-                                    <div className="rounded-[20px] border border-castleton/12 bg-[#fbfcfb] p-4">
+                                    <div className="rounded-[16px] border border-castleton/12 bg-[#fbfcfb] p-3">
                                       <span
-                                        className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] ${
+                                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.12em] ${
                                           application.status === 'approved'
                                             ? 'bg-[#e9f3ee] text-castleton'
                                             : application.status === 'rejected'
@@ -6782,14 +6782,14 @@ function App() {
                                         }
                                         placeholder="Add an internal note for this application"
                                         rows={4}
-                                        className="focus-brand mt-4 w-full rounded-2xl border border-castleton/20 bg-white px-4 py-3 text-black outline-none resize-y"
+                                        className="focus-brand mt-3 w-full rounded-xl border border-castleton/20 bg-white px-3 py-2 text-black outline-none resize-y"
                                       />
 
-                                      <div className="mt-4 flex flex-wrap gap-2">
+                                      <div className="mt-3 flex flex-wrap gap-2">
                                         <button
                                           type="button"
                                           onClick={() => setSelectedApplication(application)}
-                                          className="focus-brand rounded-full border border-castleton/20 bg-white px-4 py-2 text-sm font-semibold text-castleton transition-colors hover:bg-[#eef3ef]"
+                                          className="focus-brand rounded-full border border-castleton/20 bg-white px-3 py-1.5 text-sm font-semibold text-castleton transition-colors hover:bg-[#eef3ef]"
                                         >
                                           Review Applicant
                                         </button>
@@ -6806,7 +6806,7 @@ function App() {
                               animate={{ opacity: 1, y: 0 }}
                               transition={{ duration: 0.22 }}
                             >
-                              <h3 className="text-2xl font-semibold text-black mb-2">
+                              <h3 className="text-xl font-semibold text-black mb-2">
                                 {careerApplications.length ? 'No matching applications' : 'No applications yet'}
                               </h3>
                               <p className="text-black/70 text-base">
@@ -6826,7 +6826,7 @@ function App() {
                                   type="button"
                                   onClick={() => setApplicationPage((prev) => Math.max(1, prev - 1))}
                                   disabled={applicationPage === 1}
-                                  className="focus-brand rounded-full border border-castleton/15 bg-white px-4 py-2 text-sm font-semibold text-castleton hover:bg-[#f4f7f5] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                                  className="focus-brand rounded-full border border-castleton/15 bg-white px-3 py-1.5 text-sm font-semibold text-castleton hover:bg-[#f4f7f5] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                   Previous
                                 </button>
@@ -6834,7 +6834,7 @@ function App() {
                                   type="button"
                                   onClick={() => setApplicationPage((prev) => Math.min(totalApplicationPages, prev + 1))}
                                   disabled={applicationPage === totalApplicationPages}
-                                  className="focus-brand rounded-full border border-castleton/15 bg-white px-4 py-2 text-sm font-semibold text-castleton hover:bg-[#f4f7f5] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                                  className="focus-brand rounded-full border border-castleton/15 bg-white px-3 py-1.5 text-sm font-semibold text-castleton hover:bg-[#f4f7f5] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                   Next
                                 </button>
@@ -6912,7 +6912,7 @@ function App() {
                             filteredApprovalRequests.map((request, index) => (
                               <motion.article
                                 key={request.id}
-                                className={`rounded-[22px] border bg-white p-5 transition-colors ${
+                                className={`rounded-[18px] border bg-white p-3.5 transition-colors ${
                                   request.status === 'pending'
                                     ? 'border-[#e2c676] shadow-[0_16px_40px_-30px_rgba(138,90,20,0.45)]'
                                     : request.status === 'approved'
@@ -6925,12 +6925,12 @@ function App() {
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ duration: 0.22, delay: Math.min(index * 0.03, 0.18) }}
                               >
-                                <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
+                                <div className="grid gap-3 xl:grid-cols-[minmax(0,1.1fr)_minmax(260px,0.9fr)]">
                                   <div>
-                                    <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
+                                    <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
                                       <div>
                                         <p className="text-xs uppercase tracking-[0.12em] text-castleton mb-1">Signup Request</p>
-                                        <h3 className="text-2xl font-semibold text-black">{request.fullName}</h3>
+                                        <h3 className="text-xl font-semibold text-black">{request.fullName}</h3>
                                         <p className="text-sm text-black/65 mt-1">{request.email}</p>
                                       </div>
                                       <div className="text-right">
@@ -6939,19 +6939,19 @@ function App() {
                                       </div>
                                     </div>
 
-                                    <div className="grid gap-3 sm:grid-cols-3">
-                                      <div className="rounded-2xl border border-castleton/12 bg-[#f8faf9] px-4 py-3">
+                                    <div className="grid gap-2.5 sm:grid-cols-3">
+                                      <div className="rounded-xl border border-castleton/12 bg-[#f8faf9] px-3 py-2.5">
                                         <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Phone</p>
-                                        <p className="mt-2 text-sm font-medium text-black">{request.phone || 'No phone'}</p>
+                                        <p className="mt-1.5 text-sm font-medium text-black">{request.phone || 'No phone'}</p>
                                       </div>
-                                      <div className="rounded-2xl border border-castleton/12 bg-[#f8faf9] px-4 py-3">
+                                      <div className="rounded-xl border border-castleton/12 bg-[#f8faf9] px-3 py-2.5">
                                         <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Department</p>
-                                        <p className="mt-2 text-sm font-medium text-black">{request.department || 'No department'}</p>
+                                        <p className="mt-1.5 text-sm font-medium text-black">{request.department || 'No department'}</p>
                                       </div>
-                                      <div className="rounded-2xl border border-castleton/12 bg-[#f8faf9] px-4 py-3">
+                                      <div className="rounded-xl border border-castleton/12 bg-[#f8faf9] px-3 py-2.5">
                                         <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Status</p>
                                         <span
-                                          className={`mt-2 inline-flex rounded-full px-3 py-1 text-sm font-semibold ${
+                                          className={`mt-1.5 inline-flex rounded-full px-2.5 py-1 text-sm font-semibold ${
                                             request.status === 'approved'
                                               ? 'bg-[#e9f3ee] text-castleton'
                                               : request.status === 'suspended'
@@ -6967,9 +6967,9 @@ function App() {
                                     </div>
                                   </div>
 
-                                  <div className="rounded-[20px] border border-castleton/12 bg-[#fbfcfb] p-4">
+                                  <div className="rounded-[16px] border border-castleton/12 bg-[#fbfcfb] p-3">
                                     <span
-                                      className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] ${
+                                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.12em] ${
                                         request.status === 'approved'
                                           ? 'bg-[#e9f3ee] text-castleton'
                                           : request.status === 'suspended'
@@ -6993,10 +6993,10 @@ function App() {
                                       }
                                       placeholder="Add an internal note for this request"
                                       rows={4}
-                                      className="focus-brand mt-4 w-full rounded-2xl border border-castleton/20 bg-white px-4 py-3 text-black outline-none resize-y"
+                                      className="focus-brand mt-3 w-full rounded-xl border border-castleton/20 bg-white px-3 py-2 text-black outline-none resize-y"
                                     />
 
-                                    <div className="mt-4 flex flex-wrap gap-2">
+                                    <div className="mt-3 flex flex-wrap gap-2">
                                       <button
                                         type="button"
                                         onClick={() => handleSignupRequestDecision(request.id, 'rejected')}
@@ -7045,7 +7045,7 @@ function App() {
                               animate={{ opacity: 1, y: 0 }}
                               transition={{ duration: 0.22 }}
                             >
-                              <h3 className="text-2xl font-semibold text-black mb-2">
+                              <h3 className="text-xl font-semibold text-black mb-2">
                                 {signupRequests.length ? 'No matching requests' : 'No signup requests yet'}
                               </h3>
                               <p className="text-black/70 text-base">
@@ -7156,7 +7156,7 @@ function App() {
                                   transition={{ duration: 0.16 }}
                                 >
                                   <p className="text-xs uppercase tracking-[0.1em] text-castleton">{label}</p>
-                                  <p className="text-2xl font-semibold text-black">{value}</p>
+                                  <p className="text-xl font-semibold text-black">{value}</p>
                                 </motion.div>
                               ))}
                             </div>
@@ -7576,7 +7576,7 @@ function App() {
                                   <motion.button
                                     type="button"
                                     onClick={() => setInternStepperStep((prev) => Math.max(1, prev - 1))}
-                                    className="focus-brand rounded-full border border-castleton/20 px-4 py-2 text-sm font-semibold text-castleton hover:bg-castleton hover:text-white transition-colors"
+                                    className="focus-brand rounded-full border border-castleton/20 px-3 py-1.5 text-sm font-semibold text-castleton hover:bg-castleton hover:text-white transition-colors"
                                     whileHover={{ y: -1 }}
                                     whileTap={{ scale: 0.98 }}
                                   >
@@ -7586,7 +7586,7 @@ function App() {
                                     <motion.button
                                       type="button"
                                       onClick={resetInternForm}
-                                      className="focus-brand rounded-full border border-castleton/20 px-4 py-2 text-sm font-semibold text-castleton hover:bg-castleton hover:text-white transition-colors"
+                                      className="focus-brand rounded-full border border-castleton/20 px-3 py-1.5 text-sm font-semibold text-castleton hover:bg-castleton hover:text-white transition-colors"
                                       whileHover={{ y: -1 }}
                                       whileTap={{ scale: 0.98 }}
                                     >
@@ -7847,7 +7847,7 @@ function App() {
                         <div className="flex items-start justify-between gap-4">
                           <div>
                             <p className="text-xs uppercase tracking-[0.12em] text-castleton mb-2">Confirm Action</p>
-                            <h2 className="text-2xl font-semibold text-black">Are you sure?</h2>
+                            <h2 className="text-xl font-semibold text-black">Are you sure?</h2>
                           </div>
                           <button
                             type="button"
@@ -7864,7 +7864,7 @@ function App() {
                           <button
                             type="button"
                             onClick={closeConfirmationDialog}
-                            className="focus-brand rounded-full border border-castleton/15 bg-white px-4 py-2 text-sm font-semibold text-castleton hover:bg-[#f4f7f5] transition-colors"
+                            className="focus-brand rounded-full border border-castleton/15 bg-white px-3 py-1.5 text-sm font-semibold text-castleton hover:bg-[#f4f7f5] transition-colors"
                           >
                             Cancel
                           </button>
@@ -7908,7 +7908,7 @@ function App() {
                         transition={{ duration: 0.22 }}
                         onClick={(event) => event.stopPropagation()}
                       >
-                        <div className="flex items-center justify-between gap-4 mb-4">
+                        <div className="flex items-center justify-between gap-3 mb-3">
                           <div>
                             <p className="text-xs uppercase tracking-[0.12em] text-castleton mb-1">Applicant CV</p>
                             <h2 className="text-xl font-semibold text-black">{cvModalName}</h2>
@@ -7930,7 +7930,7 @@ function App() {
                                   href={cvModalUrl}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="focus-brand rounded-full border border-castleton/20 bg-white px-4 py-2 text-sm font-semibold text-castleton hover:bg-[#eef3ef] transition-colors"
+                                  className="focus-brand rounded-full border border-castleton/20 bg-white px-3 py-1.5 text-sm font-semibold text-castleton hover:bg-[#eef3ef] transition-colors"
                                 >
                                   Open in new tab
                                 </a>
@@ -7967,7 +7967,7 @@ function App() {
                         <div className="flex items-start justify-between gap-4 px-5 sm:px-6 pt-5 sm:pt-6 pb-4 border-b border-castleton/10">
                           <div>
                             <p className="text-xs uppercase tracking-[0.12em] text-castleton mb-1">Applicant Review</p>
-                            <h2 className="text-2xl font-semibold text-black">
+                            <h2 className="text-xl font-semibold text-black">
                               {selectedApplication.firstName} {selectedApplication.lastName}
                             </h2>
                             <p className="text-sm text-black/65 mt-1">{selectedApplication.email}</p>
@@ -7983,22 +7983,22 @@ function App() {
 
                         <div className="flex-1 overflow-y-auto px-5 sm:px-6 pb-5 sm:pb-6">
                           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-4">
-                            <div className="rounded-2xl border border-castleton/12 bg-[#f8faf9] px-4 py-3">
+                            <div className="rounded-xl border border-castleton/12 bg-[#f8faf9] px-3 py-2.5">
                             <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Phone</p>
-                            <p className="mt-2 text-sm font-medium text-black">
+                            <p className="mt-1.5 text-sm font-medium text-black">
                               {selectedApplication.phoneCode} {selectedApplication.phoneNumber}
                             </p>
                           </div>
-                            <div className="rounded-2xl border border-castleton/12 bg-[#f8faf9] px-4 py-3">
+                            <div className="rounded-xl border border-castleton/12 bg-[#f8faf9] px-3 py-2.5">
                             <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Position</p>
-                            <p className="mt-2 text-sm font-medium text-black">
+                            <p className="mt-1.5 text-sm font-medium text-black">
                               {(selectedApplication.positions || []).join(', ') || 'Not specified'}
                             </p>
                           </div>
-                            <div className="rounded-2xl border border-castleton/12 bg-[#f8faf9] px-4 py-3">
+                            <div className="rounded-xl border border-castleton/12 bg-[#f8faf9] px-3 py-2.5">
                             <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Status</p>
                             <span
-                              className={`mt-2 inline-flex rounded-full px-3 py-1 text-sm font-semibold ${
+                              className={`mt-1.5 inline-flex rounded-full px-2.5 py-1 text-sm font-semibold ${
                                 selectedApplication.status === 'approved'
                                   ? 'bg-[#e9f3ee] text-castleton'
                                   : selectedApplication.status === 'rejected'
@@ -8009,21 +8009,21 @@ function App() {
                               {selectedApplication.status}
                             </span>
                           </div>
-                            <div className="rounded-2xl border border-castleton/12 bg-[#f8faf9] px-4 py-3">
+                            <div className="rounded-xl border border-castleton/12 bg-[#f8faf9] px-3 py-2.5">
                             <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Gender</p>
-                            <p className="mt-2 text-sm font-medium text-black">
+                            <p className="mt-1.5 text-sm font-medium text-black">
                               {selectedApplication.gender || 'Not specified'}
                             </p>
                           </div>
-                            <div className="rounded-2xl border border-castleton/12 bg-[#f8faf9] px-4 py-3">
+                            <div className="rounded-xl border border-castleton/12 bg-[#f8faf9] px-3 py-2.5">
                             <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Age</p>
-                            <p className="mt-2 text-sm font-medium text-black">
+                            <p className="mt-1.5 text-sm font-medium text-black">
                               {selectedApplication.age || 'Not specified'}
                             </p>
                           </div>
-                            <div className="rounded-2xl border border-castleton/12 bg-[#f8faf9] px-4 py-3">
+                            <div className="rounded-xl border border-castleton/12 bg-[#f8faf9] px-3 py-2.5">
                             <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Country</p>
-                            <p className="mt-2 text-sm font-medium text-black">
+                            <p className="mt-1.5 text-sm font-medium text-black">
                               {selectedApplication.country || 'Not specified'}
                             </p>
                           </div>
@@ -8031,7 +8031,7 @@ function App() {
 
                         <div className="rounded-2xl border border-castleton/12 bg-[#fbfcfb] p-4 mb-4">
                           <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Current Address</p>
-                          <p className="mt-2 text-sm font-medium text-black">
+                          <p className="mt-1.5 text-sm font-medium text-black">
                             {selectedApplication.address || 'Not specified'}
                           </p>
                         </div>
@@ -8097,7 +8097,7 @@ function App() {
                             type="button"
                             onClick={() => handleScoreApplication(selectedApplication)}
                             disabled={isScoringCv}
-                            className="focus-brand rounded-full border border-castleton/15 bg-white px-4 py-2 text-sm font-semibold text-castleton hover:bg-[#f4f7f5] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                            className="focus-brand rounded-full border border-castleton/15 bg-white px-3 py-1.5 text-sm font-semibold text-castleton hover:bg-[#f4f7f5] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             {selectedApplication.cvScore ? 'Rescore CV' : 'Score CV'}
                           </button>
@@ -8776,6 +8776,8 @@ function App() {
 }
 
 export default App
+
+
 
 
 
