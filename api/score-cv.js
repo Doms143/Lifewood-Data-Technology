@@ -40,18 +40,10 @@ You are a hiring analyst. Score the following CV text from 1-100 using this weig
 4) Education and certifications: 15%
 5) Clarity, structure, and professionalism: 10%
 
-Return ONLY valid JSON with this schema:
-{
-  "overall_score": number,
-  "breakdown": {
-    "relevance": number,
-    "experience": number,
-    "skills": number,
-    "education": number,
-    "clarity": number
-  },
-  "summary": "string"
-}
+Return ONLY in this exact format:
+<score> | <short reason>
+Where <score> is an integer 1-100 and <short reason> is a single short sentence (max 12 words).
+No JSON, no labels, no extra text.
 
 CV TEXT:
 ${cvText}
@@ -138,7 +130,6 @@ export default async function handler(req, res) {
             generationConfig: {
               temperature: 0.2,
               maxOutputTokens: 900,
-              responseMimeType: 'application/json',
             },
           }),
         }
@@ -152,44 +143,41 @@ export default async function handler(req, res) {
       const geminiJson = await geminiResponse.json()
       return geminiJson?.candidates?.[0]?.content?.parts?.[0]?.text || ''
     }
-
     let rawText = await callGemini(buildPrompt(cvText))
-    let jsonText = rawText
-    const fencedMatch = rawText.match(/```json\s*([\s\S]*?)\s*```/i)
-    if (fencedMatch) {
-      jsonText = fencedMatch[1]
-    }
-    const jsonMatch = jsonText.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) {
-      const retryPrompt = buildPrompt(cvText.slice(0, 6000)) + "\nReturn ONLY JSON. Do not truncate."
-      rawText = await callGemini(retryPrompt)
-      jsonText = rawText
-      const retryFence = rawText.match(/```json\s*([\s\S]*?)\s*```/i)
-      if (retryFence) {
-        jsonText = retryFence[1]
+    const extractScoreAndReason = (text) => {
+      const raw = String(text || '').trim()
+      const match = raw.match(/\b(\d{1,3})\b/)
+      if (!match) return { score: null, reason: '' }
+      const value = Number(match[1])
+      if (!Number.isFinite(value)) return { score: null, reason: '' }
+      const score = Math.min(100, Math.max(1, value))
+      const parts = raw.split('|')
+      let reason = ''
+      if (parts.length > 1) {
+        reason = parts.slice(1).join('|').trim()
+      } else {
+        reason = raw.replace(match[1], '').replace(/^[^a-zA-Z0-9]+/, '').trim()
       }
-      const retryMatch = jsonText.match(/\{[\s\S]*\}/)
-      if (!retryMatch) {
+      if (reason.length > 140) {
+        reason = reason.slice(0, 140).trim()
+      }
+      return { score, reason }
+    }
+
+    let { score: overallScore, reason: summary } = extractScoreAndReason(rawText)
+    if (overallScore === null) {
+      const retryPrompt = buildPrompt(cvText.slice(0, 6000)) + '\nReturn ONLY: <score> | <short reason>.'
+      rawText = await callGemini(retryPrompt)
+      const retry = extractScoreAndReason(rawText)
+      overallScore = retry.score
+      summary = retry.reason
+      if (overallScore === null) {
         res.status(500).json({ error: 'Invalid Gemini response', details: rawText })
         return
       }
-      jsonText = retryMatch[0]
-    } else {
-      jsonText = jsonMatch[0]
     }
 
-    let scorePayload
-    try {
-      scorePayload = JSON.parse(jsonText)
-    } catch (error) {
-      res.status(500).json({ error: 'Failed to parse Gemini response', details: jsonText })
-      return
-    }
-
-    const overallScore = Number(scorePayload.overall_score || 0)
-    const breakdown = scorePayload.breakdown || {}
-    const summary = scorePayload.summary || ''
-
+    const breakdown = null
     const { data: updated, error: updateError } = await supabase
       .from('career_applications')
       .update({
@@ -220,6 +208,17 @@ export default async function handler(req, res) {
     res.status(500).json({ error: error?.message || 'Unexpected server error' })
   }
 }
+
+
+
+
+
+
+
+
+
+
+
 
 
 
