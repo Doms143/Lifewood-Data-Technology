@@ -124,7 +124,36 @@ export default async function handler(req, res) {
 
     const modelName = await resolveModelName(geminiApiKey)
 
-    const callGemini = async (prompt) => {\r\n      const geminiResponse = await fetch(\r\n        'https://generativelanguage.googleapis.com/v1beta/models/' + modelName + ':generateContent',\r\n        {\r\n          method: 'POST',\r\n          headers: {\r\n            'Content-Type': 'application/json',\r\n            'x-goog-api-key': geminiApiKey,\r\n          },\r\n          body: JSON.stringify({\r\n            contents: [{ role: 'user', parts: [{ text: prompt }] }],\r\n            generationConfig: {\r\n              temperature: 0.2,\r\n              maxOutputTokens: 900,\r\n              responseMimeType: 'application/json',\r\n            },\r\n          }),\r\n        }\r\n      )\r\n\r\n      if (!geminiResponse.ok) {\r\n        const errorText = await geminiResponse.text()\r\n        throw new Error(Gemini error: )\r\n      }\r\n\r\n      const geminiJson = await geminiResponse.json()\r\n      return geminiJson?.candidates?.[0]?.content?.parts?.[0]?.text || ''\r\n    }\r\n\r\n    let rawText = await callGemini(buildPrompt(cvText))
+    const callGemini = async (prompt) => {
+      const geminiResponse = await fetch(
+        'https://generativelanguage.googleapis.com/v1beta/models/' + modelName + ':generateContent',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': geminiApiKey,
+          },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.2,
+              maxOutputTokens: 900,
+              responseMimeType: 'application/json',
+            },
+          }),
+        }
+      )
+
+      if (!geminiResponse.ok) {
+        const errorText = await geminiResponse.text()
+        throw new Error(`Gemini error: ${errorText || geminiResponse.status}`)
+      }
+
+      const geminiJson = await geminiResponse.json()
+      return geminiJson?.candidates?.[0]?.content?.parts?.[0]?.text || ''
+    }
+
+    let rawText = await callGemini(buildPrompt(cvText))
     let jsonText = rawText
     const fencedMatch = rawText.match(/```json\s*([\s\S]*?)\s*```/i)
     if (fencedMatch) {
@@ -191,6 +220,8 @@ export default async function handler(req, res) {
     res.status(500).json({ error: error?.message || 'Unexpected server error' })
   }
 }
+
+
 
 
 
