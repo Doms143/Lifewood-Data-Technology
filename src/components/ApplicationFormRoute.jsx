@@ -44,6 +44,7 @@ const countries = [
 export default function ApplicationFormRoute() {
   const [age, setAge] = useState('')
   const [status, setStatus] = useState({ type: '', message: '' })
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -132,97 +133,103 @@ export default function ApplicationFormRoute() {
 
   const handleSubmit = async (event) => {
     event.preventDefault()
+    if (isSubmitting) return
+    setIsSubmitting(true)
     setStatus({ type: '', message: '' })
 
-    if (!isSupabaseConfigured || !supabase) {
-      setStatus({ type: 'error', message: 'Supabase is not configured.' })
-      return
-    }
-
-    if (!resumeFile) {
-      setStatus({ type: 'error', message: 'Please upload your CV (PDF).' })
-      return
-    }
-
-    const safeName = `${formData.lastName}_${formData.firstName}`
-      .toLowerCase()
-      .replace(/[^a-z0-9-_]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-    const fileName = `${Date.now()}_${safeName || 'applicant'}.pdf`
-
-    const bucketCandidates = ['CAREER-CV', 'career-cv']
-    let uploadError = null
-    let usedBucket = null
-
-    for (const candidate of bucketCandidates) {
-      const { error } = await supabase.storage
-        .from(candidate)
-        .upload(fileName, resumeFile, { contentType: 'application/pdf' })
-
-      if (!error) {
-        usedBucket = candidate
-        uploadError = null
-        break
+    try {
+      if (!isSupabaseConfigured || !supabase) {
+        setStatus({ type: 'error', message: 'Supabase is not configured.' })
+        return
       }
 
-      uploadError = error
-      if (!/bucket/i.test(error.message)) {
-        break
+      if (!resumeFile) {
+        setStatus({ type: 'error', message: 'Please upload your CV (PDF).' })
+        return
       }
-    }
 
-    if (uploadError) {
-      setStatus({ type: 'error', message: `Upload failed: ${uploadError.message}` })
-      return
-    }
+      const safeName = `${formData.lastName}_${formData.firstName}`
+        .toLowerCase()
+        .replace(/[^a-z0-9-_]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+      const fileName = `${Date.now()}_${safeName || 'applicant'}.pdf`
 
-    const { data: insertedApplication, error: insertError } = await supabase.from('career_applications').insert({
-      created_at: new Date().toISOString(),
-      first_name: formData.firstName.trim(),
-      last_name: formData.lastName.trim(),
-      email: formData.email.trim(),
-      phone_code: formData.phoneCode,
-      phone_number: formData.phoneNumber.trim(),
-      gender: formData.gender,
-      age: Number(age),
-      country: formData.country,
-      address: formData.address.trim(),
-      positions: [formData.position],
-      cv_filename: resumeFile.name,
-      cv_path: fileName,
-    }).select('*').single()
+      const bucketCandidates = ['CAREER-CV', 'career-cv']
+      let uploadError = null
+      let usedBucket = null
 
-    if (insertError) {
-      setStatus({ type: 'error', message: `Submission failed: ${insertError.message}` })
-      return
-    }
+      for (const candidate of bucketCandidates) {
+        const { error } = await supabase.storage
+          .from(candidate)
+          .upload(fileName, resumeFile, { contentType: 'application/pdf' })
 
-    if (insertedApplication?.id) {
-      try {
-        await fetch('/api/score-cv', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ applicationId: insertedApplication.id }),
-        })
-      } catch {
-        // scoring is best-effort; ignore failures here
+        if (!error) {
+          usedBucket = candidate
+          uploadError = null
+          break
+        }
+
+        uploadError = error
+        if (!/bucket/i.test(error.message)) {
+          break
+        }
       }
-    }
 
-    setStatus({ type: 'success', message: 'Application submitted. We will contact you soon.' })
-    setFormData({
-      firstName: '',
-      lastName: '',
-      gender: '',
-      phoneCode: '+63 (Philippines)',
-      phoneNumber: '',
-      email: '',
-      position: '',
-      country: '',
-      address: '',
-    })
-    setAge('')
-    setResumeFile(null)
+      if (uploadError) {
+        setStatus({ type: 'error', message: `Upload failed: ${uploadError.message}` })
+        return
+      }
+
+      const { data: insertedApplication, error: insertError } = await supabase.from('career_applications').insert({
+        created_at: new Date().toISOString(),
+        first_name: formData.firstName.trim(),
+        last_name: formData.lastName.trim(),
+        email: formData.email.trim(),
+        phone_code: formData.phoneCode,
+        phone_number: formData.phoneNumber.trim(),
+        gender: formData.gender,
+        age: Number(age),
+        country: formData.country,
+        address: formData.address.trim(),
+        positions: [formData.position],
+        cv_filename: resumeFile.name,
+        cv_path: fileName,
+      }).select('*').single()
+
+      if (insertError) {
+        setStatus({ type: 'error', message: `Submission failed: ${insertError.message}` })
+        return
+      }
+
+      if (insertedApplication?.id) {
+        try {
+          await fetch('/api/score-cv', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ applicationId: insertedApplication.id }),
+          })
+        } catch {
+          // scoring is best-effort; ignore failures here
+        }
+      }
+
+      setStatus({ type: 'success', message: 'Application submitted. We will contact you soon.' })
+      setFormData({
+        firstName: '',
+        lastName: '',
+        gender: '',
+        phoneCode: '+63 (Philippines)',
+        phoneNumber: '',
+        email: '',
+        position: '',
+        country: '',
+        address: '',
+      })
+      setAge('')
+      setResumeFile(null)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -438,14 +445,14 @@ export default function ApplicationFormRoute() {
 
         <button
           type="submit"
-          disabled={!isFormValid}
+          disabled={!isFormValid || isSubmitting}
           className={`w-full rounded-2xl font-semibold py-4 transition-colors ${
-            isFormValid
+            isFormValid && !isSubmitting
               ? 'bg-[#FFB347] text-[#133020] hover:bg-[#eaa13b]'
               : 'bg-[#f5eedb] text-[#133020] opacity-60 cursor-not-allowed'
           }`}
         >
-          Submit Application
+          {isSubmitting ? 'Submitting...' : 'Submit Application'}
         </button>
       </form>
     </section>

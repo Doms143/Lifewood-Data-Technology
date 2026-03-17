@@ -33,7 +33,9 @@ const resolveModelName = async (apiKey) => {
   return 'gemini-1.5-flash-latest'
 }
 const buildPrompt = (cvText) => `
-You are a hiring analyst. Score the following CV text from 1-100 using this weighted rubric:
+You are a hiring analyst. Score the following CV text from 1-100 using this weighted rubric.
+Be slightly lenient: if the CV is reasonably relevant and competent, avoid very low scores.
+Use the full range only when clearly warranted; average/typical CVs should land around 55-75.
 1) Relevance to applied role: 30%
 2) Experience depth and impact: 25%
 3) Skills and tools match: 20%
@@ -208,6 +210,7 @@ export default async function handler(req, res) {
     res.status(500).json({ error: error?.message || 'Unexpected server error' })
   }
 }
+
 
 
 
