@@ -5328,26 +5328,34 @@ function App() {
                         {adminDataError}
                       </p>
                     ) : null}
-                    {activeAdminTab === 'Dashboard' ? (
-                      <div className="space-y-5">
-                        <motion.div
-                          className="rounded-[24px] border border-castleton/20 bg-white p-5 sm:p-6 flex flex-wrap items-center justify-between gap-3"
-                          initial={{ opacity: 0, y: 12 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.25 }}
-                        >
-                          <div>
-                            <h2 className="text-3xl sm:text-4xl font-semibold text-black">Hello, Lifewood Team!</h2>
-                            <p className="text-black/70 text-base sm:text-lg">Hope you are having a productive day :)</p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => runAdminAction('Today filter selected')}
-                            className="focus-brand rounded-full border border-castleton/20 bg-[#f3f5f4] px-4 py-2 text-base font-semibold text-castleton hover:bg-castleton hover:text-white transition-colors"
+                    <AnimatePresence mode="wait">
+                      <motion.div
+                        key={activeAdminTab}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        transition={{ duration: 0.24, ease: 'easeOut' }}
+                      >
+                      {activeAdminTab === 'Dashboard' ? (
+                        <div className="space-y-5">
+                          <motion.div
+                            className="rounded-[24px] border border-castleton/20 bg-white p-5 sm:p-6 flex flex-wrap items-center justify-between gap-3"
+                            initial={{ opacity: 0, y: 12 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.25 }}
                           >
-                            Today
-                          </button>
-                        </motion.div>
+                            <div>
+                              <h2 className="text-3xl sm:text-4xl font-semibold text-black">Hello, Lifewood Team!</h2>
+                              <p className="text-black/70 text-base sm:text-lg">Hope you are having a productive day :)</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => runAdminAction('Today filter selected')}
+                              className="focus-brand rounded-full border border-castleton/20 bg-[#f3f5f4] px-4 py-2 text-base font-semibold text-castleton hover:bg-castleton hover:text-white transition-colors"
+                            >
+                              Today
+                            </button>
+                          </motion.div>
 
                         <div className="grid grid-cols-1 xl:grid-cols-[1.35fr_0.85fr] gap-4">
                           <div className="space-y-4">
@@ -7096,7 +7104,6 @@ function App() {
                                 </button>
                               ) : null}
                             </div>
-
                             <div className="mt-5 rounded-xl border border-castleton/15 bg-[#f7faf8] px-3 py-2.5">
                               <p className="text-xs text-black/70">
                                 Tip: Use complete school and mentor details for cleaner Analytics, Evaluation, and Reports output.
@@ -7730,8 +7737,9 @@ function App() {
                         </div>
                       </>
                     )}
+                      </motion.div>
+                    </AnimatePresence>
                   </main>
-
                 </div>
 
                 <AnimatePresence>

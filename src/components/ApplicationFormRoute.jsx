@@ -405,7 +405,6 @@ export default function ApplicationFormRoute() {
                 type="file"
                 accept="application/pdf"
                 onChange={handleFileChange}
-                required
                 ref={fileInputRef}
                 className="upload-input"
               />
