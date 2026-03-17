@@ -30,6 +30,12 @@ import {
   Bot,
   Quote,
   LayoutGrid,
+  BarChart3,
+  FileCheck2,
+  FileText,
+  UserSquare2,
+  UserCheck2,
+  LogOut,
   AlignJustify,
 } from 'lucide-react'
 import Hero from './components/Hero'
@@ -398,7 +404,15 @@ const careersCultureChips = [
   'Balanced (work-life balance)',
 ]
 
-const adminMenuItems = ['Dashboard', 'Analytics', 'Evaluation', 'Reports', 'Applications', 'Approvals', 'Manage Interns']
+const adminMenuItems = [
+  { label: 'Dashboard', icon: LayoutGrid },
+  { label: 'Analytics', icon: BarChart3 },
+  { label: 'Evaluation', icon: FileCheck2 },
+  { label: 'Reports', icon: FileText },
+  { label: 'Applications', icon: FileText },
+  { label: 'Approvals', icon: UserCheck2 },
+  { label: 'Manage Interns', icon: UserSquare2 },
+]
 
 const adminPanelContent = {
   Dashboard: {
@@ -1081,6 +1095,8 @@ function App() {
   const [isSignUpPasswordVisible, setIsSignUpPasswordVisible] = useState(false)
   const [isSignUpConfirmPasswordVisible, setIsSignUpConfirmPasswordVisible] = useState(false)
   const [activeAdminTab, setActiveAdminTab] = useState('Dashboard')
+  const [isAdminNavOpen, setIsAdminNavOpen] = useState(true)
+  const [isAdminNavPinned, setIsAdminNavPinned] = useState(true)
   const [adminNotice, setAdminNotice] = useState('')
   const [internAnalyticsData, setInternAnalyticsData] = useState([])
   const [isAdminDataLoading, setIsAdminDataLoading] = useState(false)
@@ -1158,6 +1174,7 @@ function App() {
   const settingsPageSize = 10
   const manageInternsFollowScrollRef = useRef(null)
   const manageInternsFollowTrackRef = useRef(null)
+  const adminNavRef = useRef(null)
   const manageInternsTableScrollRef = useRef(null)
   const isSyncingManageInternsScrollRef = useRef(false)
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false)
@@ -5129,70 +5146,164 @@ function App() {
             ) : hasAdminAccess ? (
               <section className="w-full text-black lg:min-h-screen">
                 <div className="relative">
-                  <div className="space-y-3 flex flex-col items-center lg:fixed lg:left-0 lg:top-0 lg:inset-y-0 lg:w-[280px] lg:z-40 lg:justify-start lg:bg-[linear-gradient(165deg,#0f5a3f,#0d4d38_52%,#0a3f31)] lg:border-r lg:border-castleton/30 lg:px-4 lg:pt-5 lg:pb-4">
-                    <div className="h-14 w-full flex items-center justify-center lg:h-16">
-                      <img
-                        src="https://framerusercontent.com/images/Ca8ppNsvJIfTsWEuHr50gvkDow.png"
-                        alt="Lifewood logo"
-                        className="h-7 w-auto lg:h-9"
-                      />
-                    </div>
-                    <aside className="w-full h-full rounded-[26px] lg:rounded-[18px] border border-castleton/25 bg-transparent text-[#eef4e9] overflow-hidden shadow-soft lg:shadow-none">
-                    <div className="p-3 mt-2 space-y-3">
-                      <button
-                        type="button"
-                        onClick={() => setIsAdminProfileModalOpen(true)}
-                        className="focus-brand w-full rounded-xl border border-white/30 bg-white/5 px-3 py-3 text-left hover:bg-white/15 transition-colors"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex w-8 h-8 rounded-full items-center justify-center bg-saffron text-black font-bold">
-                            {(adminProfileForm.firstName?.[0] || 'L').toUpperCase()}
-                          </span>
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-white truncate">
-                              {adminProfileForm.firstName} {adminProfileForm.lastName}
-                            </p>
-                            <p className="text-xs text-white/80 truncate">{adminProfileForm.email}</p>
-                          </div>
+                  {isAdminNavOpen ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAdminNavOpen(false)
+                        setIsAdminNavPinned(false)
+                      }}
+                      className="lg:hidden fixed inset-0 bg-black/30 z-40"
+                      aria-label="Close navigation"
+                    />
+                  ) : null}
+                  <div
+                    ref={adminNavRef}
+                    className={`space-y-3 flex flex-col items-center fixed left-0 top-0 inset-y-0 z-50 justify-start pt-5 pb-4 transition-[width] duration-300 ${
+                      isAdminNavOpen
+                        ? 'w-[240px] sm:w-[260px] lg:w-[280px] px-3 sm:px-4 bg-[linear-gradient(165deg,#0f5a3f,#0d4d38_52%,#0a3f31)] border-r border-castleton/30'
+                        : 'w-[56px] sm:w-[60px] px-2 bg-[linear-gradient(165deg,#0f5a3f,#0d4d38_52%,#0a3f31)] border-r border-castleton/30'
+                    }`}
+                    onMouseEnter={undefined}
+                  >
+                    <div className={`w-full ${isAdminNavOpen ? 'grid grid-cols-[1fr_auto_1fr] items-center' : 'flex items-center justify-center'}`}>
+                      <div />
+                      {isAdminNavOpen ? (
+                        <div className="h-14 flex items-center justify-center lg:h-16">
+                          <img
+                            src="https://framerusercontent.com/images/Ca8ppNsvJIfTsWEuHr50gvkDow.png"
+                            alt="Lifewood logo"
+                            className="h-5 w-auto lg:h-7"
+                          />
                         </div>
-                      </button>
-                    </div>
-                    <nav className="px-3 pb-4 space-y-2">
-                      {adminMenuItems
-                        .filter((item) => !['Approvals', 'Applications'].includes(item) || canManageApprovals)
-                        .map((item) => (
+                      ) : null}
+                      <div className={isAdminNavOpen ? 'flex items-center justify-end' : ''}>
                         <button
-                          key={item}
                           type="button"
-                          onClick={() => {
-                            setActiveAdminTab(item)
-                            runAdminAction(`${item} panel opened`)
+                          onMouseEnter={() => {
+                            if (!isAdminNavPinned) setIsAdminNavOpen(true)
                           }}
-                          className={`w-full text-left px-3 py-2.5 rounded-xl transition-colors ${
-                            activeAdminTab === item
-                              ? 'bg-saffron/20 border border-saffron/45 text-saffron font-semibold'
-                              : 'hover:bg-white/10 text-white/90'
-                          }`}
+                          onClick={() => {
+                            if (isAdminNavOpen) {
+                              setIsAdminNavOpen(false)
+                              setIsAdminNavPinned(false)
+                            } else {
+                              setIsAdminNavOpen(true)
+                              setIsAdminNavPinned(true)
+                            }
+                          }}
+                          className="focus-brand inline-flex items-center justify-center text-white hover:text-white/80 transition-colors"
+                          aria-label={isAdminNavOpen ? 'Hide navigation' : 'Show navigation'}
                         >
-                          {item}
+                          <AlignJustify className="w-5 h-5" />
                         </button>
-                      ))}
-                    </nav>
-                    <div className="px-3 pb-3">
-                      <button
-                        type="button"
-                        onClick={handleAdminSignOut}
-                        className="focus-brand w-full rounded-xl border border-white/30 px-3 py-2.5 text-sm font-semibold hover:bg-white/15 transition-colors"
-                      >
-                        Sign Out
-                      </button>
+                      </div>
                     </div>
-                    </aside>
+                    {isAdminNavOpen ? (
+                      <>
+                        <aside className="w-full h-full rounded-[26px] lg:rounded-[18px] border border-castleton/25 bg-transparent text-[#eef4e9] overflow-hidden shadow-soft lg:shadow-none">
+                        <div className="h-full flex flex-col">
+                        <div className="p-3 mt-2 space-y-3">
+                          <button
+                            type="button"
+                            onClick={() => setIsAdminProfileModalOpen(true)}
+                            className="focus-brand w-full rounded-xl border border-white/30 bg-white/5 px-3 py-3 text-left hover:bg-white/15 transition-colors"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex w-8 h-8 rounded-full items-center justify-center bg-saffron text-black font-bold">
+                                {(adminProfileForm.firstName?.[0] || 'L').toUpperCase()}
+                              </span>
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-white truncate">
+                                  {adminProfileForm.firstName} {adminProfileForm.lastName}
+                                </p>
+                                <p className="text-xs text-white/80 truncate">{adminProfileForm.email}</p>
+                              </div>
+                            </div>
+                          </button>
+                        </div>
+                      <nav className="px-3 pb-4 space-y-2">
+                          {adminMenuItems
+                            .filter((item) => !['Approvals', 'Applications'].includes(item.label) || canManageApprovals)
+                            .map((item) => {
+                              const Icon = item.icon
+                              return (
+                                <button
+                                  key={item.label}
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveAdminTab(item.label)
+                                    runAdminAction(`${item.label} panel opened`)
+                                  }}
+                                  className={`w-full text-left px-3 py-2.5 rounded-xl transition-colors ${
+                                    activeAdminTab === item.label
+                                      ? 'bg-saffron/20 border border-saffron/45 text-saffron font-semibold'
+                                      : 'hover:bg-white/10 text-white/90'
+                                  }`}
+                                >
+                                  <span className="flex items-center gap-2">
+                                    <Icon className="h-4 w-4" />
+                                    {item.label}
+                                  </span>
+                                </button>
+                              )
+                            })}
+                        </nav>
+                        <div className="mt-auto px-3 pb-3">
+                          <button
+                            type="button"
+                            onClick={handleAdminSignOut}
+                            className="focus-brand w-full rounded-xl border border-white/30 px-3 py-2.5 text-sm sm:text-base font-semibold hover:bg-white/15 transition-colors"
+                          >
+                            Sign Out
+                          </button>
+                        </div>
+                        </div>
+                        </aside>
+                      </>
+                    ) : (
+                      <div className="mt-2 w-full flex-1 flex flex-col items-center justify-between pb-3">
+                        <nav className="w-full flex flex-col items-center gap-2">
+                          {adminMenuItems
+                            .filter((item) => !['Approvals', 'Applications'].includes(item.label) || canManageApprovals)
+                            .map((item) => {
+                              const Icon = item.icon
+                              const isActive = activeAdminTab === item.label
+                              return (
+                                <button
+                                  key={item.label}
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveAdminTab(item.label)
+                                    runAdminAction(`${item.label} panel opened`)
+                                  }}
+                                  className={`focus-brand inline-flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${
+                                    isActive ? 'bg-saffron/25 text-saffron' : 'text-white/90 hover:bg-white/10'
+                                  }`}
+                                  aria-label={item.label}
+                                >
+                                  <Icon className="h-4 w-4" />
+                                </button>
+                              )
+                            })}
+                        </nav>
+                        <button
+                          type="button"
+                          onClick={handleAdminSignOut}
+                          className="focus-brand inline-flex h-10 w-10 items-center justify-center rounded-xl text-white/90 hover:bg-white/10 transition-colors"
+                          aria-label="Sign Out"
+                        >
+                          <LogOut className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
-                  <main className="admin-glass p-1 sm:p-2 lg:ml-[280px] lg:min-h-screen">
-                    <div className="flex items-center justify-between mb-4">
-                      <h1 className="text-3xl sm:text-4xl font-semibold">{activeAdminData.heading}</h1>
+                  <main className={`admin-glass p-1 sm:p-2 min-h-screen ${isAdminNavOpen ? 'ml-[60px] sm:ml-[64px] lg:ml-[280px]' : 'ml-[56px] sm:ml-[60px]'}`}>
+                    <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                      <div className="flex items-center gap-3">
+                        <h1 className="text-3xl sm:text-4xl font-semibold">{activeAdminData.heading}</h1>
+                      </div>
                       <span className="inline-flex items-center rounded-full bg-white border border-castleton/15 px-4 py-2 text-sm font-semibold">
                         {activeAdminData.badge}
                       </span>
