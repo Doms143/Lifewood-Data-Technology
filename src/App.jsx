@@ -14,6 +14,10 @@ import {
   Phone,
   MapPin,
   Clock3,
+  CheckCircle2,
+  XCircle,
+  Filter,
+  TrendingUp,
   Send,
   Building2,
   Mic,
@@ -174,7 +178,22 @@ const aiProjectTracks = [
   {
     title: 'Genealogy',
     details:
-      'Powered by AI, Lifewood processes genealogical material at speed and scale, to conserve and illuminate family histories, national archives, corporate lists and records of all types. Lifewood has more than 18 years of experience capturing, scanning and processing genealogical data. In fact, Lifewood started with genealogy data as its core business, so that over the years we have accumulated vast knowledge in diverse types of genealogy indexing.\n\nWe have worked with all the major genealogy companies and have extensive experience in transcribing and indexing genealogical content in a wide variety of formats, including tabular, pre-printed forms and paragraph-style records.\n\nWorking across borders, with offices on every continent, our ability with multi-language projects has built an extensive capability spanning more than 50 languages and associated dialects. Now, powered by AI and the latest inter-office communication systems, we are transforming ever more efficient ways to service our clients, while keeping humanity at the centre of our activity.\n\nGenealogical material that we have experience with includes:\n\nCensus\nVital - BMD\nChurch and Parish Registers\nPassenger Lists\nNaturalisation\nMilitary Records\nLegal Records\nYearbooks',
+      `Powered by AI, Lifewood processes genealogical material at speed and scale, to conserve and illuminate family histories, national archives, corporate lists and records of all types. Lifewood has more than 18 years of experience capturing, scanning and processing genealogical data. In fact, Lifewood started with genealogy data as its core business, so that over the years we have accumulated vast knowledge in diverse types of genealogy indexing.
+
+We have worked with all the major genealogy companies and have extensive experience in transcribing and indexing genealogical content in a wide variety of formats, including tabular, pre-printed forms and paragraph-style records.
+
+Working across borders, with offices on every continent, our ability with multi-language projects has built an extensive capability spanning more than 50 languages and associated dialects. Now, powered by AI and the latest inter-office communication systems, we are transforming ever more efficient ways to service our clients, while keeping humanity at the centre of our activity.
+
+Genealogical material that we have experience with includes:
+
+Census
+Vital - BMD
+Church and Parish Registers
+Passenger Lists
+Naturalisation
+Military Records
+Legal Records
+Yearbooks`,
     image: 'https://images.unsplash.com/photo-1461360228754-6e81c478b882?auto=format&fit=crop&w=1400&q=80',
   },
 ]
@@ -1168,6 +1187,42 @@ function App() {
   const [applicationSortBy, setApplicationSortBy] = useState('newest-first')
   const [applicationPage, setApplicationPage] = useState(1)
   const applicationPageSize = 10
+  const pendingApplicationsCount = useMemo(
+    () => careerApplications.filter((item) => item.status === 'pending').length,
+    [careerApplications]
+  )
+  const pendingApprovalsCount = useMemo(
+    () => signupRequests.filter((item) => item.status === 'pending').length,
+    [signupRequests]
+  )
+  const applicationSortLabels = {
+    'newest-first': 'Newest',
+    'oldest-first': 'Oldest',
+    'pending-first': 'Pending',
+    'approved-first': 'Approved',
+    'rejected-first': 'Rejected',
+    'name-asc': 'A-Z',
+  }
+  const approvalSortLabels = {
+    'pending-first': 'Pending',
+    'approved-first': 'Approved',
+    'suspended-first': 'Suspended',
+    'rejected-first': 'Rejected',
+    'name-asc': 'A-Z',
+  }
+  const applicationFilterChips = useMemo(() => {
+    const chips = []
+    if (applicationSearch.trim()) chips.push(`Search: ${applicationSearch.trim()}`)
+    chips.push(`Sort: ${applicationSortLabels[applicationSortBy] || 'Newest'}`)
+    chips.push(`View: ${applicationViewMode === 'cards' ? 'Cards' : 'List'}`)
+    return chips
+  }, [applicationSearch, applicationSortBy, applicationViewMode])
+  const approvalFilterChips = useMemo(() => {
+    const chips = []
+    if (approvalSearch.trim()) chips.push(`Search: ${approvalSearch.trim()}`)
+    chips.push(`Sort: ${approvalSortLabels[approvalSortBy] || 'Pending'}`)
+    return chips
+  }, [approvalSearch, approvalSortBy])
   const [settingsSearch, setSettingsSearch] = useState('')
   const [settingsStatusFilter, setSettingsStatusFilter] = useState('All')
   const [settingsPage, setSettingsPage] = useState(1)
@@ -1176,6 +1231,12 @@ function App() {
   const manageInternsFollowTrackRef = useRef(null)
   const adminNavRef = useRef(null)
   const manageInternsTableScrollRef = useRef(null)
+  const analyticsSearchRef = useRef(null)
+  const evaluationSearchRef = useRef(null)
+  const reportsSearchRef = useRef(null)
+  const applicationSearchRef = useRef(null)
+  const approvalSearchRef = useRef(null)
+  const settingsSearchRef = useRef(null)
   const isSyncingManageInternsScrollRef = useRef(false)
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false)
   const hasAdminAccess = isAdminAuthenticated && isApprovedUser
@@ -2429,6 +2490,50 @@ function App() {
   const runAdminAction = (message) => {
     setAdminNotice(message)
     window.setTimeout(() => setAdminNotice(''), 1800)
+  }
+  const focusAdminSearchInput = () => {
+    const focus = (ref) => {
+      if (!ref?.current) return
+      ref.current.focus()
+      ref.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+
+    if (activeAdminTab === 'Applications') return focus(applicationSearchRef)
+    if (activeAdminTab === 'Approvals') return focus(approvalSearchRef)
+    if (activeAdminTab === 'Analytics') return focus(analyticsSearchRef)
+    if (activeAdminTab === 'Evaluation') return focus(evaluationSearchRef)
+    if (activeAdminTab === 'Reports') return focus(reportsSearchRef)
+    if (activeAdminTab === 'Manage Interns') return focus(settingsSearchRef)
+    return undefined
+  }
+
+  const handleAdminPrimaryAction = () => {
+    if (['Analytics', 'Evaluation', 'Reports'].includes(activeAdminTab)) {
+      openAnalyticsTaskModal()
+      return
+    }
+    if (activeAdminTab === 'Manage Interns') {
+      setIsInternStepperOpen(true)
+      return
+    }
+    if (activeAdminTab === 'Applications') {
+      goToPath('/application-form')
+      return
+    }
+    if (activeAdminTab === 'Approvals') {
+      focusAdminSearchInput()
+      return
+    }
+    if (activeAdminTab === 'Dashboard') {
+      setIsAdminProfileModalOpen(true)
+      return
+    }
+    runAdminAction(`${activeAdminTab}: primary action started`)
+  }
+
+  const handleAdminFilters = () => {
+    focusAdminSearchInput()
+    runAdminAction(`${activeAdminTab}: filters ready`)
   }
 
   const confirmAdminAction = ({ message, confirmLabel = 'Confirm', tone = 'default', onConfirm }) => {
@@ -4119,7 +4224,7 @@ function App() {
                           transition={{ duration: 0.3 }}
                         />
                       </motion.div>
-                    </motion.div>
+                  </motion.div>
                   </motion.article>
                 </div>
               </motion.section>
@@ -4555,7 +4660,7 @@ function App() {
                                     {item.details}
                                   </p>
                                 </motion.div>
-                              ) : null}
+                          ) : null}
                             </AnimatePresence>
                           </li>
                         )
@@ -5227,6 +5332,7 @@ function App() {
                             .filter((item) => item.label !== 'Approvals' || canManageApprovals)
                             .map((item) => {
                               const Icon = item.icon
+const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label === 'Approvals' ? 'Admin Approval' : item.label
                               return (
                                 <button
                                   key={item.label}
@@ -5243,7 +5349,7 @@ function App() {
                                 >
                                   <span className="flex items-center gap-2">
                                     <Icon className="h-4 w-4" />
-                                    {item.label}
+                                    {displayLabel}
                                   </span>
                                 </button>
                               )
@@ -5268,6 +5374,7 @@ function App() {
                             .filter((item) => item.label !== 'Approvals' || canManageApprovals)
                             .map((item) => {
                               const Icon = item.icon
+                              const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label === 'Approvals' ? 'Admin Approval' : item.label
                               const isActive = activeAdminTab === item.label
                               return (
                                 <button
@@ -5280,7 +5387,7 @@ function App() {
                                   className={`focus-brand inline-flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${
                                     isActive ? 'bg-saffron/25 text-saffron' : 'text-white/90 hover:bg-white/10'
                                   }`}
-                                  aria-label={item.label}
+                                  aria-label={displayLabel}
                                 >
                                   <Icon className="h-4 w-4" />
                                 </button>
@@ -5300,35 +5407,96 @@ function App() {
                   </div>
 
                   <main className={`admin-glass p-1 sm:p-2 min-h-screen ${isAdminNavOpen ? 'ml-[60px] sm:ml-[64px] lg:ml-[280px]' : 'ml-[56px] sm:ml-[60px]'}`}>
-                    <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                      <div className="flex items-center gap-3">
-                        <h1 className="text-3xl sm:text-4xl font-semibold">{activeAdminData.heading}</h1>
-                      </div>
-                      <span className="inline-flex items-center rounded-full bg-white border border-castleton/15 px-4 py-2 text-sm font-semibold">
-                        {activeAdminData.badge}
-                      </span>
-                    </div>
-                    {adminNotice ? (
-                      <motion.p
-                        className="mb-3 text-sm inline-flex rounded-full bg-white border border-castleton/15 px-3 py-1.5"
-                        initial={{ opacity: 0, y: -6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0 }}
-                      >
-                        {adminNotice}
-                      </motion.p>
-                    ) : null}
-                    {isAdminDataLoading ? (
-                      <p className="mb-3 text-sm inline-flex rounded-full bg-white border border-castleton/15 px-3 py-1.5">
-                        Syncing admin data from Supabase...
-                      </p>
-                    ) : null}
-                    {adminDataError ? (
-                      <p className="mb-3 text-sm inline-flex rounded-full bg-[#fde8e8] border border-[#efb6b6] px-3 py-1.5 text-[#8a3528]">
-                        {adminDataError}
-                      </p>
-                    ) : null}
-                    <AnimatePresence mode="wait">
+                    <div className="sticky top-0 z-20 -mx-1 sm:-mx-2 px-1 sm:px-2 pt-1 pb-3 bg-gradient-to-b from-[#f7faf8] via-[#f7faf8]/90 to-transparent backdrop-blur">
+  <div className="rounded-[22px] border border-castleton/15 bg-white/90 px-4 py-3 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+    <div className="space-y-1">
+      <p className="text-[11px] uppercase tracking-[0.18em] text-castleton/70">Admin Dashboard</p>
+      <h1 className="text-3xl sm:text-4xl font-semibold">{activeAdminData.heading}</h1>
+      <span className="inline-flex items-center rounded-full bg-white border border-castleton/15 px-3 py-1 text-xs font-semibold">
+        {activeAdminData.badge}
+      </span>
+    </div>
+
+
+  </div>
+  <div className="mt-3 grid grid-cols-2 lg:grid-cols-4 gap-3">
+    {[
+      {
+        label: 'Pending Approvals',
+        value: pendingApprovalsCount,
+        icon: UserCheck2,
+        tone: 'bg-[#fff6e4] text-[#8a5a14] border-[#f0d8a8]',
+        targetTab: 'Approvals'
+      },
+      {
+        label: 'Pending Applications',
+        value: pendingApplicationsCount,
+        icon: FileText,
+        tone: 'bg-[#e9f3ee] text-castleton border-castleton/20',
+        targetTab: 'Applications'
+      },
+      {
+        label: 'Active Interns',
+        value: totalInterns,
+        icon: UserSquare2,
+        tone: 'bg-[#eef2ff] text-[#3c4a7a] border-[#d8def5]',
+        targetTab: 'Manage Interns'
+      },
+      {
+        label: 'Avg Performance',
+        value: `${averagePerformance}%`,
+        icon: TrendingUp,
+        tone: 'bg-[#f7f8f6] text-[#5f5a44] border-[#e6e2d6]',
+        targetTab: 'Analytics'
+      },
+    ].map((card) => {
+      const Icon = card.icon
+      return (
+        <motion.button
+          key={card.label}
+          type="button"
+          onClick={() => {
+            setActiveAdminTab(card.targetTab)
+            runAdminAction(`${card.label} opened`)
+          }}
+          className={`rounded-2xl border px-4 py-3 bg-white/90 shadow-sm text-left transition-transform ${card.tone}`}
+          whileHover={{ y: -2 }}
+          transition={{ duration: 0.15 }}
+        >
+          <div className="flex items-center justify-between">
+            <p className="text-xs uppercase tracking-[0.12em]">{card.label}</p>
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/80">
+              <Icon className="h-4 w-4" />
+            </span>
+          </div>
+          <p className="mt-2 text-2xl font-semibold">{card.value}</p>
+        </motion.button>
+      )
+    })}
+  </div>
+  <div className="mt-3 flex flex-wrap gap-2">
+    {adminNotice ? (
+      <motion.p
+        className="text-xs inline-flex rounded-full bg-white border border-castleton/15 px-3 py-1.5"
+        initial={{ opacity: 0, y: -6 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0 }}
+      >
+        {adminNotice}
+      </motion.p>
+    ) : null}
+    {isAdminDataLoading ? (
+      <p className="text-xs inline-flex rounded-full bg-white border border-castleton/15 px-3 py-1.5">
+        Syncing admin data from Supabase...
+      </p>
+    ) : null}
+    {adminDataError ? (
+      <p className="text-xs inline-flex rounded-full bg-[#fde8e8] border border-[#efb6b6] px-3 py-1.5 text-[#8a3528]">
+        {adminDataError}
+      </p>
+    ) : null}
+  </div>
+</div><AnimatePresence mode="wait">
                       <motion.div
                         key={activeAdminTab}
                         initial={{ opacity: 0, y: 10 }}
@@ -5422,7 +5590,7 @@ function App() {
                                     />
                                   </div>
                                 </motion.button>
-                              ))}
+                          ))}
                             </div>
 
                             <AnimatePresence>
@@ -5491,8 +5659,8 @@ function App() {
                                       )}
                                     </div>
                                   </motion.div>
-                                </motion.div>
-                              ) : null}
+                  </motion.div>
+                          ) : null}
                             </AnimatePresence>
 
                             <motion.article
@@ -5646,6 +5814,7 @@ function App() {
                           </div>
                           <input
                             type="text"
+                            ref={analyticsSearchRef}
                             value={analyticsSearch}
                             onChange={(event) => setAnalyticsSearch(event.target.value)}
                             placeholder="Search intern"
@@ -5762,7 +5931,7 @@ function App() {
 
                                   <p className="mt-4 text-sm font-semibold text-black/70">{breakdown.evalScore}% overall analytics score</p>
                                 </motion.button>
-                              )
+                          )
                             })}
                           </div>
                         ) : (
@@ -5811,7 +5980,7 @@ function App() {
                                     </div>
                                   </div>
                                 </motion.button>
-                              )
+                          )
                             })}
                           </div>
                         )}
@@ -5907,7 +6076,7 @@ function App() {
                                   )
                                 })()}
                               </motion.div>
-                            </motion.div>
+                  </motion.div>
                           ) : null}
                         </AnimatePresence>
 
@@ -6087,6 +6256,7 @@ function App() {
                             </select>
                             <input
                               type="text"
+                              ref={evaluationSearchRef}
                               value={evaluationSearch}
                               onChange={(event) => setEvaluationSearch(event.target.value)}
                               placeholder="Search intern"
@@ -6156,7 +6326,7 @@ function App() {
                                   <span>P:{intern.performance}% A:{intern.attendance}% G:{intern.progress}%</span>
                                 </div>
                               </motion.button>
-                            ))}
+                          ))}
                           </div>
                         ) : (
                           <div className="space-y-3">
@@ -6195,11 +6365,11 @@ function App() {
                                         <p className="text-[11px] uppercase tracking-[0.08em] text-black/45">{label}</p>
                                         <p className="mt-1 text-lg font-semibold text-black">{value}%</p>
                                       </div>
-                                    ))}
-                                  </div>
+                                  ))}
                                 </div>
-                              </motion.button>
-                            ))}
+                              </div>
+                            </motion.button>
+                          ))}
                           </div>
                         )}
 
@@ -6287,7 +6457,7 @@ function App() {
                                   )
                                 })()}
                               </motion.div>
-                            </motion.div>
+                  </motion.div>
                           ) : null}
                         </AnimatePresence>
                       </div>
@@ -6318,6 +6488,7 @@ function App() {
                             </select>
                             <input
                               type="text"
+                              ref={reportsSearchRef}
                               value={reportsSearch}
                               onChange={(event) => setReportsSearch(event.target.value)}
                               placeholder="Search intern"
@@ -6395,7 +6566,7 @@ function App() {
                                 </div>
                                 <p className="text-sm text-black/75">Attendance status: {intern.attendanceFlag}</p>
                               </motion.button>
-                            ))}
+                          ))}
                           </div>
                         ) : (
                           <div className="space-y-3">
@@ -6436,7 +6607,7 @@ function App() {
                                   </div>
                                 </div>
                               </motion.button>
-                            ))}
+                          ))}
                           </div>
                         )}
                         <AnimatePresence>
@@ -6498,12 +6669,12 @@ function App() {
                                   </p>
                                 </div>
                               </motion.div>
-                            </motion.div>
+                  </motion.div>
                           ) : null}
                         </AnimatePresence>
                       </div>
                     ) : activeAdminTab === 'Applications' ? (
-                      <div className="space-y-5">
+                      <div className="space-y-5 rounded-[28px] bg-[#f8faf7] p-4 sm:p-5 border border-castleton/10">
                         <motion.div
                           className="rounded-[24px] border border-castleton/20 bg-white p-5 sm:p-6"
                           initial={{ opacity: 0, y: 12 }}
@@ -6551,6 +6722,7 @@ function App() {
                               <Search size={18} className="text-castleton/60" />
                               <input
                                 type="search"
+                                ref={applicationSearchRef}
                                 value={applicationSearch}
                                 onChange={(event) => setApplicationSearch(event.target.value)}
                                 placeholder="Search name, email, position, status"
@@ -6606,6 +6778,17 @@ function App() {
                             </div>
                           </div>
 
+                          {applicationFilterChips.length ? (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {applicationFilterChips.map((chip) => (
+                                <span key={chip} className="inline-flex items-center gap-2 rounded-full border border-castleton/15 bg-white px-3 py-1 text-xs font-semibold text-castleton">
+                                  <Filter className="h-3 w-3" />
+                                  {chip}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
+
                           {applicationsError ? (
                             <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
                               {applicationsError}
@@ -6616,8 +6799,8 @@ function App() {
                         <div className="space-y-4">
                           {paginatedApplications.length ? (
                             applicationViewMode === 'list' ? (
-                              <div className="rounded-[22px] border border-castleton/15 bg-white overflow-hidden">
-                                <div className="grid grid-cols-[1.2fr_1fr_0.7fr_0.6fr_140px] gap-3 px-4 py-3 text-xs uppercase tracking-[0.12em] text-black/50 border-b border-castleton/10">
+                              <div className="rounded-[22px] border border-castleton/15 bg-[#f8faf7] p-2 space-y-2">
+                                <div className="grid grid-cols-[1.2fr_1fr_0.7fr_0.6fr_140px] gap-3 px-4 py-2 text-xs uppercase tracking-[0.12em] text-black/50 rounded-2xl bg-white border border-castleton/10">
                                   <span>Applicant</span>
                                   <span>Position</span>
                                   <span>Status</span>
@@ -6627,7 +6810,7 @@ function App() {
                                 {paginatedApplications.map((application) => (
                                   <div
                                     key={application.id}
-                                    className="grid grid-cols-[1.2fr_1fr_0.7fr_0.6fr_140px] gap-3 px-4 py-3 border-b border-castleton/10 last:border-b-0"
+                                    className="grid grid-cols-[1.2fr_1fr_0.7fr_0.6fr_140px] gap-3 px-4 py-3 rounded-2xl bg-white border border-castleton/10 shadow-sm"
                                   >
                                     <div>
                                       <p className="text-sm font-semibold text-black">
@@ -6640,7 +6823,7 @@ function App() {
                                     </div>
                                     <div>
                                       <span
-                                        className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                                        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
                                           application.status === 'approved'
                                             ? 'bg-[#e9f3ee] text-castleton'
                                             : application.status === 'rejected'
@@ -6648,6 +6831,13 @@ function App() {
                                               : 'bg-[#fff6e4] text-[#8a5a14]'
                                         }`}
                                       >
+                                        {application.status === 'approved' ? (
+                                          <CheckCircle2 className="h-3.5 w-3.5" />
+                                        ) : application.status === 'rejected' ? (
+                                          <XCircle className="h-3.5 w-3.5" />
+                                        ) : (
+                                          <Clock3 className="h-3.5 w-3.5" />
+                                        )}
                                         {application.status}
                                       </span>
                                     </div>
@@ -6694,6 +6884,7 @@ function App() {
                                   initial={{ opacity: 0, y: 10 }}
                                   animate={{ opacity: 1, y: 0 }}
                                   transition={{ duration: 0.22, delay: Math.min(index * 0.03, 0.18) }}
+                                  whileHover={{ y: -2 }}
                                 >
                                   <div className="grid gap-3 xl:grid-cols-[minmax(0,1.1fr)_minmax(260px,0.9fr)]">
                                     <div>
@@ -6727,7 +6918,7 @@ function App() {
                                       <div className="rounded-xl border border-castleton/12 bg-[#f8faf9] px-3 py-2.5">
                                         <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Status</p>
                                         <span
-                                          className={`mt-1.5 inline-flex rounded-full px-2.5 py-1 text-sm font-semibold ${
+                                          className={`mt-1.5 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-semibold ${
                                             application.status === 'approved'
                                               ? 'bg-[#e9f3ee] text-castleton'
                                               : application.status === 'rejected'
@@ -6735,6 +6926,13 @@ function App() {
                                                 : 'bg-[#fff6e4] text-[#8a5a14]'
                                           }`}
                                         >
+                                          {application.status === 'approved' ? (
+                                            <CheckCircle2 className="h-3.5 w-3.5" />
+                                          ) : application.status === 'rejected' ? (
+                                            <XCircle className="h-3.5 w-3.5" />
+                                          ) : (
+                                            <Clock3 className="h-3.5 w-3.5" />
+                                          )}
                                           {application.status}
                                         </span>
                                         <div className="mt-2">
@@ -6789,7 +6987,7 @@ function App() {
                                         <button
                                           type="button"
                                           onClick={() => setSelectedApplication(application)}
-                                          className="focus-brand rounded-full border border-castleton/20 bg-white px-3 py-1.5 text-sm font-semibold text-castleton transition-colors hover:bg-[#eef3ef]"
+                                          className="focus-brand rounded-full border border-castleton/20 bg-castleton px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_24px_-14px_rgba(4,98,65,0.7)] transition-colors hover:bg-serpent"
                                         >
                                           Review Applicant
                                         </button>
@@ -6806,13 +7004,23 @@ function App() {
                               animate={{ opacity: 1, y: 0 }}
                               transition={{ duration: 0.22 }}
                             >
-                              <h3 className="text-xl font-semibold text-black mb-2">
-                                {careerApplications.length ? 'No matching applications' : 'No applications yet'}
-                              </h3>
-                              <p className="text-black/70 text-base">
-                                {careerApplications.length
-                                  ? 'Try a different search term or sort order.'
-                                  : 'Applications submitted from the application form will appear here.'}
+                              <div className="flex items-center gap-3 mb-3">
+                                <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#f2f6f3] text-castleton">
+                                  <FileText className="h-5 w-5" />
+                                </span>
+                                <div>
+                                  <h3 className="text-xl font-semibold text-black">
+                                    {careerApplications.length ? 'No matching applications' : 'No applications yet'}
+                                  </h3>
+                                  <p className="text-black/70 text-sm">
+                                    {careerApplications.length
+                                      ? 'Try a different search term or sort order.'
+                                      : 'Applications submitted from the application form will appear here.'}
+                                  </p>
+                                </div>
+                              </div>
+                              <p className="text-black/60 text-sm">
+                                Tip: Share the application form link to start collecting applicants.
                               </p>
                             </motion.article>
                           )}
@@ -6844,7 +7052,7 @@ function App() {
                         </div>
                       </div>
                     ) : activeAdminTab === 'Approvals' ? (
-                      <div className="space-y-5">
+                      <div className="space-y-5 rounded-[28px] bg-[#f8faf7] p-4 sm:p-5 border border-castleton/10">
                         <motion.div
                           className="rounded-[24px] border border-castleton/20 bg-white p-5 sm:p-6"
                           initial={{ opacity: 0, y: 12 }}
@@ -6878,6 +7086,7 @@ function App() {
                               <Search size={18} className="text-castleton/60" />
                               <input
                                 type="search"
+                                ref={approvalSearchRef}
                                 value={approvalSearch}
                                 onChange={(event) => setApprovalSearch(event.target.value)}
                                 placeholder="Search name, email, phone, department, status"
@@ -6924,6 +7133,7 @@ function App() {
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ duration: 0.22, delay: Math.min(index * 0.03, 0.18) }}
+                                  whileHover={{ y: -2 }}
                               >
                                 <div className="grid gap-3 xl:grid-cols-[minmax(0,1.1fr)_minmax(260px,0.9fr)]">
                                   <div>
@@ -7158,7 +7368,7 @@ function App() {
                                   <p className="text-xs uppercase tracking-[0.1em] text-castleton">{label}</p>
                                   <p className="text-xl font-semibold text-black">{value}</p>
                                 </motion.div>
-                              ))}
+                          ))}
                             </div>
                             <p className="text-sm text-black/70 leading-relaxed">
                               Manage profile records and assignment ownership here. View analytics from the Analytics, Evaluation, and Reports tabs.
@@ -7185,7 +7395,7 @@ function App() {
                                         />
                                       </div>
                                     </motion.div>
-                                  )
+                          )
                                 })}
                               </div>
                             </div>
@@ -7196,6 +7406,7 @@ function App() {
                           <div className="flex flex-wrap gap-2 mb-4">
                             <input
                               type="text"
+                              ref={settingsSearchRef}
                               value={settingsSearch}
                               onChange={(event) => setSettingsSearch(event.target.value)}
                               placeholder="Search name, email, school, course, contact, or hours"
@@ -7410,7 +7621,7 @@ function App() {
                                         </div>
                                         <p className="text-xs text-black/60 mt-1 truncate">{item.hint}</p>
                                       </motion.button>
-                                    ))}
+                          ))}
                                   </div>
                                 </div>
 
@@ -7570,7 +7781,7 @@ function App() {
                                   >
                                     {internStepperError}
                                   </motion.div>
-                                ) : null}
+                          ) : null}
 
                                 <div className="mt-6 flex flex-wrap justify-between gap-2">
                                   <motion.button
@@ -7607,7 +7818,7 @@ function App() {
                                         Next
                                         <ArrowRight className="w-4 h-4" />
                                       </motion.button>
-                                    ) : (
+                          ) : (
                                       <motion.button
                                         type="submit"
                                         className="focus-brand rounded-full bg-castleton text-white px-4 py-2 text-sm font-semibold hover:bg-serpent transition-colors"
@@ -7616,7 +7827,7 @@ function App() {
                                       >
                                         {editingInternIndex !== null ? 'Update Intern Profile' : 'Add Intern'}
                                       </motion.button>
-                                    )}
+                          )}
                                   </div>
                                 </div>
                               </motion.form>
@@ -7641,7 +7852,7 @@ function App() {
                           <div className="flex flex-wrap items-center gap-3 sm:gap-6">
                             <button
                               type="button"
-                              onClick={() => runAdminAction(`${activeAdminTab}: primary action started`)}
+                              onClick={handleAdminPrimaryAction}
                               className="focus-brand rounded-full bg-saffron text-black font-semibold px-5 py-2.5 hover:brightness-95 transition"
                             >
                               Continue
@@ -7824,7 +8035,7 @@ function App() {
                         </div>
                       </motion.form>
                     </motion.div>
-                  ) : null}
+                          ) : null}
                 </AnimatePresence>
 
                 <AnimatePresence>
@@ -7887,8 +8098,8 @@ function App() {
                           </button>
                         </div>
                       </motion.div>
-                    </motion.div>
-                  ) : null}
+                  </motion.div>
+                          ) : null}
                 </AnimatePresence>
 
                 <AnimatePresence>
@@ -7943,7 +8154,7 @@ function App() {
                           )}
                         </div>
                       </motion.div>
-                    </motion.div>
+                  </motion.div>
                   ) : null}
                 </AnimatePresence>
 
@@ -8126,7 +8337,7 @@ function App() {
                           </button>
                         </div>
                       </motion.div>
-                    </motion.div>
+                  </motion.div>
                   ) : null}
                 </AnimatePresence>
               </section>
@@ -8776,6 +8987,82 @@ function App() {
 }
 
 export default App
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
