@@ -37,6 +37,7 @@ import {
   BarChart3,
   FileCheck2,
   FileText,
+  RefreshCw,
   UserSquare2,
   UserCheck2,
   LogOut,
@@ -1007,6 +1008,7 @@ const approvalStatusOrder = {
 const applicationStatusOrder = {
   pending: 0,
   approved: 1,
+  'Proceeding to HR Interview': 1,
   rejected: 2,
 }
 
@@ -1209,6 +1211,13 @@ function App() {
     'suspended-first': 'Suspended',
     'rejected-first': 'Rejected',
     'name-asc': 'A-Z',
+  }
+  const hrInterviewStatus = 'Proceeding to HR Interview'
+  const isHrInterviewStatus = (status) => status === 'approved' || status === hrInterviewStatus
+  const applicationStatusLabel = (status) => {
+    if (isHrInterviewStatus(status)) return hrInterviewStatus
+    if (status === 'rejected') return 'Rejected'
+    return 'Pending'
   }
   const applicationFilterChips = useMemo(() => {
     const chips = []
@@ -2321,7 +2330,7 @@ function App() {
       return { ok: false, message: 'Applicant email is missing' }
     }
     const templateId =
-      status === 'approved' ? emailJsConfig.templateApproved : emailJsConfig.templateRejected
+      isHrInterviewStatus(status) ? emailJsConfig.templateApproved : emailJsConfig.templateRejected
     if (!templateId) {
       return { ok: false, message: 'EmailJS template is missing' }
     }
@@ -2370,12 +2379,12 @@ function App() {
         runAdminAction('Application not found')
         return
       }
-      if (!(currentApplication.status === 'pending' && ['approved', 'rejected'].includes(status))) {
+      if (!(currentApplication.status === 'pending' && [hrInterviewStatus, 'rejected'].includes(status))) {
         runAdminAction('Decision already recorded')
         return
       }
 
-      const actionLabel = status === 'approved' ? 'approve' : 'reject'
+      const actionLabel = isHrInterviewStatus(status) ? 'proceed to HR interview' : 'reject'
       confirmAdminAction({
         message: `Are you sure you want to ${actionLabel} ${currentApplication.firstName} ${currentApplication.lastName}?`,
         confirmLabel: actionLabel.charAt(0).toUpperCase() + actionLabel.slice(1),
@@ -6706,8 +6715,8 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                             <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 min-w-[240px]">
                               {[
                                 ['Pending', careerApplications.filter((item) => item.status === 'pending').length, 'bg-[#fff6e4] text-[#8a5a14]'],
-                                ['Approved', careerApplications.filter((item) => item.status === 'approved').length, 'bg-[#e9f3ee] text-castleton'],
-                                ['Rejected', careerApplications.filter((item) => item.status === 'rejected').length, 'bg-[#fde8e8] text-[#8a3528]'],
+                              ['Proceeding to HR Interview', careerApplications.filter((item) => item.status === 'approved').length, 'bg-[#e9f3ee] text-castleton'],
+                              ['Rejected', careerApplications.filter((item) => item.status === 'rejected').length, 'bg-[#fde8e8] text-[#8a3528]'],
                               ].map(([label, value, tone]) => (
                                 <div key={label} className="rounded-2xl border border-castleton/15 bg-[#f7faf8] p-3">
                                   <p className="text-xs uppercase tracking-[0.12em] text-castleton">{label}</p>
@@ -6741,7 +6750,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                                 <option value="newest-first">Newest First</option>
                                 <option value="oldest-first">Oldest First</option>
                                 <option value="pending-first">Pending First</option>
-                                <option value="approved-first">Approved First</option>
+                                <option value="approved-first">HR Interview First</option>
                                 <option value="rejected-first">Rejected First</option>
                                 <option value="name-asc">A-Z</option>
                               </select>
@@ -6824,21 +6833,21 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                                     <div>
                                       <span
                                         className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
-                                          application.status === 'approved'
+                                          isHrInterviewStatus(application.status)
                                             ? 'bg-[#e9f3ee] text-castleton'
                                             : application.status === 'rejected'
                                               ? 'bg-[#fde8e8] text-[#8a3528]'
                                               : 'bg-[#fff6e4] text-[#8a5a14]'
                                         }`}
                                       >
-                                        {application.status === 'approved' ? (
+                                        {isHrInterviewStatus(application.status) ? (
                                           <CheckCircle2 className="h-3.5 w-3.5" />
                                         ) : application.status === 'rejected' ? (
                                           <XCircle className="h-3.5 w-3.5" />
                                         ) : (
                                           <Clock3 className="h-3.5 w-3.5" />
                                         )}
-                                        {application.status}
+                                        {applicationStatusLabel(application.status)}
                                       </span>
                                     </div>
                                     <div className="text-sm font-semibold text-black">
@@ -6877,7 +6886,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                                   className={`rounded-[18px] border bg-white p-3.5 transition-colors ${
                                     application.status === 'pending'
                                       ? 'border-[#e2c676] shadow-[0_16px_40px_-30px_rgba(138,90,20,0.45)]'
-                                      : application.status === 'approved'
+                                      : isHrInterviewStatus(application.status)
                                         ? 'border-castleton/20'
                                         : 'border-[#dfc1bb]'
                                   }`}
@@ -6919,21 +6928,21 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                                         <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Status</p>
                                         <span
                                           className={`mt-1.5 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-semibold ${
-                                            application.status === 'approved'
+                                            isHrInterviewStatus(application.status)
                                               ? 'bg-[#e9f3ee] text-castleton'
                                               : application.status === 'rejected'
                                                 ? 'bg-[#fde8e8] text-[#8a3528]'
                                                 : 'bg-[#fff6e4] text-[#8a5a14]'
                                           }`}
                                         >
-                                          {application.status === 'approved' ? (
+                                          {isHrInterviewStatus(application.status) ? (
                                             <CheckCircle2 className="h-3.5 w-3.5" />
                                           ) : application.status === 'rejected' ? (
                                             <XCircle className="h-3.5 w-3.5" />
                                           ) : (
                                             <Clock3 className="h-3.5 w-3.5" />
                                           )}
-                                          {application.status}
+                                          {applicationStatusLabel(application.status)}
                                         </span>
                                         <div className="mt-2">
                                           {application.cvScore !== null && application.cvScore !== undefined ? (
@@ -6959,14 +6968,14 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                                     <div className="rounded-[16px] border border-castleton/12 bg-[#fbfcfb] p-3">
                                       <span
                                         className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.12em] ${
-                                          application.status === 'approved'
+                                          isHrInterviewStatus(application.status)
                                             ? 'bg-[#e9f3ee] text-castleton'
                                             : application.status === 'rejected'
                                               ? 'bg-[#fde8e8] text-[#8a3528]'
                                               : 'bg-[#fff6e4] text-[#8a5a14]'
                                         }`}
                                       >
-                                        {application.status === 'pending' ? 'Needs Review' : `Status: ${application.status}`}
+                                        {application.status === 'pending' ? 'Needs Review' : `Status: ${applicationStatusLabel(application.status)}`}
                                       </span>
                                       <p className="mt-3 text-sm text-black/65">
                                         {application.reviewedAt
@@ -8210,14 +8219,14 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                             <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Status</p>
                             <span
                               className={`mt-1.5 inline-flex rounded-full px-2.5 py-1 text-sm font-semibold ${
-                                selectedApplication.status === 'approved'
+                                isHrInterviewStatus(selectedApplication.status)
                                   ? 'bg-[#e9f3ee] text-castleton'
                                   : selectedApplication.status === 'rejected'
                                     ? 'bg-[#fde8e8] text-[#8a3528]'
                                     : 'bg-[#fff6e4] text-[#8a5a14]'
                               }`}
                             >
-                              {selectedApplication.status}
+                              {applicationStatusLabel(selectedApplication.status)}
                             </span>
                           </div>
                             <div className="rounded-xl border border-castleton/12 bg-[#f8faf9] px-3 py-2.5">
@@ -8308,31 +8317,35 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                             type="button"
                             onClick={() => handleScoreApplication(selectedApplication)}
                             disabled={isScoringCv}
-                            className="focus-brand rounded-full border border-castleton/15 bg-white px-3 py-1.5 text-sm font-semibold text-castleton hover:bg-[#f4f7f5] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                            className="focus-brand inline-flex items-center gap-2 rounded-full border border-castleton/15 bg-white px-3 py-1.5 text-sm font-semibold text-castleton hover:bg-[#f4f7f5] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                           >
+                            <RefreshCw className="h-4 w-4" />
                             {selectedApplication.cvScore ? 'Rescore CV' : 'Score CV'}
                           </button>
                           <button
                             type="button"
                             onClick={() => handleOpenApplicationCv(selectedApplication)}
-                            className="focus-brand rounded-full border border-black/10 bg-[#f4f4f4] px-4 py-2 text-sm font-semibold text-black/75 transition-colors hover:bg-[#e8e8e8]"
+                            className="focus-brand inline-flex items-center gap-2 rounded-full border border-black/10 bg-[#f4f4f4] px-4 py-2 text-sm font-semibold text-black/75 transition-colors hover:bg-[#e8e8e8]"
                           >
+                            <FileText className="h-4 w-4" />
                             View CV
                           </button>
                           <button
                             type="button"
                             onClick={() => handleApplicationDecision(selectedApplication.id, 'rejected')}
                             disabled={selectedApplication.status !== 'pending'}
-                            className="focus-brand rounded-full border border-[#dcb7b0] bg-white px-4 py-2 text-sm font-semibold text-[#8a3528] transition-colors enabled:hover:bg-[#fde8e8] disabled:cursor-not-allowed disabled:opacity-45"
+                            className="focus-brand inline-flex items-center gap-2 rounded-full border border-[#dcb7b0] bg-white px-4 py-2 text-sm font-semibold text-[#8a3528] transition-colors enabled:hover:bg-[#fde8e8] disabled:cursor-not-allowed disabled:opacity-45"
                           >
+                            <XCircle className="h-4 w-4" />
                             Reject
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleApplicationDecision(selectedApplication.id, 'approved')}
+                            onClick={() => handleApplicationDecision(selectedApplication.id, hrInterviewStatus)}
                             disabled={selectedApplication.status !== 'pending'}
-                            className="focus-brand rounded-full border border-castleton/20 bg-castleton px-4 py-2 text-sm font-semibold text-white transition-colors enabled:hover:bg-serpent disabled:cursor-not-allowed disabled:opacity-45"
+                            className="focus-brand inline-flex items-center gap-2 rounded-full border border-castleton/20 bg-castleton px-4 py-2 text-sm font-semibold text-white transition-colors enabled:hover:bg-serpent disabled:cursor-not-allowed disabled:opacity-45"
                           >
+                            <CheckCircle2 className="h-4 w-4" />
                             Approve
                           </button>
                         </div>
