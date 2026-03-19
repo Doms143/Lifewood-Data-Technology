@@ -1156,6 +1156,19 @@ function App() {
     'What should we review first?',
     'I can help you read the dashboard.',
   ]
+  const chatbotCapabilityLines = [
+    'I can help with these admin dashboard actions:',
+    '- Open tabs: Dashboard, Applicants, Approvals, Analytics, Evaluation, Reports, Manage Interns',
+    '- Search across Applicants, Approvals, Analytics, Evaluation, Reports, and Manage Interns',
+    '- Change sort order for Applicants, Approvals, Analytics, Evaluation, and Reports',
+    '- Switch view mode for Applicants, Analytics, Evaluation, and Reports',
+    '- Open selected applications, interns, report details, or the latest report',
+    '- Open the application form or the analytics task panel',
+    '- Clear filters, clear the chat, or focus a tab search field',
+    '- Proceed a selected application to HR interview',
+    '- Reject a selected application',
+    '- Start batch CV scoring for pending applications',
+  ]
   const [chatheadPromptIndex, setChatheadPromptIndex] = useState(0)
   const [chatWidgetOffset, setChatWidgetOffset] = useState({ x: 0, y: 0 })
   const [isChatWidgetReturning, setIsChatWidgetReturning] = useState(false)
@@ -3153,7 +3166,39 @@ function App() {
 
     return {
       ...base,
-      ...(summaries[activeAdminTab] || {}),
+      adminSurface: currentPath === '/admin-dashboard',
+      activeTabSummary: summaries[activeAdminTab] || null,
+      tabs: {
+        Dashboard: summaries.Dashboard,
+        Applications: summaries.Applications,
+        Approvals: summaries.Approvals,
+        Analytics: summaries.Analytics,
+        Evaluation: summaries.Evaluation,
+        Reports: summaries.Reports,
+        'Manage Interns': summaries['Manage Interns'],
+      },
+      selection: {
+        application: selectedApplication
+          ? {
+              name: `${selectedApplication.firstName} ${selectedApplication.lastName}`.trim(),
+              status: applicationStatusLabel(selectedApplication.status),
+              score: selectedApplication.cvScore ?? null,
+            }
+          : null,
+        intern: selectedAnalyticsIntern
+          ? {
+              name: selectedAnalyticsIntern.name,
+              label: selectedAnalyticsIntern.label || null,
+              score: selectedAnalyticsIntern.score ?? null,
+            }
+          : null,
+        dashboardGroup: selectedDashboardGroup
+          ? {
+              title: selectedDashboardGroup.title,
+              description: selectedDashboardGroup.description || null,
+            }
+          : null,
+      },
     }
   }
 
@@ -3525,6 +3570,7 @@ function App() {
       clearChatbotConversation()
       return 'Cleared the chat.'
     },
+    listCapabilities: () => chatbotCapabilityLines.join('\n'),
     scoreAllPendingApplications: () => {
       void handleScoreAllPending()
       return 'Starting batch CV scoring for all pending applications.'
@@ -3552,6 +3598,14 @@ function App() {
       .replace(/\b(application|applicant|intern|report|details?)\b/g, '')
       .replace(/\b(tab|record|profile|card)\b/g, '')
       .trim()
+
+    if (
+      /\b(what\s+can\s+(you|it)\s+do|what\s+actions?\s+can\s+(you|it)\s+do|what\s+are\s+your\s+actions?|list\s+actions?|show\s+actions?|help)\b/.test(
+        query
+      )
+    ) {
+      return { id: 'listCapabilities' }
+    }
 
     if (/^(clear|reset)\s+(the\s+)?chat/.test(query) || /\bclear chat\b/.test(query)) {
       return { id: 'clearChat' }
