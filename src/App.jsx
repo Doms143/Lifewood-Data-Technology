@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import emailjs from '@emailjs/browser'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -46,16 +46,13 @@ import {
   LogOut,
   AlignJustify,
 } from 'lucide-react'
-import Hero from './components/Hero'
-import Services from './components/Services'
-import Stats from './components/Stats'
-import Footer from './components/Footer'
-import Navigation from './components/Navigation'
-import OurClientsPartners from './components/OurClientsPartners'
-import OfficesMap from './components/OfficesMap'
-import ApplicationFormRoute from './components/ApplicationFormRoute'
 import { isBootstrapAdmin } from './lib/adminAccess'
 import { isSupabaseConfigured, supabase } from './lib/supabaseClient'
+
+const Navigation = lazy(() => import('./components/Navigation'))
+const HomePage = lazy(() => import('./components/HomePage'))
+const OfficesPage = lazy(() => import('./components/OfficesPage'))
+const ApplicationFormPage = lazy(() => import('./components/ApplicationFormPage'))
 
 function CountUpStat({ end = 0, suffix = '', duration = 1200, useGrouping = false, start = false }) {
   const [value, setValue] = useState(0)
@@ -89,6 +86,78 @@ function CountUpStat({ end = 0, suffix = '', duration = 1200, useGrouping = fals
       {suffix}
     </>
   )
+}
+
+function UnreadNotificationBadge({ count, compact = false }) {
+  if (!count) return null
+
+  if (compact) {
+    return (
+      <motion.span
+        className="absolute -right-1 -top-1 inline-flex h-4 w-4 items-center justify-center"
+        initial={{ scale: 0.7, opacity: 0 }}
+        animate={{ scale: [1, 1.18, 1], opacity: 1 }}
+        transition={{ duration: 1.2, repeat: Number.POSITIVE_INFINITY, repeatDelay: 1.6 }}
+      >
+        <span className="absolute inline-flex h-full w-full rounded-full bg-[#93c5fd]/80 blur-[1px]" />
+        <span className="relative inline-flex h-3.5 w-3.5 rounded-full bg-[#2563eb] shadow-[0_0_0_4px_rgba(191,219,254,0.45)]" />
+      </motion.span>
+    )
+  }
+
+  return (
+    <motion.span
+      className="inline-flex items-center gap-1.5 rounded-full bg-[#e8f1ff] px-2 py-1 text-[11px] font-semibold text-[#1d4ed8] shadow-[0_10px_30px_-18px_rgba(37,99,235,0.7)]"
+      initial={{ scale: 0.92, opacity: 0 }}
+      animate={{ scale: [1, 1.04, 1], opacity: 1 }}
+      transition={{ duration: 1.25, repeat: Number.POSITIVE_INFINITY, repeatDelay: 1.8 }}
+    >
+      <motion.span
+        className="relative flex h-2.5 w-2.5"
+        animate={{ scale: [1, 1.35, 1], opacity: [0.9, 1, 0.9] }}
+        transition={{ duration: 1.2, repeat: Number.POSITIVE_INFINITY, repeatDelay: 1.6 }}
+      >
+        <span className="absolute inline-flex h-full w-full rounded-full bg-[#60a5fa]/80" />
+        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#2563eb]" />
+      </motion.span>
+      <motion.span
+        key={count}
+        initial={{ y: -4, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.22 }}
+      >
+        {count}
+      </motion.span>
+    </motion.span>
+  )
+}
+
+function UnreadPulseDot({ size = 'sm' }) {
+  const dimensionClass = size === 'md' ? 'h-3 w-3' : 'h-2.5 w-2.5'
+
+  return (
+    <motion.span
+      className={`relative flex ${dimensionClass}`}
+      animate={{ scale: [1, 1.3, 1] }}
+      transition={{ duration: 1.15, repeat: Number.POSITIVE_INFINITY, repeatDelay: 1.4 }}
+    >
+      <span className={`absolute inline-flex h-full w-full rounded-full bg-[#60a5fa]/80 ${size === 'md' ? 'blur-[1px]' : ''}`} />
+      <span className={`relative inline-flex ${dimensionClass} rounded-full bg-[#2563eb] shadow-[0_0_0_4px_rgba(191,219,254,0.38)]`} />
+    </motion.span>
+  )
+}
+
+function SectionFallback({ className = 'h-40' }) {
+  return (
+    <div
+      className={`w-full rounded-3xl border border-castleton/10 bg-white/60 shadow-soft animate-pulse ${className}`}
+      aria-hidden="true"
+    />
+  )
+}
+
+function NavigationFallback() {
+  return <div className="h-20 w-full" aria-hidden="true" />
 }
 
 const aiServiceModalities = [
@@ -1130,6 +1199,7 @@ function App() {
   const [careerApplications, setCareerApplications] = useState([])
   const [applicationsError, setApplicationsError] = useState('')
   const [applicationNoteDrafts, setApplicationNoteDrafts] = useState({})
+  const [reviewedPendingApplicationIds, setReviewedPendingApplicationIds] = useState([])
   const [selectedApplication, setSelectedApplication] = useState(null)
   const [isScoringCv, setIsScoringCv] = useState(false)
   const [cvScoreError, setCvScoreError] = useState('')
@@ -1150,11 +1220,11 @@ function App() {
   ])
   const [isChatbotLoading, setIsChatbotLoading] = useState(false)
   const chatbotPrompts = [
-    'How may I help you today?',
-    'Need a quick dashboard summary?',
-    'Ask me about applicants, interns, or reports.',
-    'What should we review first?',
-    'I can help you read the dashboard.',
+    'Ask for a quick dashboard summary.',
+    'Check pending applicants, approvals, or reports.',
+    'Ask which interns or tasks need attention.',
+    'Need the latest status before you review?',
+    'I can read this dashboard with you.',
   ]
   const chatbotCapabilityLines = [
     'I can help with these admin dashboard actions:',
@@ -1239,6 +1309,13 @@ function App() {
     () => careerApplications.filter((item) => item.status === 'pending').length,
     [careerApplications]
   )
+  const unreviewedPendingApplicationsCount = useMemo(
+    () => careerApplications.filter((item) => item.status === 'pending' && !reviewedPendingApplicationIds.includes(item.id)).length,
+    [careerApplications, reviewedPendingApplicationIds]
+  )
+  const hasPendingApplications = unreviewedPendingApplicationsCount > 0
+  const isApplicationUnreviewed = (application) =>
+    application.status === 'pending' && !reviewedPendingApplicationIds.includes(application.id)
   const pendingApprovalsCount = useMemo(
     () => signupRequests.filter((item) => item.status === 'pending').length,
     [signupRequests]
@@ -1582,6 +1659,13 @@ function App() {
       window.clearInterval(intervalId)
     }
   }, [activeAdminTab, canManageApprovals])
+
+  useEffect(() => {
+    setReviewedPendingApplicationIds((prev) => {
+      const pendingIds = new Set(careerApplications.filter((item) => item.status === 'pending').map((item) => item.id))
+      return prev.filter((id) => pendingIds.has(id))
+    })
+  }, [careerApplications])
 
   useEffect(() => {
     if (
@@ -3370,6 +3454,9 @@ function App() {
 
   const openApplicationDetails = (application) => {
     if (!application) return false
+    if (application.status === 'pending') {
+      setReviewedPendingApplicationIds((prev) => (prev.includes(application.id) ? prev : [...prev, application.id]))
+    }
     setSelectedApplication(application)
     runAdminAction(`Opened application: ${application.firstName} ${application.lastName}`.trim())
     return true
@@ -4151,6 +4238,21 @@ function App() {
       ) : (
         <div className="relative h-14 w-14 pointer-events-auto">
           <motion.div
+            initial={{ opacity: 0, scale: 0.72, y: 10 }}
+            animate={{ opacity: [0, 1, 1, 0], scale: [0.72, 1.08, 1.08, 0.82], y: [10, 0, 0, -8] }}
+            transition={{ duration: 5.4, repeat: Infinity, ease: 'easeInOut', times: [0, 0.12, 0.88, 1] }}
+            className="pointer-events-none absolute -left-6 -top-6 z-[3]"
+          >
+            <motion.span
+              className="inline-flex origin-[70%_70%] text-[38px] leading-none drop-shadow-[0_12px_22px_rgba(19,48,32,0.22)]"
+              style={{ transform: 'scaleX(-1)' }}
+              animate={{ rotate: [0, 18, -10, 18, 0, 0, 0] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut', times: [0, 0.18, 0.36, 0.54, 0.7, 0.85, 1] }}
+            >
+              👋
+            </motion.span>
+          </motion.div>
+          <motion.div
             key={chatheadPromptIndex}
             initial={{ opacity: 0, x: 12, scale: 0.96 }}
             animate={{ opacity: 1, x: 0, scale: 1 }}
@@ -4159,9 +4261,9 @@ function App() {
               x: { duration: 0.45, ease: 'easeOut' },
               scale: { duration: 0.45, ease: 'easeOut' },
             }}
-            className="pointer-events-none absolute right-[64px] sm:right-[72px] top-[calc(50%-28px)] z-[1] w-[170px] sm:w-[190px] -translate-y-[50%] rounded-2xl rounded-br-md border border-castleton/15 bg-white px-3 py-2 text-sm text-black shadow-[0_18px_38px_-30px_rgba(19,48,32,0.65)]"
-          >
-            <span className="block leading-snug whitespace-normal">
+            className="pointer-events-none absolute right-[64px] sm:right-[72px] top-[calc(50%-36px)] z-[1] w-[196px] sm:w-[228px] -translate-y-[50%] rounded-[24px] rounded-br-[12px] border border-castleton/15 bg-[linear-gradient(145deg,rgba(255,255,255,0.98),rgba(244,248,244,0.96))] px-4 py-3.5 text-black shadow-[0_14px_28px_-18px_rgba(19,48,32,0.22),0_28px_60px_-26px_rgba(19,48,32,0.42)] backdrop-blur-md"
+            >
+            <span className="block text-[13px] font-semibold leading-[1.4] whitespace-normal text-castleton/95">
               {chatbotPrompts[chatheadPromptIndex]}
             </span>
           </motion.div>
@@ -4237,7 +4339,11 @@ function App() {
   if (currentPath !== '/') {
     return (
       <div className="w-full overflow-x-hidden min-h-screen">
-        {!isAdminRoute ? <Navigation onNavigate={scrollToSection} onNavigatePath={goToPath} /> : null}
+        {!isAdminRoute ? (
+          <Suspense fallback={<NavigationFallback />}>
+            <Navigation onNavigate={scrollToSection} onNavigatePath={goToPath} />
+          </Suspense>
+        ) : null}
         <main
           className={`${
             isAdminRoute
@@ -5289,13 +5395,15 @@ function App() {
                       viewport={{ once: true, amount: 0.2 }}
                       transition={{ duration: 0.3 }}
                     >
-                      <OfficesMap
-                        offices={philanthropyMapOffices}
-                        activeRegion="Africa and Indian sub-continent"
-                        showMeta={false}
-                        focusedOffice={selectedPhilanthropyOffice}
-                        className="h-[320px] sm:h-[430px] lg:h-[460px]"
-                      />
+                      <Suspense fallback={<SectionFallback className="h-[320px] sm:h-[430px] lg:h-[460px]" />}>
+                        <OfficesMap
+                          offices={philanthropyMapOffices}
+                          activeRegion="Africa and Indian sub-continent"
+                          showMeta={false}
+                          focusedOffice={selectedPhilanthropyOffice}
+                          className="h-[320px] sm:h-[430px] lg:h-[460px]"
+                        />
+                      </Suspense>
                     </motion.div>
                   </div>
 
@@ -6578,9 +6686,14 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                                       : 'hover:bg-white/10 text-white/90'
                                   }`}
                                 >
-                                  <span className="flex items-center gap-2">
-                                    <Icon className="h-4 w-4" />
-                                    {displayLabel}
+                                  <span className="flex items-center justify-between gap-2">
+                                    <span className="flex items-center gap-2">
+                                      <Icon className="h-4 w-4" />
+                                      {displayLabel}
+                                    </span>
+                                    {item.label === 'Applications' && hasPendingApplications ? (
+                                      <UnreadNotificationBadge count={unreviewedPendingApplicationsCount} />
+                                    ) : null}
                                   </span>
                                 </button>
                               )
@@ -6615,12 +6728,15 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                                     setActiveAdminTab(item.label)
                                     runAdminAction(`${item.label} panel opened`)
                                   }}
-                                  className={`focus-brand inline-flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${
+                                  className={`focus-brand relative inline-flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${
                                     isActive ? 'bg-saffron/25 text-saffron' : 'text-white/90 hover:bg-white/10'
                                   }`}
                                   aria-label={displayLabel}
                                 >
                                   <Icon className="h-4 w-4" />
+                                  {item.label === 'Applications' && hasPendingApplications ? (
+                                    <UnreadNotificationBadge count={unreviewedPendingApplicationsCount} compact />
+                                  ) : null}
                                 </button>
                               )
                             })}
@@ -8043,7 +8159,10 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                                   >
                                     <div>
                                       <p className="text-sm font-semibold text-black">
-                                        {application.firstName} {application.lastName}
+                                        <span className="inline-flex items-center gap-2">
+                                          {application.firstName} {application.lastName}
+                                          {isApplicationUnreviewed(application) ? <UnreadPulseDot /> : null}
+                                        </span>
                                       </p>
                                       <p className="text-xs text-black/60">{application.email}</p>
                                     </div>
@@ -8120,8 +8239,9 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                                       <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
                                         <div>
                                           <p className="text-xs uppercase tracking-[0.12em] text-castleton mb-1">Applicant</p>
-                                          <h3 className="text-xl font-semibold text-black">
-                                            {application.firstName} {application.lastName}
+                                          <h3 className="text-xl font-semibold text-black inline-flex items-center gap-2">
+                                            <span>{application.firstName} {application.lastName}</span>
+                                            {isApplicationUnreviewed(application) ? <UnreadPulseDot size="md" /> : null}
                                           </h3>
                                           <p className="text-sm text-black/65 mt-1">{application.email}</p>
                                         </div>
@@ -9595,154 +9715,18 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
               </section>
             )
           ) : currentPath === '/offices' ? (
-            <section className="max-w-6xl mx-auto space-y-8 relative text-black">
-              <div className="absolute -top-20 -left-16 w-72 h-72 rounded-full bg-saffron/20 blur-3xl" />
-              <div className="absolute top-40 -right-16 w-72 h-72 rounded-full bg-castleton/15 blur-3xl" />
-
-              <motion.div
-                id="offices-overview"
-                className="rounded-3xl p-8 sm:p-12 relative overflow-hidden text-center flex flex-col items-center"
-                initial={{ opacity: 0, y: 18 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.45 }}
-                viewport={{ once: true, amount: 0.35 }}
-                onViewportEnter={() => setOfficesStatsVisible(true)}
-              >
-                <div className="absolute -top-24 -right-10 w-72 h-72 bg-white/55 rounded-full blur-3xl" />
-                <p className="text-black font-medium uppercase tracking-[0.14em] text-sm mb-5">Offices</p>
-                <h1 className="text-4xl sm:text-5xl font-semibold text-black mb-5">
-                  Largest Global Data Collection Resources Distribution
-                </h1>
-                <p className="text-black text-lg max-w-4xl mx-auto">
-                  Based on Lifewood&apos;s published offices footprint, we maintain a worldwide delivery presence with
-                  extensive online resources and operational coverage across global regions.
-                </p>
-                <div className="mt-7 grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-4xl">
-                  <div className="bg-[#f3f3f3] border border-castleton/15 rounded-2xl py-4 px-4">
-                    <p className="text-3xl sm:text-4xl font-semibold text-castleton">
-                      <CountUpStat end={56788} useGrouping start={officesStatsVisible} />
-                    </p>
-                    <p className="text-sm sm:text-base text-black/80">Online Resources</p>
-                  </div>
-                  <div className="bg-[#f3f3f3] border border-castleton/15 rounded-2xl py-4 px-4">
-                    <p className="text-3xl sm:text-4xl font-semibold text-castleton">
-                      <CountUpStat end={30} suffix="+" start={officesStatsVisible} />
-                    </p>
-                    <p className="text-sm sm:text-base text-black/80">Countries</p>
-                  </div>
-                  <div className="bg-[#f3f3f3] border border-castleton/15 rounded-2xl py-4 px-4">
-                    <p className="text-3xl sm:text-4xl font-semibold text-castleton">
-                      <CountUpStat end={40} suffix="+" start={officesStatsVisible} />
-                    </p>
-                    <p className="text-sm sm:text-base text-black/80">Centers</p>
-                  </div>
-                </div>
-              </motion.div>
-
-              <motion.section
-                id="offices-map"
-                className="rounded-3xl p-5 sm:p-7"
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.35, delay: 0.04 }}
-              >
-                <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
-                  <h2 className="text-3xl sm:text-4xl font-medium">Lifewood Worldwide Pins</h2>
-                  <p className="text-sm sm:text-base text-black/75">
-                    Click a region to focus the map to that regional footprint.
-                  </p>
-                </div>
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6 items-start">
-                  <aside className="lg:col-span-1 rounded-3xl border border-castleton/15 bg-[#f3f3f3] p-4 sm:p-5">
-                    <p className="text-xs uppercase tracking-[0.12em] text-castleton mb-3">Regions</p>
-                    <ul className="space-y-2">
-                      {officeRegions.map((item) => {
-                        const isActive = selectedOfficeRegion === item.region
-                        return (
-                          <li key={item.region}>
-                            <button
-                              type="button"
-                              onClick={() => setSelectedOfficeRegion(item.region)}
-                              className={`focus-brand w-full rounded-2xl border px-3 py-2.5 text-left transition-all flex items-center justify-between gap-2 ${
-                                isActive
-                                  ? 'bg-serpent text-white border-serpent shadow-soft'
-                                  : 'bg-white border-castleton/15 text-black hover:border-castleton/30'
-                              }`}
-                            >
-                              <span className="font-semibold text-sm sm:text-base">{item.region}</span>
-                              <span className={`rounded-full px-2 py-0.5 text-xs ${isActive ? 'bg-white/20 text-white' : 'bg-castleton/10 text-castleton'}`}>
-                                {item.count}
-                              </span>
-                            </button>
-                          </li>
-                        )
-                      })}
-                    </ul>
-                    <div className="mt-4 rounded-2xl border border-castleton/15 bg-white p-3">
-                      <p className="text-xs uppercase tracking-[0.1em] text-castleton mb-1">Selected</p>
-                      <p className="text-base font-semibold text-black">{selectedOfficeRegion}</p>
-                      <p className="text-sm text-black/70">
-                        {officesForSelectedRegion.length} pinned location{officesForSelectedRegion.length === 1 ? '' : 's'}
-                      </p>
-                    </div>
-                  </aside>
-
-                  <div className="lg:col-span-3">
-                    <OfficesMap offices={officesForSelectedRegion} activeRegion={selectedOfficeRegion} />
-                  </div>
-                </div>
-              </motion.section>
-
-              <motion.section
-                id="ai-contact"
-                className="mt-6 bg-serpent border border-castleton/35 rounded-[32px] p-6 sm:p-7 lg:p-9 text-white relative overflow-hidden"
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.45 }}
-                viewport={{ once: true, amount: 0.2 }}
-              >
-                <div className="absolute -top-24 -right-16 w-72 h-72 rounded-full bg-castleton/45 blur-3xl" />
-                <div className="relative">
-                  <img
-                    src="https://framerusercontent.com/images/Ca8ppNsvJIfTsWEuHr50gvkDow.png"
-                    alt="Lifewood logo"
-                    className="h-8 sm:h-9 w-auto mb-5"
-                  />
-                  <p className="text-lg sm:text-2xl font-medium leading-tight mb-8 max-w-3xl">
-                    Need support from our regional delivery teams? Contact the Lifewood team directly.
-                  </p>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-end">
-                    <div>
-                      <button
-                        type="button"
-                        onClick={() => goToPath('/contact-us')}
-                        className="focus-brand mb-5 inline-flex items-center gap-2 rounded-full border border-white/35 bg-white/12 px-6 py-2 text-lg sm:text-xl font-bold text-[#e7edd8] hover:bg-white/20 transition-colors"
-                      >
-                        Contact Team
-                        <ArrowRight className="w-4 h-4" />
-                      </button>
-                      <div className="flex flex-wrap gap-4 text-white text-sm sm:text-base">
-                        <a href="mailto:hr.lifewood@gmail.com" className="brand-link hover:text-saffron transition-colors">hr.lifewood@gmail.com</a>
-                        <a href="https://www.linkedin.com/company/lifewood-data-technology-ltd./posts/?feedView=all" target="_blank" rel="noreferrer" className="brand-link hover:text-saffron transition-colors">LinkedIn</a>
-                        <a href="https://www.facebook.com/LifewoodPH/" target="_blank" rel="noreferrer" className="brand-link hover:text-saffron transition-colors">Facebook</a>
-                      </div>
-                    </div>
-
-                    <div className="lg:text-right">
-                      <p className="text-base sm:text-lg mb-4">Find Us On:</p>
-                      <div className="flex flex-wrap lg:justify-end gap-3 mb-6">
-                        <a href="https://www.linkedin.com/company/lifewood-data-technology-ltd./posts/?feedView=all" target="_blank" rel="noreferrer" className="bg-white/10 border border-white/35 rounded-full w-10 h-10 flex items-center justify-center text-white hover:text-saffron"><Linkedin className="w-4 h-4" /></a>
-                        <a href="https://www.facebook.com/LifewoodPH/" target="_blank" rel="noreferrer" className="bg-white/10 border border-white/35 rounded-full w-10 h-10 flex items-center justify-center text-white hover:text-saffron"><Facebook className="w-4 h-4" /></a>
-                        <a href="https://www.instagram.com/lifewood_official/?hl=af" target="_blank" rel="noreferrer" className="bg-white/10 border border-white/35 rounded-full w-10 h-10 flex items-center justify-center text-white hover:text-saffron"><Instagram className="w-4 h-4" /></a>
-                        <a href="https://www.youtube.com/@LifewoodDataTechnology" target="_blank" rel="noreferrer" className="bg-white/10 border border-white/35 rounded-full w-10 h-10 flex items-center justify-center text-white hover:text-saffron"><Youtube className="w-4 h-4" /></a>
-                      </div>
-                      <p className="text-lg sm:text-xl font-medium">&copy; 2026 Lifewood - All Rights Reserved</p>
-                    </div>
-                  </div>
-                </div>
-              </motion.section>
-            </section>
+            <Suspense fallback={<SectionFallback className="h-[980px]" />}>
+              <OfficesPage
+                officesStatsVisible={officesStatsVisible}
+                onStatsEnter={() => setOfficesStatsVisible(true)}
+                officeRegions={officeRegions}
+                selectedOfficeRegion={selectedOfficeRegion}
+                onSelectRegion={setSelectedOfficeRegion}
+                officesForSelectedRegion={officesForSelectedRegion}
+                CountUpStatComponent={CountUpStat}
+                onNavigateContact={() => goToPath('/contact-us')}
+              />
+            </Suspense>
           ) : currentPath === '/about-us' ? (
             <section className="max-w-6xl mx-auto space-y-8 relative text-black">
               <div className="absolute -top-20 -left-16 w-72 h-72 rounded-full bg-saffron/20 blur-3xl" />
@@ -10181,11 +10165,9 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
               </motion.section>
             </section>
           ) : currentPath === '/application-form' ? (
-            <section className="max-w-6xl mx-auto space-y-8 relative text-black">
-              <div className="absolute -top-20 -left-16 w-72 h-72 rounded-full bg-saffron/20 blur-3xl" />
-              <div className="absolute top-40 -right-16 w-72 h-72 rounded-full bg-castleton/15 blur-3xl" />
-              <ApplicationFormRoute />
-            </section>
+            <Suspense fallback={<SectionFallback className="h-[720px]" />}>
+              <ApplicationFormPage />
+            </Suspense>
           ) : (
             <section className="max-w-5xl mx-auto bg-white border border-castleton/15 shadow-soft rounded-3xl p-8 sm:p-12">
               <p className="text-castleton font-medium uppercase tracking-[0.14em] text-sm mb-5">Lifewood</p>
@@ -10208,14 +10190,9 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
   }
 
   return (
-    <div className="w-full overflow-x-hidden">
-      <Navigation onNavigate={scrollToSection} onNavigatePath={goToPath} />
-      <Hero onContact={() => scrollToSection('contact')} onLearnMore={() => scrollToSection('services')} />
-      <Services />
-      <Stats />
-      <OurClientsPartners />
-      <Footer />
-    </div>
+    <Suspense fallback={<SectionFallback className="min-h-screen" />}>
+      <HomePage onScrollToSection={scrollToSection} onNavigatePath={goToPath} />
+    </Suspense>
   )
 }
 

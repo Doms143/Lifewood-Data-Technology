@@ -1,6 +1,8 @@
+import { Suspense, lazy } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
-import LightPillar from './LightPillar'
+
+const LightPillar = lazy(() => import('./LightPillar'))
 
 const Hero = ({ onContact, onLearnMore }) => {
   const containerVariants = {
@@ -25,21 +27,23 @@ const Hero = ({ onContact, onLearnMore }) => {
 
   return (
     <section id="hero" className="min-h-screen bg-paper px-4 sm:px-6 lg:px-8 pt-36 pb-20 flex items-center relative overflow-hidden">
-      <LightPillar
-        topColor="#f5b24a"
-        bottomColor="#ffd58a"
-        intensity={1.15}
-        rotationSpeed={1.04}
-        glowAmount={0.0034}
-        pillarWidth={2.2}
-        pillarHeight={0.4}
-        noiseIntensity={0.14}
-        pillarRotation={18}
-        interactive={false}
-        mixBlendMode="normal"
-        quality="medium"
-        className="opacity-90 z-0"
-      />
+      <Suspense fallback={<div className="absolute inset-0 z-0 bg-gradient-to-b from-[#1a241f]/55 via-[#161d18]/35 to-[#17150f]/45" aria-hidden="true" />}>
+        <LightPillar
+          topColor="#f5b24a"
+          bottomColor="#ffd58a"
+          intensity={1.15}
+          rotationSpeed={1.04}
+          glowAmount={0.0034}
+          pillarWidth={2.2}
+          pillarHeight={0.4}
+          noiseIntensity={0.14}
+          pillarRotation={18}
+          interactive={false}
+          mixBlendMode="normal"
+          quality="medium"
+          className="opacity-90 z-0"
+        />
+      </Suspense>
       <div className="absolute inset-0 z-0 bg-gradient-to-b from-[#0a130e]/68 via-[#111810]/56 to-[#17150f]/66" />
       <div className="absolute z-0 -top-24 -right-24 w-80 h-80 rounded-full bg-white/18 blur-3xl brand-orb" />
       <div className="absolute z-0 -bottom-28 left-0 w-80 h-80 rounded-full bg-saffron/25 blur-3xl brand-orb brand-orb-delay" />
