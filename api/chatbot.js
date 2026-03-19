@@ -1,5 +1,29 @@
-const chatbotGeminiApiKey = process.env.CHATBOT_GEMINI_API_KEY || process.env.GEMINI_CHATBOT_API_KEY || ''
-const chatbotModelName = process.env.CHATBOT_GEMINI_MODEL || 'gemini-1.5-flash-latest'
+const chatbotGeminiApiKey =
+  process.env.CHATBOT_GEMINI_API_KEY ||
+  process.env.GEMINI_CHATBOT_API_KEY ||
+  process.env.VITE_CHATBOT_GEMINI_API_KEY ||
+  process.env.GEMINI_API_KEY ||
+  ''
+
+const chatbotModelName =
+  process.env.CHATBOT_GEMINI_MODEL ||
+  process.env.GEMINI_CHATBOT_MODEL ||
+  process.env.VITE_CHATBOT_GEMINI_MODEL ||
+  'gemini-1.5-flash-latest'
+
+const readRequestBody = (req) => {
+  const body = req.body
+  if (!body) return {}
+  if (typeof body === 'object') return body
+  if (typeof body === 'string') {
+    try {
+      return JSON.parse(body)
+    } catch {
+      return {}
+    }
+  }
+  return {}
+}
 
 const buildPrompt = ({ message, context, history }) => {
   const historyText = Array.isArray(history)
@@ -71,7 +95,7 @@ export default async function handler(req, res) {
       return
     }
 
-    const { message, context, history } = req.body || {}
+    const { message, context, history } = readRequestBody(req)
     if (!message || !String(message).trim()) {
       res.status(400).json({ error: 'message is required' })
       return

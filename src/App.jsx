@@ -3145,12 +3145,16 @@ function App() {
           },
         ])
       } catch (error) {
+        const errorMessage =
+          error instanceof Error && error.message
+            ? error.message
+            : 'Dashboard AI is not connected on this deployment yet. Check the Vercel function and chatbot key.'
         setChatbotMessages((prev) => [
           ...prev,
           {
             id: `assistant-error-${Date.now() + 1}`,
             role: 'assistant',
-            content: 'Dashboard AI is not connected on this deployment yet. Check the Vercel function and chatbot key.',
+            content: errorMessage,
           },
         ])
       } finally {
