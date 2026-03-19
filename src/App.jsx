@@ -3598,6 +3598,16 @@ function App() {
       .replace(/\b(application|applicant|intern|report|details?)\b/g, '')
       .replace(/\b(tab|record|profile|card)\b/g, '')
       .trim()
+    const resolveTabFromQuery = () => {
+      if (/\b(applicants?|applications?)\b/.test(query)) return 'Applications'
+      if (/\bapprovals?\b/.test(query)) return 'Approvals'
+      if (/\banalytics?\b/.test(query)) return 'Analytics'
+      if (/\bevaluation\b/.test(query)) return 'Evaluation'
+      if (/\breports?\b/.test(query)) return 'Reports'
+      if (/\b(interns?|manage interns)\b/.test(query)) return 'Manage Interns'
+      if (/\bdashboard\b/.test(query)) return 'Dashboard'
+      return null
+    }
 
     if (
       /\b(what\s+can\s+(you|it)\s+do|what\s+actions?\s+can\s+(you|it)\s+do|what\s+are\s+your\s+actions?|list\s+actions?|show\s+actions?|help)\b/.test(
@@ -3620,6 +3630,11 @@ function App() {
     if (/\bselected application\b/.test(query)) {
       return { id: 'openSelectedApplication' }
     }
+    const requestedTab = resolveTabFromQuery()
+    if (requestedTab && /\b(open|show|review|view|select|go to|switch to|switch|go)\b/.test(query)) {
+      return { id: 'openTab', tab: requestedTab }
+    }
+
     if (/\b(open|show|review|view|select)\b/.test(query) && /\b(intern|member|profile|record)\b/.test(query) && nameAfterVerb) {
       return { id: 'openInternByQuery', query: nameAfterVerb }
     }
@@ -3632,31 +3647,6 @@ function App() {
 
     if (/\b(open|show|review|view|select)\b/.test(query) && nameAfterVerb) {
       return { id: 'openSelectionByQuery', query: nameAfterVerb }
-    }
-
-    if (/\b(applicants?|applications?)\b/.test(query) && /\b(open|show|go to|switch|view)\b/.test(query)) {
-      return { id: 'openTab', tab: 'Applications' }
-    }
-    if (/\bgo to applicants\b/.test(query) || /\bgo to applications\b/.test(query)) {
-      return { id: 'openTab', tab: 'Applications' }
-    }
-    if (/\bapprovals?\b/.test(query) && /\b(open|show|go to|switch|view)\b/.test(query)) {
-      return { id: 'openTab', tab: 'Approvals' }
-    }
-    if (/\banalytics?\b/.test(query) && /\b(open|show|go to|switch|view)\b/.test(query)) {
-      return { id: 'openTab', tab: 'Analytics' }
-    }
-    if (/\bevaluation\b/.test(query) && /\b(open|show|go to|switch|view)\b/.test(query)) {
-      return { id: 'openTab', tab: 'Evaluation' }
-    }
-    if (/\breports?\b/.test(query) && /\b(open|show|go to|switch|view)\b/.test(query)) {
-      return { id: 'openTab', tab: 'Reports' }
-    }
-    if (/\b(interns?|manage interns)\b/.test(query) && /\b(open|show|go to|switch|view)\b/.test(query)) {
-      return { id: 'openTab', tab: 'Manage Interns' }
-    }
-    if (/\bdashboard\b/.test(query) && /\b(open|show|go to|switch|view)\b/.test(query)) {
-      return { id: 'openTab', tab: 'Dashboard' }
     }
 
     if (/clear\s+(the\s+)?(filters?|search|searches)\b/.test(query) || /\breset\s+(the\s+)?filters?\b/.test(query)) {
