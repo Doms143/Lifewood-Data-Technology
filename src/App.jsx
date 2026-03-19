@@ -21,6 +21,8 @@ import {
   Send,
   Building2,
   Mic,
+  MessageCircle,
+  Move,
   ImageIcon,
   Video,
   Type,
@@ -1135,6 +1137,35 @@ function App() {
   const [isCvModalOpen, setIsCvModalOpen] = useState(false)
   const [cvModalUrl, setCvModalUrl] = useState('')
   const [cvModalName, setCvModalName] = useState('')
+  const [isChatbotOpen, setIsChatbotOpen] = useState(false)
+  const [chatbotInput, setChatbotInput] = useState('')
+  const [hasChatted, setHasChatted] = useState(false)
+  const [chatbotMessages, setChatbotMessages] = useState([
+    {
+      id: 'chatbot-welcome',
+      role: 'assistant',
+      content: 'Hi! I’m your Dashboard AI. Ask me about data you see on this dashboard.',
+    },
+  ])
+  const [isChatbotLoading, setIsChatbotLoading] = useState(false)
+  const chatbotPrompts = [
+    'How may I help you today?',
+    'Need a quick dashboard summary?',
+    'Ask me about applicants, interns, or reports.',
+    'What should we review first?',
+    'I can help you read the dashboard.',
+  ]
+  const [chatheadPromptIndex, setChatheadPromptIndex] = useState(0)
+  const [chatWidgetOffset, setChatWidgetOffset] = useState({ x: 0, y: 0 })
+  const [isChatWidgetReturning, setIsChatWidgetReturning] = useState(false)
+  const chatWidgetDragRef = useRef({
+    active: false,
+    startX: 0,
+    startY: 0,
+    originX: 0,
+    originY: 0,
+    dragged: false,
+  })
   const [selectedAnalyticsIntern, setSelectedAnalyticsIntern] = useState(null)
   const [selectedDashboardGroup, setSelectedDashboardGroup] = useState(null)
   const [analyticsSortBy, setAnalyticsSortBy] = useState('name-asc')
@@ -3012,6 +3043,411 @@ function App() {
     if (title.includes('Computer Vision')) return <ImageIcon className="w-4 h-4" />
     return <FolderTree className="w-4 h-4" />
   }
+
+  const handleChatbotSend = (event) => {
+    event.preventDefault()
+    const trimmed = chatbotInput.trim()
+    if (!trimmed) return
+    const userMessage = { id: `user-${Date.now()}`, role: 'user', content: trimmed }
+    const placeholderReply = {
+      id: `assistant-${Date.now() + 1}`,
+      role: 'assistant',
+      content: 'Thanks! I’m limited to dashboard context for now. Backend will be added later.',
+    }
+    setChatbotMessages((prev) => [...prev, userMessage, placeholderReply])
+    setChatbotInput('')
+    if (!hasChatted) setHasChatted(true)
+  }
+
+  const handleChatbotSendAsync = (event) => {
+    event.preventDefault()
+    const trimmed = chatbotInput.trim()
+    if (!trimmed || isChatbotLoading) return
+
+    const userMessage = { id: `user-${Date.now()}`, role: 'user', content: trimmed }
+    const history = [...chatbotMessages, userMessage].slice(-8)
+    const context = {
+      route: currentPath,
+      page: routeContent[currentPath]?.title || 'Home',
+      activeAdminTab,
+      counts: {
+        applicationsTotal: careerApplications.length,
+        applicationsPending: pendingApplicationsCount,
+        applicationsProceedingToHr: careerApplications.filter((item) => isHrInterviewStatus(item.status)).length,
+        applicationsRejected: careerApplications.filter((item) => item.status === 'rejected').length,
+        internsTotal: internAnalyticsData.length,
+        internsActive: internAnalyticsData.filter((item) => normalizeInternStatus(item.status) === 'Active').length,
+        internsComplete: internAnalyticsData.filter((item) => normalizeInternStatus(item.status) === 'Complete').length,
+        internsSuspended: internAnalyticsData.filter((item) => normalizeInternStatus(item.status) === 'Suspend').length,
+        signupRequestsPending: pendingApprovalsCount,
+      },
+      recentApplications: careerApplications.slice(0, 5).map((item) => ({
+        name: `${item.firstName} ${item.lastName}`.trim(),
+        status: applicationStatusLabel(item.status),
+        score: item.cvScore ?? null,
+        positions: item.positions || [],
+        reviewedAt: item.reviewedAt || '',
+      })),
+      recentInterns: internAnalyticsData.slice(0, 5).map((item) => ({
+        name: item.name,
+        status: getInternStatusLabel(item.status || 'Active'),
+        performance: item.performance,
+        attendance: item.attendance,
+        progress: item.progress,
+      })),
+      recentRequests: signupRequests.slice(0, 5).map((item) => ({
+        name: item.fullName,
+        status: item.status,
+        department: item.department,
+      })),
+      selectedApplication: selectedApplication
+        ? {
+            name: `${selectedApplication.firstName} ${selectedApplication.lastName}`.trim(),
+            status: applicationStatusLabel(selectedApplication.status),
+            score: selectedApplication.cvScore ?? null,
+            positions: selectedApplication.positions || [],
+            note: selectedApplication.adminNote || '',
+          }
+        : null,
+    }
+
+    setChatbotMessages((prev) => [...prev, userMessage])
+    setChatbotInput('')
+    if (!hasChatted) setHasChatted(true)
+    setIsChatbotLoading(true)
+
+    void (async () => {
+      try {
+        const response = await fetch('/api/chatbot', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message: trimmed,
+            history,
+            context,
+          }),
+        })
+
+        const payload = await response.json().catch(() => ({}))
+        if (!response.ok) {
+          throw new Error(payload?.error || `Chatbot request failed (${response.status})`)
+        }
+
+        const replyText = payload?.answer || payload?.message || 'I could not generate a response.'
+        setChatbotMessages((prev) => [
+          ...prev,
+          {
+            id: `assistant-${Date.now() + 1}`,
+            role: 'assistant',
+            content: replyText,
+          },
+        ])
+      } catch (error) {
+        setChatbotMessages((prev) => [
+          ...prev,
+          {
+            id: `assistant-error-${Date.now() + 1}`,
+            role: 'assistant',
+            content: 'I can only answer from dashboard data right now. The chatbot service is temporarily unavailable.',
+          },
+        ])
+      } finally {
+        setIsChatbotLoading(false)
+      }
+    })()
+  }
+
+  const chatbotSuggestions = [
+    "Show today’s attendance summary",
+    'Who needs support this week?',
+    'How many pending applications?',
+  ]
+
+  const chatbotScopes = ['Applicants', 'Interns', 'Reports', 'Approvals']
+
+  const beginChatWidgetDrag = (event) => {
+    if (event.button !== undefined && event.button !== 0) return
+    const state = chatWidgetDragRef.current
+    state.active = true
+    state.dragged = false
+    setIsChatWidgetReturning(false)
+    state.startX = event.clientX
+    state.startY = event.clientY
+    state.originX = chatWidgetOffset.x
+    state.originY = chatWidgetOffset.y
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+  }
+
+  const moveChatWidgetDrag = (event) => {
+    const state = chatWidgetDragRef.current
+    if (!state.active) return
+
+    const deltaX = event.clientX - state.startX
+    const deltaY = event.clientY - state.startY
+
+    if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
+      state.dragged = true
+    }
+
+    setChatWidgetOffset({
+      x: state.originX + deltaX,
+      y: state.originY + deltaY,
+    })
+  }
+
+  const endChatWidgetDrag = (event) => {
+    const state = chatWidgetDragRef.current
+    if (!state.active) return
+    state.active = false
+    event.currentTarget.releasePointerCapture?.(event.pointerId)
+  }
+
+  const handleChatWidgetToggle = () => {
+    const state = chatWidgetDragRef.current
+    if (state.dragged) {
+      state.dragged = false
+      return
+    }
+    if (isChatbotOpen) {
+      closeChatWidget()
+      return
+    }
+    setIsChatbotOpen(true)
+  }
+
+  const closeChatWidget = () => {
+    setIsChatbotOpen(false)
+    setIsChatWidgetReturning(true)
+    setChatWidgetOffset({ x: 0, y: 0 })
+    chatWidgetDragRef.current.dragged = false
+    chatWidgetDragRef.current.active = false
+    setChatheadPromptIndex(Math.floor(Math.random() * chatbotPrompts.length))
+    window.setTimeout(() => setIsChatWidgetReturning(false), 420)
+  }
+
+  useEffect(() => {
+    if (isChatbotOpen) return undefined
+
+    const rotatePrompt = () => {
+      setChatheadPromptIndex(Math.floor(Math.random() * chatbotPrompts.length))
+    }
+
+    rotatePrompt()
+    const timer = window.setInterval(rotatePrompt, 5000)
+    return () => window.clearInterval(timer)
+  }, [isChatbotOpen])
+
+  const chatWidget = (
+    <div
+      className="fixed bottom-6 right-6 z-[95] flex flex-col items-end gap-3"
+      style={{
+        transform: `translate(${chatWidgetOffset.x}px, ${chatWidgetOffset.y}px)`,
+        transition: isChatWidgetReturning ? 'transform 420ms cubic-bezier(0.22, 1, 0.36, 1)' : 'none',
+      }}
+    >
+      {isChatbotOpen ? (
+        <div className="w-[320px] sm:w-[368px] h-[540px] rounded-[28px] border border-castleton/15 bg-white shadow-[0_24px_80px_-34px_rgba(19,48,32,0.45)] overflow-hidden flex flex-col backdrop-blur-sm">
+          <div
+            className="relative overflow-hidden bg-[linear-gradient(135deg,#0f5f44,#133020_68%,#0a3f31)] px-4 py-3 text-white cursor-move select-none"
+            onPointerDown={beginChatWidgetDrag}
+            onPointerMove={moveChatWidgetDrag}
+            onPointerUp={endChatWidgetDrag}
+            onPointerCancel={endChatWidgetDrag}
+            style={{ touchAction: 'none' }}
+          >
+            <div className="absolute -right-10 -top-10 h-24 w-24 rounded-full bg-[#f4b347]/20 blur-2xl" />
+            <div className="relative flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/12 border border-white/15">
+                  <Bot className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold leading-tight">Dashboard AI</p>
+                  <p className="text-[11px] text-white/72">Answers from dashboard context only</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={closeChatWidget}
+                className="focus-brand inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/15 text-white hover:bg-white/10 transition-colors"
+                aria-label="Close chatbot"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="relative mt-3 flex flex-wrap gap-2">
+              {chatbotScopes.map((scope) => (
+                <span
+                  key={scope}
+                  className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/90"
+                >
+                  {scope}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto bg-[#f7faf6] px-4 py-4">
+            {!hasChatted ? (
+              <div className="mb-4 rounded-2xl border border-castleton/10 bg-white p-3.5 shadow-[0_12px_30px_-26px_rgba(19,48,32,0.35)]">
+                <div className="flex items-center gap-2 text-castleton mb-2">
+                  <Sparkles className="h-4 w-4" />
+                  <p className="text-sm font-semibold">Quick start</p>
+                </div>
+                <p className="text-sm text-black/75 leading-relaxed">
+                  Ask about applicants, current statuses, intern performance, or recent report summaries.
+                </p>
+              </div>
+            ) : null}
+            <div className="space-y-3">
+              {chatbotMessages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-[82%] rounded-2xl px-3 py-2.5 text-sm leading-relaxed shadow-sm ${
+                      message.role === 'user'
+                        ? 'bg-castleton text-white rounded-br-md'
+                        : 'bg-white border border-castleton/10 text-black rounded-bl-md'
+                    }`}
+                  >
+                    {message.content}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          {!hasChatted ? (
+            <div className="border-t border-castleton/10 bg-white px-4 pt-3 pb-2">
+              <p className="text-[11px] uppercase tracking-[0.12em] text-black/50 mb-2">Suggestions</p>
+              <div className="flex flex-wrap gap-2">
+                {chatbotSuggestions.map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    type="button"
+                    onClick={() => setChatbotInput(suggestion)}
+                    className="focus-brand rounded-full border border-castleton/15 bg-[#fbfcfb] px-3 py-1 text-[11px] font-semibold text-castleton hover:bg-[#eef3ef] transition-colors"
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          <form onSubmit={handleChatbotSendAsync} className="border-t border-castleton/10 bg-white px-3 pb-3 pt-2">
+            <div className="flex items-center gap-2 rounded-[22px] border border-castleton/15 bg-[#f8faf9] px-3 py-2.5">
+              <input
+                type="text"
+                value={chatbotInput}
+                onChange={(event) => setChatbotInput(event.target.value)}
+                placeholder="Ask about this dashboard..."
+                className="focus-brand flex-1 bg-transparent text-sm text-black outline-none placeholder:text-black/35"
+              />
+              <button
+                type="submit"
+                className="focus-brand inline-flex h-9 w-9 items-center justify-center rounded-full bg-castleton text-white hover:bg-serpent transition-colors disabled:opacity-50"
+                aria-label="Send message"
+                disabled={!chatbotInput.trim() || isChatbotLoading}
+              >
+                <Send className={`h-4 w-4 ${isChatbotLoading ? 'animate-pulse' : ''}`} />
+              </button>
+            </div>
+          </form>
+          <p className="px-4 pb-3 text-[11px] text-black/48 bg-white">
+            UI only. Responses will be wired to dashboard data later.
+          </p>
+        </div>
+      ) : null}
+      <div className="relative flex items-center justify-end">
+        {!isChatbotOpen ? (
+          <motion.div
+            key={chatheadPromptIndex}
+            initial={{ opacity: 0, x: 12, scale: 0.96 }}
+            animate={{ opacity: 1, x: 0, y: [0, -4, 0], scale: 1 }}
+            transition={{
+              opacity: { duration: 0.45, ease: 'easeOut' },
+              x: { duration: 0.45, ease: 'easeOut' },
+              scale: { duration: 0.45, ease: 'easeOut' },
+              y: { duration: 3.2, repeat: Infinity, ease: 'easeInOut' },
+            }}
+            className="pointer-events-none absolute right-[72px] top-[calc(50%-28px)] z-[1] w-[190px] -translate-y-[50%] rounded-2xl rounded-br-md border border-castleton/15 bg-white px-3 py-2 text-sm text-black shadow-[0_18px_38px_-30px_rgba(19,48,32,0.65)]"
+          >
+            <span className="block leading-snug whitespace-normal">
+              {chatbotPrompts[chatheadPromptIndex]}
+            </span>
+          </motion.div>
+        ) : null}
+        <motion.button
+          type="button"
+          onPointerDown={beginChatWidgetDrag}
+          onPointerMove={moveChatWidgetDrag}
+          onPointerUp={endChatWidgetDrag}
+          onPointerCancel={endChatWidgetDrag}
+          onClick={handleChatWidgetToggle}
+          style={{ touchAction: 'none' }}
+          className={`focus-brand relative z-[2] inline-flex h-14 w-14 items-center justify-center rounded-full text-white shadow-[0_16px_38px_-18px_rgba(19,48,32,0.7)] transition-all ${
+            isChatbotOpen
+              ? 'bg-[linear-gradient(135deg,#f4b347,#e89f24)] ring-4 ring-white/75'
+              : 'bg-[linear-gradient(135deg,#0f5f44,#0b4e39)] hover:scale-105'
+          }`}
+          aria-label={isChatbotOpen ? 'Close AI agent' : 'Open AI agent'}
+          animate={{
+            y: [0, -4, 0],
+            boxShadow: isChatbotOpen
+              ? [
+                  '0 16px 38px -18px rgba(19,48,32,0.7)',
+                  '0 20px 46px -18px rgba(244,179,71,0.8)',
+                  '0 16px 38px -18px rgba(19,48,32,0.7)',
+                ]
+              : [
+                  '0 16px 38px -18px rgba(19,48,32,0.7)',
+                  '0 22px 48px -18px rgba(19,48,32,0.85)',
+                  '0 16px 38px -18px rgba(19,48,32,0.7)',
+                ],
+          }}
+          transition={{
+            duration: 3.2,
+            repeat: Infinity,
+            ease: 'easeInOut',
+          }}
+        >
+          <motion.span
+            className={`absolute inset-0 rounded-full ${isChatbotOpen ? 'bg-[#f4b347]/30' : 'bg-castleton/25'}`}
+            animate={{ scale: [1, 1.35, 1], opacity: [0.35, 0, 0.35] }}
+            transition={{ duration: 2.4, repeat: Infinity, ease: 'easeOut' }}
+          />
+          <motion.span
+            className={`absolute inset-[-10px] rounded-full border ${isChatbotOpen ? 'border-[#f4b347]/25' : 'border-white/20'}`}
+            animate={{ scale: [1, 1.2, 1], opacity: [0.55, 0.18, 0.55] }}
+            transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
+          />
+          <div className={`relative flex h-10 w-10 items-center justify-center rounded-full border ${isChatbotOpen ? 'bg-white/18 border-white/20' : 'bg-white/10 border-white/15'}`}>
+            <motion.span
+              className="absolute -left-5 top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center text-white/40"
+              animate={{ y: [0, -2, 0], rotate: [0, -10, 0] }}
+              transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              <Move className="h-3.5 w-3.5" />
+            </motion.span>
+            <motion.span
+              animate={{ scale: [1, 1.08, 1], rotate: [0, 3, 0] }}
+              transition={{ duration: 2.3, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              <MessageCircle className="h-5 w-5" />
+            </motion.span>
+            <motion.span
+              className={`absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full ring-2 ${isChatbotOpen ? 'bg-white ring-[#f4b347]' : 'bg-[#f4b347] ring-[#0f5f44]'}`}
+              animate={{ scale: [1, 1.35, 1], opacity: [1, 0.55, 1] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+            />
+          </div>
+        </motion.button>
+      </div>
+    </div>
+  )
 
   if (currentPath !== '/') {
     return (
@@ -5259,6 +5695,7 @@ function App() {
               </section>
             ) : hasAdminAccess ? (
               <section className="w-full text-black lg:min-h-screen">
+                {chatWidget}
                 <div className="relative">
                   {isAdminNavOpen ? (
                     <button
@@ -6715,7 +7152,11 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                             <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 min-w-[240px]">
                               {[
                                 ['Pending', careerApplications.filter((item) => item.status === 'pending').length, 'bg-[#fff6e4] text-[#8a5a14]'],
-                              ['Proceeding to HR Interview', careerApplications.filter((item) => item.status === 'approved').length, 'bg-[#e9f3ee] text-castleton'],
+                              [
+                                'Proceeding to HR Interview',
+                                careerApplications.filter((item) => isHrInterviewStatus(item.status)).length,
+                                'bg-[#e9f3ee] text-castleton',
+                              ],
                               ['Rejected', careerApplications.filter((item) => item.status === 'rejected').length, 'bg-[#fde8e8] text-[#8a3528]'],
                               ].map(([label, value, tone]) => (
                                 <div key={label} className="rounded-2xl border border-castleton/15 bg-[#f7faf8] p-3">
