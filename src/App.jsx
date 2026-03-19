@@ -23,6 +23,7 @@ import {
   Mic,
   MessageCircle,
   Move,
+  Trash2,
   ImageIcon,
   Video,
   Type,
@@ -1144,7 +1145,7 @@ function App() {
     {
       id: 'chatbot-welcome',
       role: 'assistant',
-      content: 'Hi! I’m your Dashboard AI. Ask me about data you see on this dashboard.',
+      content: "Hi! I'm your Dashboard AI. Ask me about data you see on this dashboard.",
     },
   ])
   const [isChatbotLoading, setIsChatbotLoading] = useState(false)
@@ -1158,6 +1159,7 @@ function App() {
   const [chatheadPromptIndex, setChatheadPromptIndex] = useState(0)
   const [chatWidgetOffset, setChatWidgetOffset] = useState({ x: 0, y: 0 })
   const [isChatWidgetReturning, setIsChatWidgetReturning] = useState(false)
+  const chatWidgetPanelRef = useRef(null)
   const chatWidgetDragRef = useRef({
     active: false,
     startX: 0,
@@ -3052,7 +3054,7 @@ function App() {
     const placeholderReply = {
       id: `assistant-${Date.now() + 1}`,
       role: 'assistant',
-      content: 'Thanks! I’m limited to dashboard context for now. Backend will be added later.',
+      content: "Thanks! I'm limited to dashboard context for now. Backend will be added later.",
     }
     setChatbotMessages((prev) => [...prev, userMessage, placeholderReply])
     setChatbotInput('')
@@ -3174,12 +3176,59 @@ function App() {
   }
 
   const chatbotSuggestions = [
-    "Show today’s attendance summary",
-    'Who needs support this week?',
-    'How many pending applications?',
+    {
+      title: 'Applicants',
+      description: 'Review pending, approved, and progressing applications.',
+      prompt: 'How many pending applications?',
+      icon: FileCheck2,
+    },
+    {
+      title: 'Interns',
+      description: 'Check active interns and recent performance trends.',
+      prompt: 'Show the intern performance summary.',
+      icon: BarChart3,
+    },
+    {
+      title: 'Reports',
+      description: 'Summarize recent reports and notable updates.',
+      prompt: 'Summarize the latest reports.',
+      icon: FileText,
+    },
+    {
+      title: 'Approvals',
+      description: 'See what still needs review or approval.',
+      prompt: 'What approvals are still pending?',
+      icon: ShieldCheck,
+    },
+    {
+      title: 'Activity',
+      description: 'Ask about recent dashboard activity and patterns.',
+      prompt: 'What changed most recently on the dashboard?',
+      icon: TrendingUp,
+    },
+    {
+      title: 'Quick Read',
+      description: 'Get a fast overview of the current dashboard state.',
+      prompt: 'Give me a quick dashboard summary.',
+      icon: Sparkles,
+    },
   ]
+  const dashboardPromptCards = chatbotSuggestions.slice(0, 4)
 
   const chatbotScopes = ['Applicants', 'Interns', 'Reports', 'Approvals']
+
+  const clearChatbotConversation = () => {
+    setChatbotInput('')
+    setHasChatted(false)
+    setIsChatbotLoading(false)
+    setChatbotMessages([
+      {
+        id: 'chatbot-welcome',
+        role: 'assistant',
+        content: "Hi! I'm your Dashboard AI. Ask me about data you see on this dashboard.",
+      },
+    ])
+  }
 
   const beginChatWidgetDrag = (event) => {
     if (event.button !== undefined && event.button !== 0) return
@@ -3241,6 +3290,65 @@ function App() {
     window.setTimeout(() => setIsChatWidgetReturning(false), 420)
   }
 
+  const getChatWidgetMetrics = (openState = isChatbotOpen) => {
+    if (typeof window === 'undefined') {
+      return {
+        width: openState ? 436 : 238,
+        height: openState ? 360 : 56,
+      }
+    }
+
+    const margin = 24
+    const panelWidth = Math.max(0, Math.min(368, window.innerWidth - margin * 2))
+    const panelHeight = Math.max(0, Math.min(540, window.innerHeight - 180))
+    const bubbleWidth = window.innerWidth < 640 ? 170 : 190
+    const launcherWidth = 56
+    const widgetGap = 12
+
+    return {
+      width: openState ? panelWidth + launcherWidth + widgetGap : launcherWidth + bubbleWidth + widgetGap,
+      height: openState ? panelHeight : 56,
+    }
+  }
+
+  const clampChatWidgetOffset = (nextOffset, openState = isChatbotOpen) => {
+    if (typeof window === 'undefined') return nextOffset
+
+    const margin = 24
+    const { width, height } = getChatWidgetMetrics(openState)
+    const measuredHeight =
+      openState && chatWidgetPanelRef.current
+        ? Math.ceil(chatWidgetPanelRef.current.getBoundingClientRect().height)
+        : height
+    const measuredWidth =
+      openState && chatWidgetPanelRef.current
+        ? Math.ceil(chatWidgetPanelRef.current.getBoundingClientRect().width)
+        : width
+    const minX = Math.min(0, margin * 2 + measuredWidth - window.innerWidth)
+    const minY = Math.min(0, margin * 2 + measuredHeight - window.innerHeight)
+
+    return {
+      x: Math.max(minX, Math.min(0, nextOffset.x)),
+      y: Math.max(minY, Math.min(0, nextOffset.y)),
+    }
+  }
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+
+    const handleResize = () => {
+      setChatWidgetOffset((prev) => clampChatWidgetOffset(prev))
+    }
+
+    window.addEventListener('resize', handleResize)
+    handleResize()
+    return () => window.removeEventListener('resize', handleResize)
+  }, [isChatbotOpen])
+
+  useEffect(() => {
+    setChatWidgetOffset((prev) => clampChatWidgetOffset(prev))
+  }, [isChatbotOpen])
+
   useEffect(() => {
     if (isChatbotOpen) return undefined
 
@@ -3253,16 +3361,42 @@ function App() {
     return () => window.clearInterval(timer)
   }, [isChatbotOpen])
 
+  const shouldFlipChatWidget = (() => {
+    if (!isChatbotOpen || typeof window === 'undefined') return false
+
+    const margin = 24
+    const launcherWidth = 56
+    const widgetGap = 12
+    const panelWidth = Math.max(0, Math.min(368, window.innerWidth - margin * 2))
+    const launcherRightEdge = window.innerWidth - margin + chatWidgetOffset.x
+    const leftSpace = launcherRightEdge - launcherWidth - widgetGap - margin
+    const rightSpace = window.innerWidth - margin - launcherRightEdge - launcherWidth - widgetGap
+
+    return leftSpace < panelWidth && rightSpace >= panelWidth
+  })()
+
   const chatWidget = (
     <div
-      className="fixed bottom-6 right-6 z-[95] flex flex-col items-end gap-3"
+      className="fixed bottom-6 right-6 z-[95] pointer-events-none"
       style={{
         transform: `translate(${chatWidgetOffset.x}px, ${chatWidgetOffset.y}px)`,
         transition: isChatWidgetReturning ? 'transform 420ms cubic-bezier(0.22, 1, 0.36, 1)' : 'none',
       }}
     >
       {isChatbotOpen ? (
-        <div className="w-[320px] sm:w-[368px] h-[540px] rounded-[28px] border border-castleton/15 bg-white shadow-[0_24px_80px_-34px_rgba(19,48,32,0.45)] overflow-hidden flex flex-col backdrop-blur-sm">
+        <div
+          ref={chatWidgetPanelRef}
+          className={`pointer-events-auto absolute bottom-0 w-[min(368px,calc(100vw-5.25rem))] rounded-[28px] border border-castleton/15 bg-white shadow-[0_24px_80px_-34px_rgba(19,48,32,0.45)] overflow-hidden flex flex-col backdrop-blur-sm ${
+            shouldFlipChatWidget
+              ? 'left-[76px] sm:left-[84px]'
+              : 'right-[76px] sm:right-[84px]'
+          }`}
+          style={{
+            width: 'min(368px, calc(100vw - 5.25rem))',
+            height: 'min(540px, calc(100dvh - 7.25rem))',
+            maxHeight: 'calc(100dvh - 7.25rem)',
+          }}
+        >
           <div
             className="relative overflow-hidden bg-[linear-gradient(135deg,#0f5f44,#133020_68%,#0a3f31)] px-4 py-3 text-white cursor-move select-none"
             onPointerDown={beginChatWidgetDrag}
@@ -3282,37 +3416,60 @@ function App() {
                   <p className="text-[11px] text-white/72">Answers from dashboard context only</p>
                 </div>
               </div>
-              <button
-                type="button"
-                onPointerDown={(event) => event.stopPropagation()}
-                onClick={closeChatWidget}
-                className="focus-brand inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/15 text-white hover:bg-white/10 transition-colors"
-                aria-label="Close chatbot"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="relative mt-3 flex flex-wrap gap-2">
-              {chatbotScopes.map((scope) => (
-                <span
-                  key={scope}
-                  className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/90"
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onClick={clearChatbotConversation}
+                  className="focus-brand inline-flex h-8 items-center gap-1.5 rounded-full border border-white/15 px-2.5 text-[11px] font-semibold text-white/90 hover:bg-white/10 transition-colors"
+                  aria-label="Clear chatbot conversation"
                 >
-                  {scope}
-                </span>
-              ))}
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Clear
+                </button>
+                <button
+                  type="button"
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onClick={closeChatWidget}
+                  className="focus-brand inline-flex h-8 w-8 items-center justify-center text-white/90 hover:text-white hover:bg-white/10 transition-colors"
+                  aria-label="Close chatbot"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           </div>
           <div className="flex-1 overflow-y-auto bg-[#f7faf6] px-4 py-4">
             {!hasChatted ? (
-              <div className="mb-4 rounded-2xl border border-castleton/10 bg-white p-3.5 shadow-[0_12px_30px_-26px_rgba(19,48,32,0.35)]">
-                <div className="flex items-center gap-2 text-castleton mb-2">
-                  <Sparkles className="h-4 w-4" />
-                  <p className="text-sm font-semibold">Quick start</p>
+              <div className="mb-4 rounded-[24px] border border-castleton/10 bg-white p-3 shadow-[0_12px_30px_-28px_rgba(19,48,32,0.35)]">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-black/45">Suggested actions</p>
+                    <h3 className="mt-1 text-sm font-semibold text-castleton">Pick a quick prompt</h3>
+                  </div>
+                  <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-castleton/8 text-castleton">
+                    <Sparkles className="h-4 w-4" />
+                  </div>
                 </div>
-                <p className="text-sm text-black/75 leading-relaxed">
-                  Ask about applicants, current statuses, intern performance, or recent report summaries.
-                </p>
+                <div className="grid grid-cols-2 gap-2.5">
+                  {dashboardPromptCards.map((suggestion) => {
+                    const Icon = suggestion.icon
+                    return (
+                      <button
+                        key={suggestion.title}
+                        type="button"
+                        onClick={() => setChatbotInput(suggestion.prompt)}
+                        className="focus-brand group rounded-2xl border border-castleton/10 bg-[#fbfcfb] p-3 text-left text-black shadow-[0_10px_24px_-26px_rgba(19,48,32,0.35)] transition-all hover:-translate-y-0.5 hover:border-castleton/20 hover:bg-white"
+                      >
+                        <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-xl bg-castleton/8 text-castleton transition-colors group-hover:bg-castleton/12">
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <p className="text-sm font-semibold leading-tight text-castleton">{suggestion.title}</p>
+                        <p className="mt-1 text-[11px] leading-relaxed text-black/55 line-clamp-2">{suggestion.description}</p>
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
             ) : null}
             <div className="space-y-3">
@@ -3332,37 +3489,44 @@ function App() {
                   </div>
                 </div>
               ))}
+              {isChatbotLoading ? (
+                <div className="flex justify-start">
+                  <div className="rounded-2xl rounded-bl-md border border-castleton/10 bg-white px-3 py-3 shadow-sm">
+                    <div className="flex items-center gap-1.5">
+                      {[0, 1, 2].map((dot) => (
+                        <motion.span
+                          key={dot}
+                          className="h-2.5 w-2.5 rounded-full bg-castleton"
+                          animate={{ opacity: [0.35, 1, 0.35], y: [0, -2, 0] }}
+                          transition={{
+                            duration: 0.9,
+                            repeat: Infinity,
+                            delay: dot * 0.12,
+                            ease: 'easeInOut',
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
           {!hasChatted ? (
-            <div className="border-t border-castleton/10 bg-white px-4 pt-3 pb-2">
-              <p className="text-[11px] uppercase tracking-[0.12em] text-black/50 mb-2">Suggestions</p>
-              <div className="flex flex-wrap gap-2">
-                {chatbotSuggestions.map((suggestion) => (
-                  <button
-                    key={suggestion}
-                    type="button"
-                    onClick={() => setChatbotInput(suggestion)}
-                    className="focus-brand rounded-full border border-castleton/15 bg-[#fbfcfb] px-3 py-1 text-[11px] font-semibold text-castleton hover:bg-[#eef3ef] transition-colors"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <div className="border-t border-white/10 bg-[linear-gradient(135deg,#0f5f44,#133020_68%,#0a3f31)] px-4 pt-3 pb-2" />
           ) : null}
-          <form onSubmit={handleChatbotSendAsync} className="border-t border-castleton/10 bg-white px-3 pb-3 pt-2">
-            <div className="flex items-center gap-2 rounded-[22px] border border-castleton/15 bg-[#f8faf9] px-3 py-2.5">
+          <form onSubmit={handleChatbotSendAsync} className="border-t border-white/10 bg-[linear-gradient(135deg,#0f5f44,#133020_68%,#0a3f31)] px-3 pb-3 pt-2">
+            <div className="flex items-center gap-2 rounded-[22px] border border-white/15 bg-white/10 px-3 py-2.5">
               <input
                 type="text"
                 value={chatbotInput}
                 onChange={(event) => setChatbotInput(event.target.value)}
                 placeholder="Ask about this dashboard..."
-                className="focus-brand flex-1 bg-transparent text-sm text-black outline-none placeholder:text-black/35"
+                className="focus-brand flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/45"
               />
               <button
                 type="submit"
-                className="focus-brand inline-flex h-9 w-9 items-center justify-center rounded-full bg-castleton text-white hover:bg-serpent transition-colors disabled:opacity-50"
+                className="focus-brand inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-castleton hover:bg-white/90 transition-colors disabled:opacity-50"
                 aria-label="Send message"
                 disabled={!chatbotInput.trim() || isChatbotLoading}
               >
@@ -3370,12 +3534,9 @@ function App() {
               </button>
             </div>
           </form>
-          <p className="px-4 pb-3 text-[11px] text-black/48 bg-white">
-            Dashboard-only assistant.
-          </p>
         </div>
       ) : null}
-      <div className="relative flex items-center justify-end">
+      <div className="relative h-14 w-14 pointer-events-auto">
         {!isChatbotOpen ? (
           <motion.div
             key={chatheadPromptIndex}
@@ -3387,7 +3548,7 @@ function App() {
               scale: { duration: 0.45, ease: 'easeOut' },
               y: { duration: 3.2, repeat: Infinity, ease: 'easeInOut' },
             }}
-            className="pointer-events-none absolute right-[72px] top-[calc(50%-28px)] z-[1] w-[190px] -translate-y-[50%] rounded-2xl rounded-br-md border border-castleton/15 bg-white px-3 py-2 text-sm text-black shadow-[0_18px_38px_-30px_rgba(19,48,32,0.65)]"
+            className="pointer-events-none absolute right-[64px] sm:right-[72px] top-[calc(50%-28px)] z-[1] w-[170px] sm:w-[190px] -translate-y-[50%] rounded-2xl rounded-br-md border border-castleton/15 bg-white px-3 py-2 text-sm text-black shadow-[0_18px_38px_-30px_rgba(19,48,32,0.65)]"
           >
             <span className="block leading-snug whitespace-normal">
               {chatbotPrompts[chatheadPromptIndex]}
