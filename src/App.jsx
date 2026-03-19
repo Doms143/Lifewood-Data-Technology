@@ -3132,6 +3132,11 @@ function App() {
 
         const payload = await response.json().catch(() => ({}))
         if (!response.ok) {
+          console.error('[Dashboard AI] /api/chatbot failed', {
+            status: response.status,
+            statusText: response.statusText,
+            payload,
+          })
           throw new Error(payload?.error || `Chatbot request failed (${response.status})`)
         }
 
@@ -3145,6 +3150,11 @@ function App() {
           },
         ])
       } catch (error) {
+        console.error('[Dashboard AI] chatbot request error', {
+          error,
+          message: trimmed,
+          context,
+        })
         const errorMessage =
           error instanceof Error && error.message
             ? error.message

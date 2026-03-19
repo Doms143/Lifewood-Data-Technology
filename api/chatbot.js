@@ -9,7 +9,7 @@ const chatbotModelName =
   process.env.CHATBOT_GEMINI_MODEL ||
   process.env.GEMINI_CHATBOT_MODEL ||
   process.env.VITE_CHATBOT_GEMINI_MODEL ||
-  'gemini-1.5-flash-latest'
+  'gemini-2.5-flash'
 
 const readRequestBody = (req) => {
   const body = req.body
@@ -119,3 +119,4 @@ export default async function handler(req, res) {
     res.status(500).json({ error: error?.message || 'Unexpected server error' })
   }
 }
+
