@@ -1,38 +1,5 @@
-const chatbotGeminiApiKey =
-  process.env.CHATBOT_GEMINI_API_KEY ||
-  process.env.GEMINI_CHATBOT_API_KEY ||
-  ''
-
-const chatbotModelOverride = process.env.CHATBOT_GEMINI_MODEL || ''
-
-const resolveModelName = async (apiKey) => {
-  if (chatbotModelOverride) return chatbotModelOverride
-
-  const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models?key=' + apiKey)
-  if (!res.ok) {
-    return 'gemini-1.5-flash-latest'
-  }
-
-  const data = await res.json()
-  const models = data.models || []
-  const supportsGenerateContent = (model) => (model.supportedGenerationMethods || []).includes('generateContent')
-  const preferred = [
-    'gemini-1.5-flash-latest',
-    'gemini-1.5-flash-002',
-    'gemini-1.5-flash-001',
-    'gemini-2.5-flash',
-    'gemini-2.0-flash',
-  ]
-
-  for (const name of preferred) {
-    const found = models.find((m) => m.name === 'models/' + name && supportsGenerateContent(m))
-    if (found) return name
-  }
-
-  const anyFlash = models.find((m) => m.name.includes('gemini-1.5-flash') && supportsGenerateContent(m))
-  if (anyFlash) return anyFlash.name.replace('models/', '')
-  return 'gemini-1.5-flash-latest'
-}
+const chatbotGeminiApiKey = process.env.CHATBOT_GEMINI_API_KEY || process.env.GEMINI_CHATBOT_API_KEY || ''
+const chatbotModelName = process.env.CHATBOT_GEMINI_MODEL || 'gemini-1.5-flash-latest'
 
 const buildPrompt = ({ message, context, history }) => {
   const historyText = Array.isArray(history)
@@ -66,7 +33,7 @@ ${String(message || '').trim()}
 
 const callGemini = async (apiKey, modelName, prompt) => {
   const geminiResponse = await fetch(
-    'https://generativelanguage.googleapis.com/v1beta/models/' + modelName + ':generateContent',
+    `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`,
     {
       method: 'POST',
       headers: {
@@ -83,12 +50,12 @@ const callGemini = async (apiKey, modelName, prompt) => {
     }
   )
 
+  const responseText = await geminiResponse.text()
   if (!geminiResponse.ok) {
-    const errorText = await geminiResponse.text()
-    throw new Error(`Gemini error: ${errorText || geminiResponse.status}`)
+    throw new Error(`Gemini error (${geminiResponse.status}): ${responseText || 'empty response'}`)
   }
 
-  const geminiJson = await geminiResponse.json()
+  const geminiJson = JSON.parse(responseText)
   return geminiJson?.candidates?.[0]?.content?.parts?.[0]?.text || ''
 }
 
@@ -110,9 +77,8 @@ export default async function handler(req, res) {
       return
     }
 
-    const modelName = await resolveModelName(chatbotGeminiApiKey)
     const prompt = buildPrompt({ message, context, history })
-    const answer = await callGemini(chatbotGeminiApiKey, modelName, prompt)
+    const answer = await callGemini(chatbotGeminiApiKey, chatbotModelName, prompt)
 
     const cleaned = String(answer || '').trim()
     if (!cleaned) {
@@ -122,9 +88,10 @@ export default async function handler(req, res) {
 
     res.status(200).json({
       answer: cleaned,
-      model: modelName,
+      model: chatbotModelName,
     })
   } catch (error) {
+    console.error('chatbot handler failed:', error)
     res.status(500).json({ error: error?.message || 'Unexpected server error' })
   }
 }
