@@ -3061,6 +3061,102 @@ function App() {
     if (!hasChatted) setHasChatted(true)
   }
 
+  const buildChatbotContext = () => {
+    const base = {
+      route: currentPath,
+      page: routeContent[currentPath]?.title || 'Home',
+      activeAdminTab,
+    }
+
+    const summaries = {
+      Dashboard: {
+        counts: {
+          applicationsPending: pendingApplicationsCount,
+          applicationsProceedingToHr: careerApplications.filter((item) => isHrInterviewStatus(item.status)).length,
+          signupRequestsPending: pendingApprovalsCount,
+        },
+      },
+      Applications: {
+        counts: {
+          total: careerApplications.length,
+          pending: pendingApplicationsCount,
+          proceedingToHr: careerApplications.filter((item) => isHrInterviewStatus(item.status)).length,
+        },
+        search: applicationSearch,
+        sort: applicationSortBy,
+        view: applicationViewMode,
+        selected: selectedApplication
+          ? {
+              name: `${selectedApplication.firstName} ${selectedApplication.lastName}`.trim(),
+              status: applicationStatusLabel(selectedApplication.status),
+              score: selectedApplication.cvScore ?? null,
+            }
+          : null,
+        recent: careerApplications.slice(0, 3).map((item) => ({
+          name: `${item.firstName} ${item.lastName}`.trim(),
+          status: applicationStatusLabel(item.status),
+          score: item.cvScore ?? null,
+        })),
+      },
+      Approvals: {
+        counts: {
+          total: signupRequests.length,
+          pending: pendingApprovalsCount,
+        },
+        search: approvalSearch,
+        sort: approvalSortBy,
+        recent: signupRequests.slice(0, 3).map((item) => ({
+          name: item.fullName,
+          status: item.status,
+          department: item.department,
+        })),
+      },
+      Analytics: {
+        search: analyticsSearch,
+        sort: analyticsSortBy,
+        view: analyticsViewMode,
+        recent: filteredAnalyticsRows.slice(0, 3).map((item) => ({
+          name: item.name,
+          performance: item.performance,
+          attendance: item.attendance,
+        })),
+      },
+      Evaluation: {
+        search: evaluationSearch,
+        sort: evaluationSortBy,
+        view: evaluationViewMode,
+        recent: filteredEvaluationInsights.slice(0, 3).map((item) => ({
+          name: item.name,
+          band: item.band,
+          score: item.score,
+        })),
+      },
+      Reports: {
+        search: reportsSearch,
+        sort: reportsSortBy,
+        view: reportsViewMode,
+        recent: filteredReportInsights.slice(0, 3).map((item) => ({
+          name: item.name,
+          score: item.score,
+          tasks: item.completedTasks,
+        })),
+      },
+      'Manage Interns': {
+        search: settingsSearch,
+        statusFilter: settingsStatusFilter,
+        page: settingsPage,
+        counts: {
+          total: settingsInternRows.length,
+        },
+      },
+    }
+
+    return {
+      ...base,
+      ...(summaries[activeAdminTab] || {}),
+    }
+  }
+
   const handleChatbotSendAsync = (event) => {
     event.preventDefault()
     const trimmed = chatbotInput.trim()
@@ -3081,50 +3177,7 @@ function App() {
 
     const userMessage = { id: `user-${Date.now()}`, role: 'user', content: trimmed }
     const history = [...chatbotMessages, userMessage].slice(-8)
-    const context = {
-      route: currentPath,
-      page: routeContent[currentPath]?.title || 'Home',
-      activeAdminTab,
-      counts: {
-        applicationsTotal: careerApplications.length,
-        applicationsPending: pendingApplicationsCount,
-        applicationsProceedingToHr: careerApplications.filter((item) => isHrInterviewStatus(item.status)).length,
-        applicationsRejected: careerApplications.filter((item) => item.status === 'rejected').length,
-        internsTotal: internAnalyticsData.length,
-        internsActive: internAnalyticsData.filter((item) => normalizeInternStatus(item.status) === 'Active').length,
-        internsComplete: internAnalyticsData.filter((item) => normalizeInternStatus(item.status) === 'Complete').length,
-        internsSuspended: internAnalyticsData.filter((item) => normalizeInternStatus(item.status) === 'Suspend').length,
-        signupRequestsPending: pendingApprovalsCount,
-      },
-      recentApplications: careerApplications.slice(0, 5).map((item) => ({
-        name: `${item.firstName} ${item.lastName}`.trim(),
-        status: applicationStatusLabel(item.status),
-        score: item.cvScore ?? null,
-        positions: item.positions || [],
-        reviewedAt: item.reviewedAt || '',
-      })),
-      recentInterns: internAnalyticsData.slice(0, 5).map((item) => ({
-        name: item.name,
-        status: getInternStatusLabel(item.status || 'Active'),
-        performance: item.performance,
-        attendance: item.attendance,
-        progress: item.progress,
-      })),
-      recentRequests: signupRequests.slice(0, 5).map((item) => ({
-        name: item.fullName,
-        status: item.status,
-        department: item.department,
-      })),
-      selectedApplication: selectedApplication
-        ? {
-            name: `${selectedApplication.firstName} ${selectedApplication.lastName}`.trim(),
-            status: applicationStatusLabel(selectedApplication.status),
-            score: selectedApplication.cvScore ?? null,
-            positions: selectedApplication.positions || [],
-            note: selectedApplication.adminNote || '',
-          }
-        : null,
-    }
+    const context = buildChatbotContext()
 
     setChatbotMessages((prev) => [...prev, userMessage])
     setChatbotInput('')
@@ -3325,6 +3378,27 @@ function App() {
       runAdminAction(`${tab} panel opened`)
       return `Opening ${tab === 'Applications' ? 'Applicants' : tab} tab.`
     },
+    setSearch: (tab, value) => {
+      if (tab === 'Applications') setApplicationSearch(value)
+      if (tab === 'Approvals') setApprovalSearch(value)
+      if (tab === 'Analytics') setAnalyticsSearch(value)
+      if (tab === 'Evaluation') setEvaluationSearch(value)
+      if (tab === 'Reports') setReportsSearch(value)
+      if (tab === 'Manage Interns') setSettingsSearch(value)
+      runAdminAction(`${tab} search updated`)
+      return `Updated ${tab === 'Applications' ? 'Applicants' : tab} search.`
+    },
+    setPage: (tab, value) => {
+      if (tab === 'Applications') setApplicationPage(value)
+      if (tab === 'Manage Interns') setSettingsPage(value)
+      runAdminAction(`${tab} page changed`)
+      return `Changed ${tab === 'Applications' ? 'Applicants' : tab} page.`
+    },
+    setStatusFilter: (value) => {
+      setSettingsStatusFilter(value)
+      runAdminAction('Manage Interns status filter changed')
+      return 'Changed intern status filter.'
+    },
     openApplicationByQuery: (query) => {
       const match = findApplicationByName(query)
       if (!match) return 'I could not find that application.'
@@ -3362,6 +3436,13 @@ function App() {
       setActiveAdminTab('Reports')
       openAnalyticsInternDetails(match, 'report')
       return `Opened report detail for ${match.name}.`
+    },
+    openLatestReport: () => {
+      const match = filteredReportInsights[0] || internAnalyticsData[0]
+      if (!match) return 'There are no reports to open.'
+      setActiveAdminTab('Reports')
+      openAnalyticsInternDetails(match, 'report')
+      return `Opened the latest report for ${match.name}.`
     },
     clearFilters: (tab) => {
       if (tab === 'Applications') {
@@ -3407,6 +3488,10 @@ function App() {
     setSort: (tab, value) => {
       setSortMode(tab, value)
       return `Updated ${tab} sort.`
+    },
+    openSelectionByQuery: (query) => {
+      const opened = openSelectionByQuery(query)
+      return opened ? `Opened ${query}.` : 'I could not find a matching record.'
     },
     focusSearch: (tab) => {
       if (tab === 'Applications') {
@@ -3475,6 +3560,9 @@ function App() {
     if (/\b(open|show|review|view|select)\b/.test(query) && /\bapplication\b/.test(query) && nameAfterVerb) {
       return { id: 'openApplicationByQuery', query: nameAfterVerb }
     }
+    if (/\b(open|show|review|view|select)\b/.test(query) && /\bselected application\b/.test(query)) {
+      return { id: 'openSelectedApplication' }
+    }
     if (/\bselected application\b/.test(query)) {
       return { id: 'openSelectedApplication' }
     }
@@ -3484,8 +3572,18 @@ function App() {
     if (/\b(open|show|review|view|select)\b/.test(query) && /\breport\b/.test(query) && nameAfterVerb) {
       return { id: 'openReportByQuery', query: nameAfterVerb }
     }
+    if (/\b(open|show|review|view|select)\b/.test(query) && /\breport\b/.test(query) && /\blatest\b/.test(query)) {
+      return { id: 'openLatestReport' }
+    }
+
+    if (/\b(open|show|review|view|select)\b/.test(query) && nameAfterVerb) {
+      return { id: 'openSelectionByQuery', query: nameAfterVerb }
+    }
 
     if (/\b(applicants?|applications?)\b/.test(query) && /\b(open|show|go to|switch|view)\b/.test(query)) {
+      return { id: 'openTab', tab: 'Applications' }
+    }
+    if (/\bgo to applicants\b/.test(query) || /\bgo to applications\b/.test(query)) {
       return { id: 'openTab', tab: 'Applications' }
     }
     if (/\bapprovals?\b/.test(query) && /\b(open|show|go to|switch|view)\b/.test(query)) {
@@ -3594,7 +3692,14 @@ function App() {
     }
 
     if (action.dangerous) {
-        confirmAdminAction({
+      const previewLines = [
+        'Action preview',
+        `- Command: ${userText}`,
+        `- Risk: ${action.id === 'scoreAllPendingApplications' ? 'Batch CV scoring' : 'Status-changing action'}`,
+        `- Target: ${selectedApplication ? `${selectedApplication.firstName} ${selectedApplication.lastName}`.trim() : 'Current selection'}`,
+      ]
+      appendChatbotReply(previewLines.join('\n'))
+      confirmAdminAction({
         message:
           action.id === 'scoreAllPendingApplications'
             ? 'Do you want to score all pending applications now?'
@@ -3877,7 +3982,7 @@ function App() {
                   className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-[82%] rounded-2xl px-3 py-2.5 text-sm leading-relaxed shadow-sm ${
+                    className={`max-w-[82%] rounded-2xl px-3 py-2.5 text-sm leading-relaxed shadow-sm whitespace-pre-line ${
                       message.role === 'user'
                         ? 'bg-castleton text-white rounded-br-md'
                         : 'bg-white border border-castleton/10 text-black rounded-bl-md'
@@ -6835,7 +6940,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                             type="text"
                             ref={analyticsSearchRef}
                             value={analyticsSearch}
-                            onChange={(event) => setAnalyticsSearch(event.target.value)}
+                            onChange={(event) => dashboardActionRegistry.setSearch('Analytics', event.target.value)}
                             placeholder="Search intern"
                             className="focus-brand min-w-[220px] rounded-full border border-castleton/20 bg-white px-4 py-2 text-sm font-medium text-black"
                           />
@@ -6850,7 +6955,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                             <option value="attendance-desc">Sort: Attendance</option>
                             <option value="progress-desc">Sort: Progress</option>
                           </select>
-                          <ViewModeToggle value={analyticsViewMode} onChange={setAnalyticsViewMode} />
+                          <ViewModeToggle value={analyticsViewMode} onChange={(value) => dashboardActionRegistry.setView('Analytics', value)} />
                         </motion.div>
 
                         <motion.article
@@ -7279,7 +7384,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                               placeholder="Search intern"
                               className="focus-brand min-w-[220px] rounded-full border border-castleton/20 bg-white px-4 py-2 text-sm font-medium text-black"
                             />
-                            <ViewModeToggle value={evaluationViewMode} onChange={setEvaluationViewMode} />
+                            <ViewModeToggle value={evaluationViewMode} onChange={(value) => dashboardActionRegistry.setView('Evaluation', value)} />
                           </div>
                           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                             {[
@@ -7505,11 +7610,11 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                               type="text"
                               ref={reportsSearchRef}
                               value={reportsSearch}
-                              onChange={(event) => setReportsSearch(event.target.value)}
+                              onChange={(event) => dashboardActionRegistry.setSearch('Reports', event.target.value)}
                               placeholder="Search intern"
                               className="focus-brand min-w-[220px] rounded-full border border-castleton/20 bg-white px-4 py-2 text-sm font-medium text-black"
                             />
-                            <ViewModeToggle value={reportsViewMode} onChange={setReportsViewMode} />
+                            <ViewModeToggle value={reportsViewMode} onChange={(value) => dashboardActionRegistry.setView('Reports', value)} />
                           </div>
                           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                             {[
@@ -7741,7 +7846,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                                 type="search"
                                 ref={applicationSearchRef}
                                 value={applicationSearch}
-                                onChange={(event) => setApplicationSearch(event.target.value)}
+                                onChange={(event) => dashboardActionRegistry.setSearch('Applications', event.target.value)}
                                 placeholder="Search name, email, position, status"
                                 className="w-full bg-transparent text-sm text-black outline-none placeholder:text-black/40"
                               />
@@ -8049,7 +8154,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                               <div className="flex items-center gap-2">
                                 <button
                                   type="button"
-                                  onClick={() => setApplicationPage((prev) => Math.max(1, prev - 1))}
+                                  onClick={() => dashboardActionRegistry.setPage('Applications', Math.max(1, applicationPage - 1))}
                                   disabled={applicationPage === 1}
                                   className="focus-brand rounded-full border border-castleton/15 bg-white px-3 py-1.5 text-sm font-semibold text-castleton hover:bg-[#f4f7f5] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                                 >
@@ -8057,7 +8162,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => setApplicationPage((prev) => Math.min(totalApplicationPages, prev + 1))}
+                                  onClick={() => dashboardActionRegistry.setPage('Applications', Math.min(totalApplicationPages, applicationPage + 1))}
                                   disabled={applicationPage === totalApplicationPages}
                                   className="focus-brand rounded-full border border-castleton/15 bg-white px-3 py-1.5 text-sm font-semibold text-castleton hover:bg-[#f4f7f5] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                                 >
@@ -8105,7 +8210,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                                 type="search"
                                 ref={approvalSearchRef}
                                 value={approvalSearch}
-                                onChange={(event) => setApprovalSearch(event.target.value)}
+                                onChange={(event) => dashboardActionRegistry.setSearch('Approvals', event.target.value)}
                                 placeholder="Search name, email, phone, department, status"
                                 className="w-full bg-transparent text-sm text-black outline-none placeholder:text-black/40"
                               />
@@ -8116,7 +8221,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                               </span>
                               <select
                                 value={approvalSortBy}
-                                onChange={(event) => setApprovalSortBy(event.target.value)}
+                                onChange={(event) => dashboardActionRegistry.setSort('Approvals', event.target.value)}
                                 className="w-full bg-transparent text-sm text-black outline-none"
                               >
                                 <option value="pending-first">Pending First</option>
@@ -8425,13 +8530,13 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                               type="text"
                               ref={settingsSearchRef}
                               value={settingsSearch}
-                              onChange={(event) => setSettingsSearch(event.target.value)}
+                              onChange={(event) => dashboardActionRegistry.setSearch('Manage Interns', event.target.value)}
                               placeholder="Search name, email, school, course, contact, or hours"
                               className="focus-brand min-w-[260px] flex-1 rounded-xl border border-castleton/20 px-3 py-2.5 bg-[#f9fbfa]"
                             />
                             <select
                               value={settingsStatusFilter}
-                              onChange={(event) => setSettingsStatusFilter(event.target.value)}
+                              onChange={(event) => dashboardActionRegistry.setStatusFilter(event.target.value)}
                               className="focus-brand rounded-xl border border-castleton/20 px-3 py-2.5 bg-[#f9fbfa] font-medium text-castleton"
                             >
                               <option value="All">All Status</option>
@@ -8532,7 +8637,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                                     <button
                                       key={`settings-page-${item}`}
                                       type="button"
-                                      onClick={() => setSettingsPage(item)}
+                                      onClick={() => dashboardActionRegistry.setPage('Manage Interns', item)}
                                       className={`focus-brand rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
                                         settingsPage === item
                                           ? 'border-castleton bg-castleton text-white'
@@ -10008,6 +10113,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
 }
 
 export default App
+
 
 
 
