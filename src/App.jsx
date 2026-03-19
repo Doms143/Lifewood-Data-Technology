@@ -3066,6 +3066,19 @@ function App() {
     const trimmed = chatbotInput.trim()
     if (!trimmed || isChatbotLoading) return
 
+    const matchedAction = resolveChatbotDashboardAction(trimmed)
+    if (matchedAction) {
+      const userMessage = { id: `user-${Date.now()}`, role: 'user', content: trimmed }
+      setChatbotMessages((prev) => [...prev, userMessage])
+      setChatbotInput('')
+      if (!hasChatted) setHasChatted(true)
+      const didRun = runChatbotAction(matchedAction, trimmed)
+      if (!didRun) {
+        appendChatbotReply('I found the request, but I could not map it to a dashboard action yet.')
+      }
+      return
+    }
+
     const userMessage = { id: `user-${Date.now()}`, role: 'user', content: trimmed }
     const history = [...chatbotMessages, userMessage].slice(-8)
     const context = {
@@ -3228,6 +3241,391 @@ function App() {
         content: "Hi! I'm your Dashboard AI. Ask me about data you see on this dashboard.",
       },
     ])
+  }
+
+  const appendChatbotReply = (content) => {
+    setChatbotMessages((prev) => [
+      ...prev,
+      {
+        id: `assistant-${Date.now()}`,
+        role: 'assistant',
+        content,
+      },
+    ])
+  }
+
+  const findApplicationByName = (nameQuery) => {
+    const query = nameQuery.toLowerCase()
+    return careerApplications.find((item) => {
+      const fullName = `${item.firstName} ${item.lastName}`.trim().toLowerCase()
+      return fullName.includes(query) || item.email?.toLowerCase().includes(query)
+    })
+  }
+
+  const findInternByName = (nameQuery, sourceRows = []) => {
+    const query = nameQuery.toLowerCase()
+    return sourceRows.find((item) => {
+      const name = `${item.name || ''}`.toLowerCase()
+      return name.includes(query)
+    })
+  }
+
+  const openApplicationDetails = (application) => {
+    if (!application) return false
+    setSelectedApplication(application)
+    runAdminAction(`Opened application: ${application.firstName} ${application.lastName}`.trim())
+    return true
+  }
+
+  const openAnalyticsInternDetails = (intern, label = 'analytics') => {
+    if (!intern) return false
+    setSelectedAnalyticsIntern(intern)
+    runAdminAction(`Opened ${label} detail: ${intern.name}`)
+    return true
+  }
+
+  const openDashboardGroup = (group) => {
+    if (!group) return false
+    setSelectedDashboardGroup(group)
+    runAdminAction(`Opened dashboard group: ${group.title}`)
+    return true
+  }
+
+  const setSortMode = (tab, value) => {
+    if (tab === 'Applications') setApplicationSortBy(value)
+    if (tab === 'Approvals') setApprovalSortBy(value)
+    if (tab === 'Analytics') setAnalyticsSortBy(value)
+    if (tab === 'Evaluation') setEvaluationSortBy(value)
+    if (tab === 'Reports') setReportsSortBy(value)
+    runAdminAction(`${tab} sort changed`)
+  }
+
+  const openSelectionByQuery = (query) => {
+    const lower = query.toLowerCase()
+    const applicationMatch = findApplicationByName(query)
+    if (applicationMatch) return openApplicationDetails(applicationMatch)
+
+    const internMatch =
+      findInternByName(query, filteredAnalyticsRows) ||
+      findInternByName(query, filteredEvaluationInsights) ||
+      findInternByName(query, filteredReportInsights) ||
+      findInternByName(query, internAnalyticsData)
+    if (internMatch) return openAnalyticsInternDetails(internMatch, 'intern')
+
+    if (/\bdashboard group\b/.test(lower) && selectedDashboardGroup) {
+      return openDashboardGroup(selectedDashboardGroup)
+    }
+
+    return false
+  }
+
+  const dashboardActionRegistry = {
+    openTab: (tab) => {
+      setActiveAdminTab(tab)
+      runAdminAction(`${tab} panel opened`)
+      return `Opening ${tab === 'Applications' ? 'Applicants' : tab} tab.`
+    },
+    openApplicationByQuery: (query) => {
+      const match = findApplicationByName(query)
+      if (!match) return 'I could not find that application.'
+      setActiveAdminTab('Applications')
+      openApplicationDetails(match)
+      return `Opened ${match.firstName} ${match.lastName} in Applicants.`
+    },
+    openSelectedApplication: () => {
+      if (!selectedApplication) return 'No application is selected right now.'
+      setActiveAdminTab('Applications')
+      openApplicationDetails(selectedApplication)
+      return `Opened ${selectedApplication.firstName} ${selectedApplication.lastName}.`
+    },
+    openInternByQuery: (query) => {
+      const match =
+        findInternByName(query, filteredAnalyticsRows) ||
+        findInternByName(query, filteredEvaluationInsights) ||
+        findInternByName(query, filteredReportInsights) ||
+        findInternByName(query, internAnalyticsData)
+      if (!match) return 'I could not find that intern record.'
+      setSelectedAnalyticsIntern(match)
+      setActiveAdminTab(
+        filteredEvaluationInsights.some((item) => item.name === match.name)
+          ? 'Evaluation'
+          : filteredReportInsights.some((item) => item.name === match.name)
+            ? 'Reports'
+            : 'Analytics'
+      )
+      runAdminAction(`Opened intern record: ${match.name}`)
+      return `Opened ${match.name}.`
+    },
+    openReportByQuery: (query) => {
+      const match = findInternByName(query, filteredReportInsights) || findInternByName(query, internAnalyticsData)
+      if (!match) return 'I could not find that report detail.'
+      setActiveAdminTab('Reports')
+      openAnalyticsInternDetails(match, 'report')
+      return `Opened report detail for ${match.name}.`
+    },
+    clearFilters: (tab) => {
+      if (tab === 'Applications') {
+        setApplicationSearch('')
+        setApplicationSortBy('newest-first')
+        setApplicationViewMode('cards')
+      } else if (tab === 'Approvals') {
+        setApprovalSearch('')
+        setApprovalSortBy('pending-first')
+      } else if (tab === 'Analytics') {
+        setAnalyticsSearch('')
+        setAnalyticsSortBy('name-asc')
+        setAnalyticsViewMode('tiles')
+      } else if (tab === 'Evaluation') {
+        setEvaluationSearch('')
+        setEvaluationSortBy('score-desc')
+        setEvaluationViewMode('tiles')
+      } else if (tab === 'Reports') {
+        setReportsSearch('')
+        setReportsSortBy('score-desc')
+        setReportsViewMode('tiles')
+      } else if (tab === 'Manage Interns') {
+        setSettingsSearch('')
+        setSettingsStatusFilter('All')
+        setSettingsPage(1)
+      }
+      runAdminAction(`${tab} filters cleared`)
+      return `Cleared ${tab === 'Applications' ? 'Applicants' : tab} filters.`
+    },
+    setView: (tab, view) => {
+      if (tab === 'Applications') {
+        setApplicationViewMode(view)
+      } else if (tab === 'Analytics') {
+        setAnalyticsViewMode(view)
+      } else if (tab === 'Evaluation') {
+        setEvaluationViewMode(view)
+      } else if (tab === 'Reports') {
+        setReportsViewMode(view)
+      }
+      runAdminAction(`${tab} view changed to ${view}`)
+      return `Switched ${tab} to ${view} view.`
+    },
+    setSort: (tab, value) => {
+      setSortMode(tab, value)
+      return `Updated ${tab} sort.`
+    },
+    focusSearch: (tab) => {
+      if (tab === 'Applications') {
+        setActiveAdminTab('Applications')
+      } else if (tab === 'Approvals') {
+        setActiveAdminTab('Approvals')
+      } else if (tab === 'Analytics') {
+        setActiveAdminTab('Analytics')
+      } else if (tab === 'Evaluation') {
+        setActiveAdminTab('Evaluation')
+      } else if (tab === 'Reports') {
+        setActiveAdminTab('Reports')
+      } else if (tab === 'Manage Interns') {
+        setActiveAdminTab('Manage Interns')
+      }
+      window.setTimeout(() => focusAdminSearchInput(), 0)
+      return `Focused ${tab === 'Applications' ? 'Applicants' : tab} search.`
+    },
+    openAnalyticsTaskModal: () => {
+      setActiveAdminTab('Analytics')
+      openAnalyticsTaskModal()
+      runAdminAction('Analytics task modal opened')
+      return 'Opening the analytics task panel.'
+    },
+    openApplicationForm: () => {
+      goToPath('/application-form')
+      runAdminAction('Application form opened')
+      return 'Opening the application form.'
+    },
+    clearChat: () => {
+      clearChatbotConversation()
+      return 'Cleared the chat.'
+    },
+    scoreAllPendingApplications: () => {
+      void handleScoreAllPending()
+      return 'Starting batch CV scoring for all pending applications.'
+    },
+    proceedSelectedApplicationToHr: () => {
+      if (!selectedApplication) {
+        return 'Open an application first, then I can proceed it to HR interview.'
+      }
+      handleApplicationDecision(selectedApplication.id, hrInterviewStatus)
+      return `I opened the confirmation for ${selectedApplication.firstName} ${selectedApplication.lastName}.`
+    },
+    rejectSelectedApplication: () => {
+      if (!selectedApplication) {
+        return 'Open an application first, then I can reject it.'
+      }
+      handleApplicationDecision(selectedApplication.id, 'rejected')
+      return `I opened the confirmation for ${selectedApplication.firstName} ${selectedApplication.lastName}.`
+    },
+  }
+
+  const resolveChatbotDashboardAction = (text) => {
+    const query = text.toLowerCase()
+    const nameAfterVerb = query
+      .replace(/^(open|show|review|view|select|go to|switch to)\s+/, '')
+      .replace(/\b(application|applicant|intern|report|details?)\b/g, '')
+      .replace(/\b(tab|record|profile|card)\b/g, '')
+      .trim()
+
+    if (/^(clear|reset)\s+(the\s+)?chat/.test(query) || /\bclear chat\b/.test(query)) {
+      return { id: 'clearChat' }
+    }
+
+    if (/\b(open|show|review|view|select)\b/.test(query) && /\bapplication\b/.test(query) && nameAfterVerb) {
+      return { id: 'openApplicationByQuery', query: nameAfterVerb }
+    }
+    if (/\bselected application\b/.test(query)) {
+      return { id: 'openSelectedApplication' }
+    }
+    if (/\b(open|show|review|view|select)\b/.test(query) && /\b(intern|member|profile|record)\b/.test(query) && nameAfterVerb) {
+      return { id: 'openInternByQuery', query: nameAfterVerb }
+    }
+    if (/\b(open|show|review|view|select)\b/.test(query) && /\breport\b/.test(query) && nameAfterVerb) {
+      return { id: 'openReportByQuery', query: nameAfterVerb }
+    }
+
+    if (/\b(applicants?|applications?)\b/.test(query) && /\b(open|show|go to|switch|view)\b/.test(query)) {
+      return { id: 'openTab', tab: 'Applications' }
+    }
+    if (/\bapprovals?\b/.test(query) && /\b(open|show|go to|switch|view)\b/.test(query)) {
+      return { id: 'openTab', tab: 'Approvals' }
+    }
+    if (/\banalytics?\b/.test(query) && /\b(open|show|go to|switch|view)\b/.test(query)) {
+      return { id: 'openTab', tab: 'Analytics' }
+    }
+    if (/\bevaluation\b/.test(query) && /\b(open|show|go to|switch|view)\b/.test(query)) {
+      return { id: 'openTab', tab: 'Evaluation' }
+    }
+    if (/\breports?\b/.test(query) && /\b(open|show|go to|switch|view)\b/.test(query)) {
+      return { id: 'openTab', tab: 'Reports' }
+    }
+    if (/\b(interns?|manage interns)\b/.test(query) && /\b(open|show|go to|switch|view)\b/.test(query)) {
+      return { id: 'openTab', tab: 'Manage Interns' }
+    }
+    if (/\bdashboard\b/.test(query) && /\b(open|show|go to|switch|view)\b/.test(query)) {
+      return { id: 'openTab', tab: 'Dashboard' }
+    }
+
+    if (/clear\s+(the\s+)?(filters?|search|searches)\b/.test(query) || /\breset\s+(the\s+)?filters?\b/.test(query)) {
+      if (/\bapplicants?|applications?\b/.test(query)) return { id: 'clearFilters', tab: 'Applications' }
+      if (/\bapprovals?\b/.test(query)) return { id: 'clearFilters', tab: 'Approvals' }
+      if (/\banalytics?\b/.test(query)) return { id: 'clearFilters', tab: 'Analytics' }
+      if (/\bevaluation\b/.test(query)) return { id: 'clearFilters', tab: 'Evaluation' }
+      if (/\breports?\b/.test(query)) return { id: 'clearFilters', tab: 'Reports' }
+      if (/\binterns?|manage interns\b/.test(query)) return { id: 'clearFilters', tab: 'Manage Interns' }
+    }
+
+    if (/\b(cards?|list|tiles?)\s+view\b/.test(query) || /\bview\s+(cards?|list|tiles?)\b/.test(query)) {
+      const view = /\blist\b/.test(query) ? 'list' : /\bcards?\b/.test(query) ? 'cards' : 'tiles'
+      if (/\bapplications?\b|\bapplicants?\b/.test(query)) return { id: 'setView', tab: 'Applications', view: view === 'cards' ? 'cards' : 'list' }
+      if (/\banalytics?\b/.test(query)) return { id: 'setView', tab: 'Analytics', view: view === 'list' ? 'list' : 'tiles' }
+      if (/\bevaluation\b/.test(query)) return { id: 'setView', tab: 'Evaluation', view: view === 'list' ? 'list' : 'tiles' }
+      if (/\breports?\b/.test(query)) return { id: 'setView', tab: 'Reports', view: view === 'list' ? 'list' : 'tiles' }
+    }
+
+    if (/\bsort\b/.test(query)) {
+      if (/\bapplications?\b|\bapplicants?\b/.test(query)) {
+        if (/\bnewest\b/.test(query)) return { id: 'setSort', tab: 'Applications', value: 'newest-first' }
+        if (/\boldest\b/.test(query)) return { id: 'setSort', tab: 'Applications', value: 'oldest-first' }
+        if (/\bpending\b/.test(query)) return { id: 'setSort', tab: 'Applications', value: 'pending-first' }
+        if (/\bhr\b|\bapproved\b/.test(query)) return { id: 'setSort', tab: 'Applications', value: 'approved-first' }
+        if (/\brejected\b/.test(query)) return { id: 'setSort', tab: 'Applications', value: 'rejected-first' }
+      }
+      if (/\banalytics?\b/.test(query)) {
+        if (/\bname\b/.test(query)) return { id: 'setSort', tab: 'Analytics', value: /\bz\b/.test(query) ? 'name-desc' : 'name-asc' }
+        if (/\bperformance\b/.test(query)) return { id: 'setSort', tab: 'Analytics', value: 'performance-desc' }
+        if (/\battendance\b/.test(query)) return { id: 'setSort', tab: 'Analytics', value: 'attendance-desc' }
+        if (/\bprogress\b/.test(query)) return { id: 'setSort', tab: 'Analytics', value: 'progress-desc' }
+      }
+      if (/\bevaluation\b/.test(query)) {
+        if (/\bname\b/.test(query)) return { id: 'setSort', tab: 'Evaluation', value: /\bz\b/.test(query) ? 'name-desc' : 'name-asc' }
+        if (/\bscore\b/.test(query)) return { id: 'setSort', tab: 'Evaluation', value: /\blow\b/.test(query) ? 'score-asc' : 'score-desc' }
+      }
+      if (/\breports?\b/.test(query)) {
+        if (/\bname\b/.test(query)) return { id: 'setSort', tab: 'Reports', value: /\bz\b/.test(query) ? 'name-desc' : 'name-asc' }
+        if (/\bscore\b/.test(query)) return { id: 'setSort', tab: 'Reports', value: /\blow\b/.test(query) ? 'score-asc' : 'score-desc' }
+      }
+      if (/\bapprovals?\b/.test(query)) {
+        if (/\bpending\b/.test(query)) return { id: 'setSort', tab: 'Approvals', value: 'pending-first' }
+        if (/\bname\b/.test(query)) return { id: 'setSort', tab: 'Approvals', value: 'name-asc' }
+      }
+    }
+
+    if (/\bsearch\b/.test(query)) {
+      if (/\bapplicants?|applications?\b/.test(query)) return { id: 'focusSearch', tab: 'Applications' }
+      if (/\bapprovals?\b/.test(query)) return { id: 'focusSearch', tab: 'Approvals' }
+      if (/\banalytics?\b/.test(query)) return { id: 'focusSearch', tab: 'Analytics' }
+      if (/\bevaluation\b/.test(query)) return { id: 'focusSearch', tab: 'Evaluation' }
+      if (/\breports?\b/.test(query)) return { id: 'focusSearch', tab: 'Reports' }
+      if (/\binterns?|manage interns\b/.test(query)) return { id: 'focusSearch', tab: 'Manage Interns' }
+    }
+
+    if (/\b(task|activity)\b/.test(query) && /\bopen\b/.test(query) && /\banalytics?\b/.test(query)) {
+      return { id: 'openAnalyticsTaskModal' }
+    }
+
+    if (/\b(application form|new application|apply now)\b/.test(query)) {
+      return { id: 'openApplicationForm' }
+    }
+
+    if (/\b(batch score|score all|score pending)\b/.test(query)) {
+      return { id: 'scoreAllPendingApplications', dangerous: true, confirmLabel: 'Score All' }
+    }
+
+    if (/\b(proceed|approve)\b/.test(query) && /\b(hr|interview)\b/.test(query)) {
+      return { id: 'proceedSelectedApplicationToHr' }
+    }
+
+    if (/\breject\b/.test(query) && /\bapplication\b/.test(query)) {
+      return { id: 'rejectSelectedApplication' }
+    }
+
+    return null
+  }
+
+  const runChatbotAction = (action, userText) => {
+    const handler = dashboardActionRegistry[action.id]
+    if (!handler) return false
+
+    if (action.id === 'clearChat') {
+      handler()
+      return true
+    }
+
+    if (action.dangerous) {
+        confirmAdminAction({
+        message:
+          action.id === 'scoreAllPendingApplications'
+            ? 'Do you want to score all pending applications now?'
+            : action.id === 'proceedSelectedApplicationToHr'
+              ? 'Do you want to proceed the selected application to HR interview?'
+              : 'Do you want to reject the selected application?',
+        confirmLabel: action.confirmLabel || 'Confirm',
+        tone: 'danger',
+        onConfirm: () => {
+          const reply = action.query
+            ? handler(action.query)
+            : action.tab
+              ? handler(action.tab, action.view)
+              : handler()
+          appendChatbotReply(reply)
+          if (!hasChatted) setHasChatted(true)
+        },
+      })
+      return true
+    }
+
+    const reply = action.query
+      ? handler(action.query)
+      : action.tab
+        ? handler(action.tab, action.view)
+        : action.value
+          ? handler(action.tab, action.value)
+          : handler()
+    appendChatbotReply(reply)
+    if (!hasChatted) setHasChatted(true)
+    return true
   }
 
   const beginChatWidgetDrag = (event) => {
@@ -6190,7 +6588,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                                 <motion.button
                                   key={card.title}
                                   type="button"
-                                  onClick={() => setSelectedDashboardGroup({ title: card.title, interns: card.interns })}
+                                  onClick={() => openDashboardGroup({ title: card.title, interns: card.interns })}
                                   className={`w-full text-left rounded-[22px] border border-castleton/15 bg-gradient-to-br ${card.accent} p-5`}
                                   initial={{ opacity: 0, y: 10 }}
                                   animate={{ opacity: 1, y: 0 }}
@@ -6443,7 +6841,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                           />
                           <select
                             value={analyticsSortBy}
-                            onChange={(event) => setAnalyticsSortBy(event.target.value)}
+                            onChange={(event) => setSortMode('Analytics', event.target.value)}
                             className="focus-brand rounded-full border border-castleton/20 bg-white px-3 py-1.5 text-sm font-semibold text-castleton"
                           >
                             <option value="name-asc">Sort: Name A-Z</option>
@@ -6492,8 +6890,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                                   key={intern.name}
                                   type="button"
                                   onClick={() => {
-                                    setSelectedAnalyticsIntern(intern)
-                                    runAdminAction(`Opened analytics: ${intern.name}`)
+                                    openAnalyticsInternDetails(intern, 'analytics')
                                   }}
                                   whileHover={{ y: -4, scale: 1.01 }}
                                   whileTap={{ scale: 0.99 }}
@@ -6564,8 +6961,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                                   key={`analytics-content-${intern.name}`}
                                   type="button"
                                   onClick={() => {
-                                    setSelectedAnalyticsIntern(intern)
-                                    runAdminAction(`Opened analytics: ${intern.name}`)
+                                    openAnalyticsInternDetails(intern, 'analytics')
                                   }}
                                   className={`admin-name-card w-full rounded-[22px] border p-4 text-left ${
                                     intern.low ? 'border-[#d9aaa2] bg-[#fff2ef]' : 'border-castleton/15 bg-white'
@@ -6867,7 +7263,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                             </div>
                             <select
                               value={evaluationSortBy}
-                              onChange={(event) => setEvaluationSortBy(event.target.value)}
+                              onChange={(event) => setSortMode('Evaluation', event.target.value)}
                               className="focus-brand rounded-full border border-castleton/20 bg-white px-3 py-1.5 text-sm font-semibold text-castleton"
                             >
                               <option value="score-desc">Sort: Score High-Low</option>
@@ -6907,8 +7303,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                                 key={`eval-${intern.name}`}
                                 type="button"
                                 onClick={() => {
-                                  setSelectedAnalyticsIntern(intern)
-                                  runAdminAction(`Opened evaluation detail: ${intern.name}`)
+                                  openAnalyticsInternDetails(intern, 'evaluation')
                                 }}
                                 className={`admin-name-card rounded-[22px] border p-4 sm:p-5 text-left ${
                                   intern.band === 'Needs Support' ? 'border-[#d9aaa2] bg-[#fff2ef]' : 'border-castleton/15 bg-white'
@@ -6956,8 +7351,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                                 key={`eval-content-${intern.name}`}
                                 type="button"
                                 onClick={() => {
-                                  setSelectedAnalyticsIntern(intern)
-                                  runAdminAction(`Opened evaluation detail: ${intern.name}`)
+                                  openAnalyticsInternDetails(intern, 'evaluation')
                                 }}
                                 className={`admin-name-card w-full rounded-[22px] border p-4 text-left ${
                                   intern.band === 'Needs Support' ? 'border-[#d9aaa2] bg-[#fff2ef]' : 'border-castleton/15 bg-white'
@@ -7099,7 +7493,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                             </div>
                             <select
                               value={reportsSortBy}
-                              onChange={(event) => setReportsSortBy(event.target.value)}
+                              onChange={(event) => setSortMode('Reports', event.target.value)}
                               className="focus-brand rounded-full border border-castleton/20 bg-white px-3 py-1.5 text-sm font-semibold text-castleton"
                             >
                               <option value="score-desc">Sort: Score High-Low</option>
@@ -7143,8 +7537,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                                 key={`report-${intern.name}`}
                                 type="button"
                                 onClick={() => {
-                                  setSelectedAnalyticsIntern(intern)
-                                  runAdminAction(`Opened report detail: ${intern.name}`)
+                                  openAnalyticsInternDetails(intern, 'report')
                                 }}
                                 className="admin-name-card rounded-[22px] border border-castleton/15 bg-white p-4 sm:p-5 text-left"
                                 initial={{ opacity: 0, y: 10 }}
@@ -7196,8 +7589,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                                 key={`report-content-${intern.name}`}
                                 type="button"
                                 onClick={() => {
-                                  setSelectedAnalyticsIntern(intern)
-                                  runAdminAction(`Opened report detail: ${intern.name}`)
+                                  openAnalyticsInternDetails(intern, 'report')
                                 }}
                                 className="admin-name-card w-full rounded-[22px] border border-castleton/15 bg-white p-4 text-left"
                                 initial={{ opacity: 0, y: 10 }}
@@ -7360,7 +7752,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                               </span>
                               <select
                                 value={applicationSortBy}
-                                onChange={(event) => setApplicationSortBy(event.target.value)}
+                                onChange={(event) => setSortMode('Applications', event.target.value)}
                                 className="w-full bg-transparent text-sm text-black outline-none"
                               >
                                 <option value="newest-first">Newest First</option>
@@ -7374,7 +7766,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                             <div className="rounded-3xl border border-castleton/15 bg-white/80 px-2 py-2 flex items-center justify-between gap-2 shadow-sm">
                               <button
                                 type="button"
-                                onClick={() => setApplicationViewMode('cards')}
+                                onClick={() => dashboardActionRegistry.setView('Applications', 'cards')}
                                 className={`flex-1 rounded-2xl px-3 py-2 text-sm font-semibold transition-colors ${
                                   applicationViewMode === 'cards'
                                     ? 'bg-castleton text-white'
@@ -7388,7 +7780,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                               </button>
                               <button
                                 type="button"
-                                onClick={() => setApplicationViewMode('list')}
+                                onClick={() => dashboardActionRegistry.setView('Applications', 'list')}
                                 className={`flex-1 rounded-2xl px-3 py-2 text-sm font-semibold transition-colors ${
                                   applicationViewMode === 'list'
                                     ? 'bg-castleton text-white'
@@ -7486,7 +7878,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                                     <div>
                                       <button
                                         type="button"
-                                        onClick={() => setSelectedApplication(application)}
+                                        onClick={() => openApplicationDetails(application)}
                                         className="focus-brand rounded-full border border-castleton/20 bg-white px-3 py-1.5 text-xs font-semibold text-castleton transition-colors hover:bg-[#eef3ef]"
                                       >
                                         Review
@@ -7611,7 +8003,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                                       <div className="mt-3 flex flex-wrap gap-2">
                                         <button
                                           type="button"
-                                          onClick={() => setSelectedApplication(application)}
+                                          onClick={() => openApplicationDetails(application)}
                                           className="focus-brand rounded-full border border-castleton/20 bg-castleton px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_24px_-14px_rgba(4,98,65,0.7)] transition-colors hover:bg-serpent"
                                         >
                                           Review Applicant
@@ -9616,6 +10008,9 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
 }
 
 export default App
+
+
+
 
 
 
