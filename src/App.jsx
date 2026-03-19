@@ -3150,7 +3150,7 @@ function App() {
           {
             id: `assistant-error-${Date.now() + 1}`,
             role: 'assistant',
-            content: 'I can only answer from dashboard data right now. The chatbot service is temporarily unavailable.',
+            content: 'Dashboard AI is not connected on this deployment yet. Check the Vercel function and chatbot key.',
           },
         ])
       } finally {
@@ -3357,7 +3357,7 @@ function App() {
             </div>
           </form>
           <p className="px-4 pb-3 text-[11px] text-black/48 bg-white">
-            UI only. Responses will be wired to dashboard data later.
+            Dashboard-only assistant.
           </p>
         </div>
       ) : null}
