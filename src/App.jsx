@@ -3801,10 +3801,12 @@ function App() {
       state.dragged = true
     }
 
-    setChatWidgetOffset({
-      x: state.originX + deltaX,
-      y: state.originY + deltaY,
-    })
+    setChatWidgetOffset(
+      clampChatWidgetOffset({
+        x: state.originX + deltaX,
+        y: state.originY + deltaY,
+      })
+    )
   }
 
   const endChatWidgetDrag = (event) => {
@@ -3862,6 +3864,7 @@ function App() {
     if (typeof window === 'undefined') return nextOffset
 
     const margin = 24
+    const topSafe = openState ? 0 : chatheadTopBoundary
     const { width, height } = getChatWidgetMetrics(openState)
     const measuredHeight =
       openState && chatWidgetPanelRef.current
@@ -3872,7 +3875,7 @@ function App() {
         ? Math.ceil(chatWidgetPanelRef.current.getBoundingClientRect().width)
         : width
     const minX = Math.min(0, margin * 2 + measuredWidth - window.innerWidth)
-    const minY = Math.min(0, margin * 2 + measuredHeight - window.innerHeight)
+    const minY = Math.min(0, topSafe + measuredHeight + margin - window.innerHeight)
 
     return {
       x: Math.max(minX, Math.min(0, nextOffset.x)),
@@ -3917,10 +3920,12 @@ function App() {
     const panelWidth = Math.max(0, Math.min(368, window.innerWidth - margin * 2))
     const launcherRightEdge = window.innerWidth - margin + chatWidgetOffset.x
     const leftSpace = launcherRightEdge - launcherWidth - widgetGap - margin
-    const rightSpace = window.innerWidth - margin - launcherRightEdge - launcherWidth - widgetGap
+    const rightSpace = window.innerWidth - margin - launcherRightEdge
 
-    return leftSpace < panelWidth && rightSpace >= panelWidth
+    return leftSpace < panelWidth && rightSpace >= panelWidth + widgetGap
   })()
+
+  const chatheadTopBoundary = 72
 
   const chatWidget = (
     <div
@@ -3931,169 +3936,228 @@ function App() {
       }}
     >
       {isChatbotOpen ? (
-        <div
-          ref={chatWidgetPanelRef}
-          className={`pointer-events-auto absolute bottom-0 w-[min(368px,calc(100vw-5.25rem))] rounded-[28px] border border-castleton/15 bg-white shadow-[0_24px_80px_-34px_rgba(19,48,32,0.45)] overflow-hidden flex flex-col backdrop-blur-sm ${
-            shouldFlipChatWidget
-              ? 'left-[76px] sm:left-[84px]'
-              : 'right-[76px] sm:right-[84px]'
-          }`}
-          style={{
-            width: 'min(368px, calc(100vw - 5.25rem))',
-            height: 'min(540px, calc(100dvh - 7.25rem))',
-            maxHeight: 'calc(100dvh - 7.25rem)',
-          }}
-        >
+        <div className="relative h-14 w-14">
           <div
-            className="relative overflow-hidden bg-[linear-gradient(135deg,#0f5f44,#133020_68%,#0a3f31)] px-4 py-3 text-white cursor-move select-none"
-            onPointerDown={beginChatWidgetDrag}
-            onPointerMove={moveChatWidgetDrag}
-            onPointerUp={endChatWidgetDrag}
-            onPointerCancel={endChatWidgetDrag}
-            style={{ touchAction: 'none' }}
+            ref={chatWidgetPanelRef}
+            className={`pointer-events-auto absolute bottom-0 w-[min(368px,calc(100vw-5.25rem))] rounded-[28px] border border-castleton/15 bg-white shadow-[0_24px_80px_-34px_rgba(19,48,32,0.45)] overflow-hidden flex flex-col backdrop-blur-sm ${
+              shouldFlipChatWidget ? 'left-[68px]' : 'right-[68px]'
+            }`}
+            style={{
+              width: 'min(368px, calc(100vw - 5.25rem))',
+              height: 'min(540px, calc(100dvh - 7.25rem))',
+              maxHeight: 'calc(100dvh - 7.25rem)',
+            }}
           >
-            <div className="absolute -right-10 -top-10 h-24 w-24 rounded-full bg-[#f4b347]/20 blur-2xl" />
-            <div className="relative flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/12 border border-white/15">
-                  <Bot className="h-5 w-5" />
+            <div
+              className="relative overflow-hidden bg-[linear-gradient(135deg,#0f5f44,#133020_68%,#0a3f31)] px-4 py-3 text-white select-none"
+            >
+              <div className="absolute -right-10 -top-10 h-24 w-24 rounded-full bg-[#f4b347]/20 blur-2xl" />
+              <div className="relative flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/12 border border-white/15">
+                    <Bot className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold leading-tight">Dashboard AI</p>
+                    <p className="text-[11px] text-white/72">Answers from dashboard context only</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-semibold leading-tight">Dashboard AI</p>
-                  <p className="text-[11px] text-white/72">Answers from dashboard context only</p>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={clearChatbotConversation}
+                    className="focus-brand inline-flex h-8 items-center gap-1.5 rounded-full border border-white/15 px-2.5 text-[11px] font-semibold text-white/90 hover:bg-white/10 transition-colors"
+                    aria-label="Clear chatbot conversation"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Clear
+                  </button>
+                  <button
+                    type="button"
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={closeChatWidget}
+                    className="focus-brand inline-flex h-8 w-8 items-center justify-center text-white/90 hover:text-white hover:bg-white/10 transition-colors"
+                    aria-label="Close chatbot"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onPointerDown={(event) => event.stopPropagation()}
-                  onClick={clearChatbotConversation}
-                  className="focus-brand inline-flex h-8 items-center gap-1.5 rounded-full border border-white/15 px-2.5 text-[11px] font-semibold text-white/90 hover:bg-white/10 transition-colors"
-                  aria-label="Clear chatbot conversation"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  Clear
-                </button>
-                <button
-                  type="button"
-                  onPointerDown={(event) => event.stopPropagation()}
-                  onClick={closeChatWidget}
-                  className="focus-brand inline-flex h-8 w-8 items-center justify-center text-white/90 hover:text-white hover:bg-white/10 transition-colors"
-                  aria-label="Close chatbot"
-                >
-                  <X className="h-4 w-4" />
-                </button>
               </div>
             </div>
-          </div>
-          <div className="flex-1 overflow-y-auto bg-[#f7faf6] px-4 py-4">
-            {!hasChatted ? (
-              <div className="mb-4 rounded-[24px] border border-castleton/10 bg-white p-3 shadow-[0_12px_30px_-28px_rgba(19,48,32,0.35)]">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-black/45">Suggested actions</p>
-                    <h3 className="mt-1 text-sm font-semibold text-castleton">Pick a quick prompt</h3>
-                  </div>
-                  <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-castleton/8 text-castleton">
-                    <Sparkles className="h-4 w-4" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2.5">
-                  {dashboardPromptCards.map((suggestion) => {
-                    const Icon = suggestion.icon
-                    return (
-                      <button
-                        key={suggestion.title}
-                        type="button"
-                        onClick={() => setChatbotInput(suggestion.prompt)}
-                        className="focus-brand group rounded-2xl border border-castleton/10 bg-[#fbfcfb] p-3 text-left text-black shadow-[0_10px_24px_-26px_rgba(19,48,32,0.35)] transition-all hover:-translate-y-0.5 hover:border-castleton/20 hover:bg-white"
-                      >
-                        <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-xl bg-castleton/8 text-castleton transition-colors group-hover:bg-castleton/12">
-                          <Icon className="h-4 w-4" />
-                        </div>
-                        <p className="text-sm font-semibold leading-tight text-castleton">{suggestion.title}</p>
-                        <p className="mt-1 text-[11px] leading-relaxed text-black/55 line-clamp-2">{suggestion.description}</p>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            ) : null}
-            <div className="space-y-3">
-              {chatbotMessages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div
-                    className={`max-w-[82%] rounded-2xl px-3 py-2.5 text-sm leading-relaxed shadow-sm whitespace-pre-line ${
-                      message.role === 'user'
-                        ? 'bg-castleton text-white rounded-br-md'
-                        : 'bg-white border border-castleton/10 text-black rounded-bl-md'
-                    }`}
-                  >
-                    {message.content}
-                  </div>
-                </div>
-              ))}
-              {isChatbotLoading ? (
-                <div className="flex justify-start">
-                  <div className="rounded-2xl rounded-bl-md border border-castleton/10 bg-white px-3 py-3 shadow-sm">
-                    <div className="flex items-center gap-1.5">
-                      {[0, 1, 2].map((dot) => (
-                        <motion.span
-                          key={dot}
-                          className="h-2.5 w-2.5 rounded-full bg-castleton"
-                          animate={{ opacity: [0.35, 1, 0.35], y: [0, -2, 0] }}
-                          transition={{
-                            duration: 0.9,
-                            repeat: Infinity,
-                            delay: dot * 0.12,
-                            ease: 'easeInOut',
-                          }}
-                        />
-                      ))}
+            <div className="flex-1 overflow-y-auto bg-[#f7faf6] px-4 py-4">
+              {!hasChatted ? (
+                <div className="mb-4 rounded-[24px] border border-castleton/10 bg-white p-3 shadow-[0_12px_30px_-28px_rgba(19,48,32,0.35)]">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-black/45">Suggested actions</p>
+                      <h3 className="mt-1 text-sm font-semibold text-castleton">Pick a quick prompt</h3>
                     </div>
+                    <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-castleton/8 text-castleton">
+                      <Sparkles className="h-4 w-4" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {dashboardPromptCards.map((suggestion) => {
+                      const Icon = suggestion.icon
+                      return (
+                        <button
+                          key={suggestion.title}
+                          type="button"
+                          onClick={() => setChatbotInput(suggestion.prompt)}
+                          className="focus-brand group rounded-2xl border border-castleton/10 bg-[#fbfcfb] p-3 text-left text-black shadow-[0_10px_24px_-26px_rgba(19,48,32,0.35)] transition-all hover:-translate-y-0.5 hover:border-castleton/20 hover:bg-white"
+                        >
+                          <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-xl bg-castleton/8 text-castleton transition-colors group-hover:bg-castleton/12">
+                            <Icon className="h-4 w-4" />
+                          </div>
+                          <p className="text-sm font-semibold leading-tight text-castleton">{suggestion.title}</p>
+                          <p className="mt-1 text-[11px] leading-relaxed text-black/55 line-clamp-2">{suggestion.description}</p>
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
               ) : null}
+              <div className="space-y-3">
+                {chatbotMessages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-[82%] rounded-2xl px-3 py-2.5 text-sm leading-relaxed shadow-sm whitespace-pre-line ${
+                        message.role === 'user'
+                          ? 'bg-castleton text-white rounded-br-md'
+                          : 'bg-white border border-castleton/10 text-black rounded-bl-md'
+                      }`}
+                    >
+                      {message.content}
+                    </div>
+                  </div>
+                ))}
+                {isChatbotLoading ? (
+                  <div className="flex justify-start">
+                    <div className="rounded-2xl rounded-bl-md border border-castleton/10 bg-white px-3 py-3 shadow-sm">
+                      <div className="flex items-center gap-1.5">
+                        {[0, 1, 2].map((dot) => (
+                          <motion.span
+                            key={dot}
+                            className="h-2.5 w-2.5 rounded-full bg-castleton"
+                            animate={{ opacity: [0.35, 1, 0.35], y: [0, -2, 0] }}
+                            transition={{
+                              duration: 0.9,
+                              repeat: Infinity,
+                              delay: dot * 0.12,
+                              ease: 'easeInOut',
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
             </div>
+            {!hasChatted ? (
+              <div className="border-t border-white/10 bg-[linear-gradient(135deg,#0f5f44,#133020_68%,#0a3f31)] px-4 pt-3 pb-2" />
+            ) : null}
+            <form onSubmit={handleChatbotSendAsync} className="border-t border-white/10 bg-[linear-gradient(135deg,#0f5f44,#133020_68%,#0a3f31)] px-3 pb-3 pt-2">
+              <div className="flex items-center gap-2 rounded-[22px] border border-white/15 bg-white/10 px-3 py-2.5">
+                <input
+                  type="text"
+                  value={chatbotInput}
+                  onChange={(event) => setChatbotInput(event.target.value)}
+                  placeholder="Ask about this dashboard..."
+                  className="focus-brand flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/45"
+                />
+                <button
+                  type="submit"
+                  className="focus-brand inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-castleton hover:bg-white/90 transition-colors disabled:opacity-50"
+                  aria-label="Send message"
+                  disabled={!chatbotInput.trim() || isChatbotLoading}
+                >
+                  <Send className={`h-4 w-4 ${isChatbotLoading ? 'animate-pulse' : ''}`} />
+                </button>
+              </div>
+            </form>
           </div>
-          {!hasChatted ? (
-            <div className="border-t border-white/10 bg-[linear-gradient(135deg,#0f5f44,#133020_68%,#0a3f31)] px-4 pt-3 pb-2" />
-          ) : null}
-          <form onSubmit={handleChatbotSendAsync} className="border-t border-white/10 bg-[linear-gradient(135deg,#0f5f44,#133020_68%,#0a3f31)] px-3 pb-3 pt-2">
-            <div className="flex items-center gap-2 rounded-[22px] border border-white/15 bg-white/10 px-3 py-2.5">
-              <input
-                type="text"
-                value={chatbotInput}
-                onChange={(event) => setChatbotInput(event.target.value)}
-                placeholder="Ask about this dashboard..."
-                className="focus-brand flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/45"
+          <div className="relative h-14 w-14 pointer-events-auto">
+            <motion.button
+              type="button"
+              onPointerDown={beginChatWidgetDrag}
+              onPointerMove={moveChatWidgetDrag}
+              onPointerUp={endChatWidgetDrag}
+              onPointerCancel={endChatWidgetDrag}
+              onClick={handleChatWidgetToggle}
+              style={{ touchAction: 'none' }}
+              className={`focus-brand relative z-[2] inline-flex h-14 w-14 cursor-grab active:cursor-grabbing items-center justify-center rounded-full text-white shadow-[0_16px_38px_-18px_rgba(19,48,32,0.7)] transition-all ${
+                isChatbotOpen
+                  ? 'bg-[linear-gradient(135deg,#f4b347,#e89f24)] ring-4 ring-white/75'
+                  : 'bg-[linear-gradient(135deg,#0f5f44,#0b4e39)] hover:scale-105'
+              }`}
+              aria-label={isChatbotOpen ? 'Close AI agent' : 'Open AI agent'}
+              animate={{
+                boxShadow: isChatbotOpen
+                  ? [
+                      '0 16px 38px -18px rgba(19,48,32,0.7)',
+                      '0 20px 46px -18px rgba(244,179,71,0.8)',
+                      '0 16px 38px -18px rgba(19,48,32,0.7)',
+                    ]
+                  : [
+                      '0 16px 38px -18px rgba(19,48,32,0.7)',
+                      '0 22px 48px -18px rgba(19,48,32,0.85)',
+                      '0 16px 38px -18px rgba(19,48,32,0.7)',
+                    ],
+              }}
+              transition={{
+                duration: 2.6,
+                repeat: Infinity,
+                ease: 'easeInOut',
+              }}
+            >
+              <motion.span
+                className={`absolute inset-0 rounded-full ${isChatbotOpen ? 'bg-[#f4b347]/30' : 'bg-castleton/25'}`}
+                animate={{ scale: [1, 1.35, 1], opacity: [0.35, 0, 0.35] }}
+                transition={{ duration: 2.4, repeat: Infinity, ease: 'easeOut' }}
               />
-              <button
-                type="submit"
-                className="focus-brand inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-castleton hover:bg-white/90 transition-colors disabled:opacity-50"
-                aria-label="Send message"
-                disabled={!chatbotInput.trim() || isChatbotLoading}
-              >
-                <Send className={`h-4 w-4 ${isChatbotLoading ? 'animate-pulse' : ''}`} />
-              </button>
-            </div>
-          </form>
+              <motion.span
+                className={`absolute inset-[-10px] rounded-full border ${isChatbotOpen ? 'border-[#f4b347]/25' : 'border-white/20'}`}
+                animate={{ scale: [1, 1.2, 1], opacity: [0.55, 0.18, 0.55] }}
+                transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
+              />
+              <div className={`relative flex h-10 w-10 items-center justify-center rounded-full border ${isChatbotOpen ? 'bg-white/18 border-white/20' : 'bg-white/10 border-white/15'}`}>
+                <motion.span
+                  className="absolute -left-5 top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center text-white/40"
+                  animate={{ y: [0, -2, 0], rotate: [0, -10, 0] }}
+                  transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut' }}
+                >
+                  <Move className="h-3.5 w-3.5" />
+                </motion.span>
+                <motion.span
+                  animate={{ scale: [1, 1.08, 1], rotate: [0, 3, 0] }}
+                  transition={{ duration: 2.3, repeat: Infinity, ease: 'easeInOut' }}
+                >
+                  <MessageCircle className="h-5 w-5" />
+                </motion.span>
+                <motion.span
+                  className={`absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full ring-2 ${isChatbotOpen ? 'bg-white ring-[#f4b347]' : 'bg-[#f4b347] ring-[#0f5f44]'}`}
+                  animate={{ scale: [1, 1.35, 1], opacity: [1, 0.55, 1] }}
+                  transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+                />
+              </div>
+            </motion.button>
+          </div>
         </div>
-      ) : null}
-      <div className="relative h-14 w-14 pointer-events-auto">
-        {!isChatbotOpen ? (
+      ) : (
+        <div className="relative h-14 w-14 pointer-events-auto">
           <motion.div
             key={chatheadPromptIndex}
             initial={{ opacity: 0, x: 12, scale: 0.96 }}
-            animate={{ opacity: 1, x: 0, y: [0, -4, 0], scale: 1 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
             transition={{
               opacity: { duration: 0.45, ease: 'easeOut' },
               x: { duration: 0.45, ease: 'easeOut' },
               scale: { duration: 0.45, ease: 'easeOut' },
-              y: { duration: 3.2, repeat: Infinity, ease: 'easeInOut' },
             }}
             className="pointer-events-none absolute right-[64px] sm:right-[72px] top-[calc(50%-28px)] z-[1] w-[170px] sm:w-[190px] -translate-y-[50%] rounded-2xl rounded-br-md border border-castleton/15 bg-white px-3 py-2 text-sm text-black shadow-[0_18px_38px_-30px_rgba(19,48,32,0.65)]"
           >
@@ -4101,73 +4165,72 @@ function App() {
               {chatbotPrompts[chatheadPromptIndex]}
             </span>
           </motion.div>
-        ) : null}
-        <motion.button
-          type="button"
-          onPointerDown={beginChatWidgetDrag}
-          onPointerMove={moveChatWidgetDrag}
-          onPointerUp={endChatWidgetDrag}
-          onPointerCancel={endChatWidgetDrag}
-          onClick={handleChatWidgetToggle}
-          style={{ touchAction: 'none' }}
-          className={`focus-brand relative z-[2] inline-flex h-14 w-14 items-center justify-center rounded-full text-white shadow-[0_16px_38px_-18px_rgba(19,48,32,0.7)] transition-all ${
-            isChatbotOpen
-              ? 'bg-[linear-gradient(135deg,#f4b347,#e89f24)] ring-4 ring-white/75'
-              : 'bg-[linear-gradient(135deg,#0f5f44,#0b4e39)] hover:scale-105'
-          }`}
-          aria-label={isChatbotOpen ? 'Close AI agent' : 'Open AI agent'}
-          animate={{
-            y: [0, -4, 0],
-            boxShadow: isChatbotOpen
-              ? [
-                  '0 16px 38px -18px rgba(19,48,32,0.7)',
-                  '0 20px 46px -18px rgba(244,179,71,0.8)',
-                  '0 16px 38px -18px rgba(19,48,32,0.7)',
-                ]
-              : [
-                  '0 16px 38px -18px rgba(19,48,32,0.7)',
-                  '0 22px 48px -18px rgba(19,48,32,0.85)',
-                  '0 16px 38px -18px rgba(19,48,32,0.7)',
-                ],
-          }}
-          transition={{
-            duration: 3.2,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          }}
-        >
-          <motion.span
-            className={`absolute inset-0 rounded-full ${isChatbotOpen ? 'bg-[#f4b347]/30' : 'bg-castleton/25'}`}
-            animate={{ scale: [1, 1.35, 1], opacity: [0.35, 0, 0.35] }}
-            transition={{ duration: 2.4, repeat: Infinity, ease: 'easeOut' }}
-          />
-          <motion.span
-            className={`absolute inset-[-10px] rounded-full border ${isChatbotOpen ? 'border-[#f4b347]/25' : 'border-white/20'}`}
-            animate={{ scale: [1, 1.2, 1], opacity: [0.55, 0.18, 0.55] }}
-            transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
-          />
-          <div className={`relative flex h-10 w-10 items-center justify-center rounded-full border ${isChatbotOpen ? 'bg-white/18 border-white/20' : 'bg-white/10 border-white/15'}`}>
+          <motion.button
+            type="button"
+            onPointerDown={beginChatWidgetDrag}
+            onPointerMove={moveChatWidgetDrag}
+            onPointerUp={endChatWidgetDrag}
+            onPointerCancel={endChatWidgetDrag}
+            onClick={handleChatWidgetToggle}
+            style={{ touchAction: 'none' }}
+            className={`focus-brand relative z-[2] inline-flex h-14 w-14 cursor-grab active:cursor-grabbing items-center justify-center rounded-full text-white shadow-[0_16px_38px_-18px_rgba(19,48,32,0.7)] transition-all ${
+              isChatbotOpen
+                ? 'bg-[linear-gradient(135deg,#f4b347,#e89f24)] ring-4 ring-white/75'
+                : 'bg-[linear-gradient(135deg,#0f5f44,#0b4e39)] hover:scale-105'
+            }`}
+            aria-label={isChatbotOpen ? 'Close AI agent' : 'Open AI agent'}
+            animate={{
+              boxShadow: isChatbotOpen
+                ? [
+                    '0 16px 38px -18px rgba(19,48,32,0.7)',
+                    '0 20px 46px -18px rgba(244,179,71,0.8)',
+                    '0 16px 38px -18px rgba(19,48,32,0.7)',
+                  ]
+                : [
+                    '0 16px 38px -18px rgba(19,48,32,0.7)',
+                    '0 22px 48px -18px rgba(19,48,32,0.85)',
+                    '0 16px 38px -18px rgba(19,48,32,0.7)',
+                  ],
+            }}
+            transition={{
+              duration: 2.6,
+              repeat: Infinity,
+              ease: 'easeInOut',
+            }}
+          >
             <motion.span
-              className="absolute -left-5 top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center text-white/40"
-              animate={{ y: [0, -2, 0], rotate: [0, -10, 0] }}
-              transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut' }}
-            >
-              <Move className="h-3.5 w-3.5" />
-            </motion.span>
-            <motion.span
-              animate={{ scale: [1, 1.08, 1], rotate: [0, 3, 0] }}
-              transition={{ duration: 2.3, repeat: Infinity, ease: 'easeInOut' }}
-            >
-              <MessageCircle className="h-5 w-5" />
-            </motion.span>
-            <motion.span
-              className={`absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full ring-2 ${isChatbotOpen ? 'bg-white ring-[#f4b347]' : 'bg-[#f4b347] ring-[#0f5f44]'}`}
-              animate={{ scale: [1, 1.35, 1], opacity: [1, 0.55, 1] }}
-              transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+              className={`absolute inset-0 rounded-full ${isChatbotOpen ? 'bg-[#f4b347]/30' : 'bg-castleton/25'}`}
+              animate={{ scale: [1, 1.35, 1], opacity: [0.35, 0, 0.35] }}
+              transition={{ duration: 2.4, repeat: Infinity, ease: 'easeOut' }}
             />
-          </div>
-        </motion.button>
-      </div>
+            <motion.span
+              className={`absolute inset-[-10px] rounded-full border ${isChatbotOpen ? 'border-[#f4b347]/25' : 'border-white/20'}`}
+              animate={{ scale: [1, 1.2, 1], opacity: [0.55, 0.18, 0.55] }}
+              transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
+            />
+            <div className={`relative flex h-10 w-10 items-center justify-center rounded-full border ${isChatbotOpen ? 'bg-white/18 border-white/20' : 'bg-white/10 border-white/15'}`}>
+              <motion.span
+                className="absolute -left-5 top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center text-white/40"
+                animate={{ y: [0, -2, 0], rotate: [0, -10, 0] }}
+                transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut' }}
+              >
+                <Move className="h-3.5 w-3.5" />
+              </motion.span>
+              <motion.span
+                animate={{ scale: [1, 1.08, 1], rotate: [0, 3, 0] }}
+                transition={{ duration: 2.3, repeat: Infinity, ease: 'easeInOut' }}
+              >
+                <MessageCircle className="h-5 w-5" />
+              </motion.span>
+              <motion.span
+                className={`absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full ring-2 ${isChatbotOpen ? 'bg-white ring-[#f4b347]' : 'bg-[#f4b347] ring-[#0f5f44]'}`}
+                animate={{ scale: [1, 1.35, 1], opacity: [1, 0.55, 1] }}
+                transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+              />
+            </div>
+          </motion.button>
+        </div>
+      )}
     </div>
   )
 
