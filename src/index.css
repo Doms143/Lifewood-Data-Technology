@@ -553,10 +553,17 @@ p, body {
   .admin-follow-x-scroll {
     scrollbar-width: thin;
     scrollbar-color: #0f6a48 #dfe6e2;
+    min-height: 14px;
   }
 
   .admin-follow-x-scroll::-webkit-scrollbar {
-    height: 12px;
+    height: 10px;
+  }
+
+  .admin-follow-x-scroll::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
   }
 
   .admin-follow-x-scroll::-webkit-scrollbar-track {
@@ -568,7 +575,7 @@ p, body {
   .admin-follow-x-scroll::-webkit-scrollbar-thumb {
     background: linear-gradient(90deg, #0f6a48, #0a4d36);
     border-radius: 999px;
-    border: 2px solid #dbe5df;
+    border: 1px solid #dbe5df;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.38), 0 1px 2px rgba(4, 98, 65, 0.16);
   }
 

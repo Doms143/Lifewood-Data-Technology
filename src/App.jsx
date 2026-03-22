@@ -47,12 +47,61 @@ import {
   AlignJustify,
 } from 'lucide-react'
 import { isBootstrapAdmin } from './lib/adminAccess'
+import { createInitialInterviewScheduleForm, defaultFaceToFaceInterviewLocation } from './lib/interviewScheduling'
+import {
+  aboutMissionVision,
+  aboutPrinciples,
+  aboutShowcase,
+  aboutStats,
+  adminMenuItems,
+  adminPanelContent,
+  aiProjectTracks,
+  aiServiceCapabilities,
+  aiServiceModalities,
+  analyticsInterns,
+  applicationStatusOrder,
+  approvalStatusOrder,
+  buildSeedInternAnalyticsData,
+  careersCultureChips,
+  careersSteps,
+  careersTracks,
+  careersValues,
+  contactChannels,
+  contactOffices,
+  emailJsConfig,
+  interviewEmailJsConfig,
+  internProfileByName,
+  internSchoolByName,
+  lifewoodWorldwideOffices,
+  mapCareerApplicationRowToClient,
+  mapHiredEmployeeRowToClient,
+  mapInternRowToClient,
+  mapSignupRequestRowToClient,
+  mapTaskRowToClient,
+  philanthropyMapOffices,
+  philanthropyNarrative,
+  routeContent,
+  schoolOptions,
+  seedAnalyticsTaskEntries,
+  typeAProcess,
+  typeAUseCases,
+  typeBProcess,
+  typeBUseCases,
+  typeCProcess,
+  typeCUseCases,
+  typeDCapabilities,
+  typeDCinematicFrames,
+  typeDCinematicVideo,
+  typeDStats,
+  typeDVisuals,
+} from './lib/appContent'
 import { isSupabaseConfigured, supabase } from './lib/supabaseClient'
 
 const Navigation = lazy(() => import('./components/Navigation'))
 const HomePage = lazy(() => import('./components/HomePage'))
 const OfficesPage = lazy(() => import('./components/OfficesPage'))
 const ApplicationFormPage = lazy(() => import('./components/ApplicationFormPage'))
+const AdminDashboardShell = lazy(() => import('./components/AdminDashboardShell'))
 
 function CountUpStat({ end = 0, suffix = '', duration = 1200, useGrouping = false, start = false }) {
   const [value, setValue] = useState(0)
@@ -158,987 +207,6 @@ function SectionFallback({ className = 'h-40' }) {
 
 function NavigationFallback() {
   return <div className="h-20 w-full" aria-hidden="true" />
-}
-
-const aiServiceModalities = [
-  {
-    title: 'Text',
-    details: 'Text collection, labelling, transcription, utterance collection, and sentiment analysis.',
-    image: 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1400&q=80',
-  },
-  {
-    title: 'Video',
-    details: 'Collection, labelling, audit, live broadcast support, and subtitle generation.',
-    image: 'https://images.unsplash.com/photo-1492619375914-88005aa9e8fb?auto=format&fit=crop&w=1400&q=80',
-  },
-  {
-    title: 'Image',
-    details: 'Collection, labelling, classification, audit, object detection, and tagging.',
-    image: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1400&q=80',
-  },
-  {
-    title: 'Audio',
-    details: 'Collection, labelling, voice categorization, music categorization, and intelligent customer support datasets.',
-    image: 'https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=1400&q=80',
-  },
-]
-
-const aiServiceCapabilities = [
-  {
-    title: 'Data Validation',
-    details: 'Creates data that is consistent, accurate, and complete by enforcing predefined rules and standards.',
-    image: 'https://images.unsplash.com/photo-1518186233392-c232efbf2373?auto=format&fit=crop&w=1400&q=80',
-  },
-  {
-    title: 'Data Collection',
-    details: 'Multi-modal collection across text, audio, image, and video with advanced workflows for classification and tagging.',
-    image: 'https://images.unsplash.com/photo-1518773553398-650c184e0bb3?auto=format&fit=crop&w=1400&q=80',
-  },
-  {
-    title: 'Data Acquisition',
-    details: 'End-to-end acquisition workflows for capturing, processing, and managing large-scale diverse datasets.',
-    image: 'https://images.unsplash.com/photo-1555949963-aa79dcee981c?auto=format&fit=crop&w=1400&q=80',
-  },
-  {
-    title: 'Data Curation',
-    details: 'Selection, indexing, and organization to improve reliability, accessibility, and ease of classification.',
-    image: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1400&q=80',
-  },
-  {
-    title: 'Data Annotation',
-    details: 'High-quality annotation for text, image, audio, and video across computer vision and NLP use cases.',
-    image: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=1400&q=80',
-  },
-]
-
-const aiProjectTracks = [
-  {
-    title: 'AI Data Extraction',
-    details:
-      'Using AI, we optimize the acquisition of image and text from multiple sources. Techniques include onsite scanning, drone photography, negotiation with archives and the formation of alliances with corporations, religious organizations and governments.',
-    image: 'https://images.unsplash.com/photo-1555949963-ff9fe0c870eb?auto=format&fit=crop&w=1400&q=80',
-  },
-  {
-    title: 'Machine Learning Enablement',
-    details:
-      "Maximise your home's potential with a bespoke loft conversion. Whether you're looking for an extra bedroom, office, or living space, Refit transforms underused lofts into stylish, functional areas, adding both value and comfort to your home with expert planning and precision construction.",
-    image: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=1400&q=80',
-  },
-  {
-    title: 'Autonomous Driving Technology',
-    details:
-      'From luxurious en-suites to practical family bathrooms, Refit delivers beautifully designed spaces that combine style with functionality. We handle everything from tiling and fixtures to plumbing and lighting, ensuring a high-quality finish that enhances both comfort and aesthetics.',
-    image: 'https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=1400&q=80',
-  },
-  {
-    title: 'AI-Enabled Customer Service',
-    details:
-      "Expand your living space with a seamless home extension. Whether you need a bigger kitchen, a new living area, or a multi-purpose space, Refit provides expertly crafted extensions designed to enhance your home's flow, value, and usability, all while maintaining its unique character.",
-    image: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1400&q=80',
-  },
-  {
-    title: 'Natural Language Processing and Speech Acquisition',
-    details:
-      "Bring your home's character back to life with Refit's expert restoration services. Whether it's period features, structural repairs, or a full-scale renovation, we preserve and enhance original details while ensuring modern durability, creating a perfect balance between heritage and contemporary living.",
-    image: 'https://images.unsplash.com/photo-1589254065878-42c9da997008?auto=format&fit=crop&w=1400&q=80',
-  },
-  {
-    title: 'Computer Vision (CV)',
-    details:
-      "From driveways and patios to fencing and brickwork, Refit enhances your home's exterior with durable, high-quality craftsmanship. Whether it's improving curb appeal or creating a beautiful outdoor space, our team ensures every detail is built to last and designed to impress.",
-    image: 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1400&q=80',
-  },
-  {
-    title: 'Genealogy',
-    details:
-      `Powered by AI, Lifewood processes genealogical material at speed and scale, to conserve and illuminate family histories, national archives, corporate lists and records of all types. Lifewood has more than 18 years of experience capturing, scanning and processing genealogical data. In fact, Lifewood started with genealogy data as its core business, so that over the years we have accumulated vast knowledge in diverse types of genealogy indexing.
-
-We have worked with all the major genealogy companies and have extensive experience in transcribing and indexing genealogical content in a wide variety of formats, including tabular, pre-printed forms and paragraph-style records.
-
-Working across borders, with offices on every continent, our ability with multi-language projects has built an extensive capability spanning more than 50 languages and associated dialects. Now, powered by AI and the latest inter-office communication systems, we are transforming ever more efficient ways to service our clients, while keeping humanity at the centre of our activity.
-
-Genealogical material that we have experience with includes:
-
-Census
-Vital - BMD
-Church and Parish Registers
-Passenger Lists
-Naturalisation
-Military Records
-Legal Records
-Yearbooks`,
-    image: 'https://images.unsplash.com/photo-1461360228754-6e81c478b882?auto=format&fit=crop&w=1400&q=80',
-  },
-]
-
-const typeAUseCases = [
-  'Multi-language genealogy documents, newspapers, and archives to facilitate global ancestry research',
-  'QQ Music of over millions non-Chinese songs and lyrics',
-]
-
-const typeAProcess = [
-  {
-    step: '01',
-    title: 'Objective',
-    details: 'Scan document for preservation, extract data and structure into database.',
-    image: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1200&q=80',
-  },
-  {
-    step: '02',
-    title: 'Key Features',
-    details: 'Features include Auto Crop, Auto De-skew, Blur Detection, Foreign Object Detection, and AI Data Extraction.',
-    image: 'https://images.unsplash.com/photo-1518773553398-650c184e0bb3?auto=format&fit=crop&w=1200&q=80',
-  },
-  {
-    step: '03',
-    title: 'Results',
-    details:
-      'Accurate and precise data is ensured through validation and quality assurance. The system is efficient and scalable, enabling fast and adaptable data extraction. It supports multiple languages and formats, allowing the handling of diverse documents. Advanced features include auto-crop, de-skew, blur, and object detection. With AI integration, the solution provides structured data for AI tools and delivers clear, visual, and easy-to-understand results.',
-    image: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1200&q=80',
-  },
-]
-
-const typeBUseCases = [
-  'Comprehensive AI data solutions that cover the entire spectrum from data collection and annotation to model testing.',
-  'Creating multimodal datasets for deep learning and large language models.',
-]
-
-const typeBProcess = [
-  {
-    step: '01',
-    title: 'Target',
-    details:
-      'Capture and transcribe recordings from native speakers from 23 different countries (Netherlands, Spain, Norway, France, Germany, Poland, Russia, Italy, Japan, South Korea, Mexico, UAE, Saudi Arabia, Egypt, etc.). Voice content involves 6 project types and 9 data domains. A total of 25,400 valid hours durations.',
-    image: 'https://images.unsplash.com/photo-1518773553398-650c184e0bb3?auto=format&fit=crop&w=1200&q=80',
-  },
-  {
-    step: '02',
-    title: 'Solutions',
-    details:
-      '30,000+ native speaking human resources from more than 30 countries were mobilized. Use our flexible industrial processes and continuously optimize them. Use PBI to track the progress of daily collection and transcription in real time, analyze and improve the results in real time.',
-    image: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80',
-  },
-  {
-    step: '03',
-    title: 'Results',
-    details:
-      '5 months to complete the voice collection and annotation of 25,400 valid hours on time and with quality.',
-    image: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1200&q=80',
-  },
-]
-
-const typeCUseCases = [
-  'Autonomous driving and smart cockpit datasets for Driver Monitoring System.',
-  'China Merchants Group: enterprise-grade dataset for building "ShipGPT".',
-]
-
-const typeCProcess = [
-  {
-    step: '01',
-    title: 'Target',
-    details:
-      'Annotate vehicles, pedestrians, and road objects with 2D & 3D techniques to enable accurate object detection for autonomous driving. Self-driving cars rely on precise visual training to detect, classify, and respond safely in real-world conditions.',
-    image: 'https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=1200&q=80',
-  },
-  {
-    step: '02',
-    title: 'Solutions',
-    details:
-      'Dedicated Process Engineering team for analysis and optimization. AI-enhanced workflow with multi-level quality checks. Scalable global delivery through crowdsourced workforce management.',
-    image: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=1200&q=80',
-  },
-  {
-    step: '03',
-    title: 'Results',
-    details:
-      'Achieved 25% production in Month 1 with 95% accuracy (Target: 90%) and 50% production in Month 2 with 99% accuracy (Target: 95%). Maintained an overall accuracy of 99% with on-time delivery. Successfully expanded operations to Malaysia with 100 annotators and Indonesia with 150 annotators.',
-    image: 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1200&q=80',
-  },
-]
-
-const typeDCapabilities = [
-  {
-    title: 'Story-Driven Production',
-    details:
-      'We specialize in story-driven content for companies looking to join the communication revolution.',
-    icon: Clapperboard,
-  },
-  {
-    title: 'Generative AI Workflows',
-    details:
-      'Advanced film, video, and editing techniques are combined with generative AI to create cinematic worlds for brand communications.',
-    icon: Bot,
-  },
-  {
-    title: 'Global Localization',
-    details:
-      'We can quickly adjust culture and language for different world markets while preserving the core message.',
-    icon: Languages,
-  },
-]
-
-const typeDVisuals = [
-  {
-    title: 'Cinematic AI Scenes',
-    image: 'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=1600&q=80',
-  },
-  {
-    title: 'Creative Direction',
-    image: 'https://images.unsplash.com/photo-1542744173-05336fcc7ad4?auto=format&fit=crop&w=1600&q=80',
-  },
-  {
-    title: 'Global Localization',
-    image: 'https://images.unsplash.com/photo-1523961131990-5ea7c61b2107?auto=format&fit=crop&w=1600&q=80',
-  },
-]
-
-const typeDCinematicFrames = [
-  {
-    title: 'Scene Composition',
-    image: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1600&q=80',
-  },
-  {
-    title: 'AI Shot Planning',
-    image: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&w=1600&q=80',
-  },
-  {
-    title: 'Post-production Flow',
-    image: 'https://images.unsplash.com/photo-1492619375914-88005aa9e8fb?auto=format&fit=crop&w=1600&q=80',
-  },
-]
-
-const typeDCinematicVideo = {
-  src: '/media/ai-cinematic-scene.mp4',
-  poster: 'https://images.unsplash.com/photo-1518773553398-650c184e0bb3?auto=format&fit=crop&w=1600&q=80',
-}
-
-const typeDStats = [
-  { label: 'Multiple Languages', value: 'Multiple' },
-  { label: 'Countries Covered', value: '100+' },
-]
-
-const philanthropyNarrative = [
-  {
-    title: 'Our Vision',
-    details:
-      'Our vision is of a world where financial investment plays a central role in solving social and environmental challenges facing the global community, specifically in Africa and the Indian sub-continent.',
-    icon: Sparkles,
-  },
-  {
-    title: 'Our Impact',
-    details:
-      'At Lifewood we direct financial and social resources into educational and developmental projects around the world. Through purposeful partnerships and sustainable investment, we have empowered communities and transformed their economic and social environments in these areas.',
-    icon: ShieldCheck,
-  },
-  {
-    title: 'Collaborative Partnership',
-    details:
-      'Our projects in South Africa, Madagascar, India, Bangladesh, Vietnam, and the Philippines have touched more than 100,000 lives through a broad spectrum of developmental opportunities, including market gardening, educational support and micro-finance projects, and strategic implementation of resources to accelerate growth and establish sustainable local economies.',
-    icon: FolderTree,
-  },
-]
-
-const philanthropyMapOffices = [
-  { name: 'South Africa', lat: -30.5595, lon: 22.9375, region: 'Africa' },
-  { name: 'Nigeria', lat: 9.082, lon: 8.6753, region: 'Africa' },
-  { name: 'Republic of the Congo', lat: -0.228, lon: 15.8277, region: 'Africa' },
-  { name: 'Democratic Republic of the Congo', lat: -4.0383, lon: 21.7587, region: 'Africa' },
-  { name: 'Ghana', lat: 7.9465, lon: -1.0232, region: 'Africa' },
-  { name: 'Madagascar', lat: -18.7669, lon: 46.8691, region: 'Africa' },
-  { name: 'Benin', lat: 9.3077, lon: 2.3158, region: 'Africa' },
-  { name: 'Uganda', lat: 1.3733, lon: 32.2903, region: 'Africa' },
-  { name: 'Kenya', lat: -0.0236, lon: 37.9062, region: 'Africa' },
-  { name: 'Ivory Coast', lat: 7.54, lon: -5.5471, region: 'Africa' },
-  { name: 'Egypt', lat: 26.8206, lon: 30.8025, region: 'Africa' },
-  { name: 'Ethiopia', lat: 9.145, lon: 40.4897, region: 'Africa' },
-  { name: 'Niger', lat: 17.6078, lon: 8.0817, region: 'Africa' },
-  { name: 'Tanzania', lat: -6.369, lon: 34.8888, region: 'Africa' },
-  { name: 'Namibia', lat: -22.9576, lon: 18.4904, region: 'Africa' },
-  { name: 'Zambia', lat: -13.1339, lon: 27.8493, region: 'Africa' },
-  { name: 'Zimbabwe', lat: -19.0154, lon: 29.1549, region: 'Africa' },
-  { name: 'Liberia', lat: 6.4281, lon: -9.4295, region: 'Africa' },
-  { name: 'Sierra Leone', lat: 8.4606, lon: -11.7799, region: 'Africa' },
-  { name: 'India', lat: 20.5937, lon: 78.9629, region: 'Asia' },
-  { name: 'Bangladesh', lat: 23.685, lon: 90.3563, region: 'Asia' },
-  { name: 'China', lat: 35.8617, lon: 104.1954, region: 'Asia' },
-]
-
-const careersValues = [
-  {
-    title: 'Global Team Culture',
-    details: 'Work with distributed teams across regions while learning from diverse perspectives and delivery models.',
-    icon: FolderTree,
-  },
-  {
-    title: 'Impact-Driven Work',
-    details: 'Contribute to AI and data programs that solve real operational and business challenges at scale.',
-    icon: ShieldCheck,
-  },
-  {
-    title: 'Growth and Development',
-    details: 'Build technical and leadership capability through structured mentorship, training, and cross-functional exposure.',
-    icon: Sparkles,
-  },
-]
-
-const careersCultureChips = [
-  'Innovative',
-  'Flexible',
-  'Supportive',
-  'Collaborative',
-  'Engaging',
-  'Diverse',
-  'Purpose-driven',
-  'Transparent',
-  'Trustworthy',
-  'Professional',
-  'Reliable',
-  'Balanced (work-life balance)',
-]
-
-const adminMenuItems = [
-  { label: 'Dashboard', icon: LayoutGrid },
-  { label: 'Analytics', icon: BarChart3 },
-  { label: 'Evaluation', icon: FileCheck2 },
-  { label: 'Reports', icon: FileText },
-  { label: 'Applications', icon: FileText },
-  { label: 'Approvals', icon: UserCheck2 },
-  { label: 'Manage Interns', icon: UserSquare2 },
-  { label: 'Manage Employee', icon: UserCheck2 },
-]
-
-const adminPanelContent = {
-  Dashboard: {
-    heading: 'Overview',
-    badge: 'Spring Term 2026',
-    status: 'In Progress',
-    titleA: 'Mastering',
-    titleB: 'React',
-    titleC: 'Patterns & Architecture',
-    module: 'Module 12 of 24',
-    completion: '82%',
-    spent: '14h',
-    grade: 'A+',
-    efficiency: '98%',
-    level: '04',
-    levelLabel: 'Senior Intern',
-    weekly: '4 tasks remaining',
-    activity: [
-      ['98%', 'Quiz Score: React Hooks', '27 Feb, 2026'],
-      ['x2', 'Productivity Streak', 'Increased limits on tasks'],
-      ['2%', 'Optimization Bonus', 'Code quality improvement'],
-    ],
-  },
-  Analytics: {
-    heading: 'Analytics',
-    badge: 'Live Metrics',
-    status: 'Monitoring',
-    titleA: 'Delivery',
-    titleB: 'Performance',
-    titleC: '& Utilization',
-    module: 'Reporting window: Last 30 days',
-    completion: '91%',
-    spent: '126h',
-    grade: 'A',
-    efficiency: '94%',
-    level: '07',
-    levelLabel: 'Ops Analyst',
-    weekly: '2 metrics to review',
-    activity: [
-      ['+12%', 'Throughput Increase', 'Week-over-week gain'],
-      ['97%', 'SLA Compliance', 'All critical pipelines on target'],
-      ['5', 'Flagged Alerts', 'Awaiting assignment'],
-    ],
-  },
-  Evaluation: {
-    heading: 'Evaluation',
-    badge: 'Quality Cycle',
-    status: 'Review',
-    titleA: 'Model',
-    titleB: 'Evaluation',
-    titleC: '& QA Readiness',
-    module: 'Cycle 6 in progress',
-    completion: '88%',
-    spent: '53h',
-    grade: 'A-',
-    efficiency: '92%',
-    level: '05',
-    levelLabel: 'QA Lead',
-    weekly: '6 checks pending',
-    activity: [
-      ['96%', 'Annotation Accuracy', 'Validation batch completed'],
-      ['14', 'Open Findings', 'Need category owner updates'],
-      ['3', 'Blocked Samples', 'Awaiting source correction'],
-    ],
-  },
-  Reports: {
-    heading: 'Reports',
-    badge: 'Executive View',
-    status: 'Compiling',
-    titleA: 'Monthly',
-    titleB: 'Delivery',
-    titleC: '& Client Reports',
-    module: 'March summary draft',
-    completion: '76%',
-    spent: '31h',
-    grade: 'B+',
-    efficiency: '89%',
-    level: '03',
-    levelLabel: 'Reporting Intern',
-    weekly: '5 reports to finalize',
-    activity: [
-      ['8', 'Draft Reports', 'Queued for internal review'],
-      ['3', 'Client Exports', 'Pending approval'],
-      ['1', 'Overdue Item', 'Executive summary update'],
-    ],
-  },
-  Approvals: {
-    heading: 'Approvals',
-    badge: 'Pending Requests',
-    status: 'Review Queue',
-    titleA: 'Sign-up',
-    titleB: 'Request',
-    titleC: '& Approval Flow',
-    module: 'Registration pipeline',
-    completion: '100%',
-    spent: '11h',
-    grade: 'A',
-    efficiency: '96%',
-    level: '06',
-    levelLabel: 'Access Admin',
-    weekly: 'Review pending requests',
-    activity: [
-      ['New', 'Incoming Requests', 'Awaiting admin review'],
-      ['Queue', 'Approval Status', 'Track approved and rejected requests'],
-      ['Next', 'Provision Accounts', 'Backend function can automate final auth creation'],
-    ],
-  },
-  Applications: {
-    heading: 'Applications',
-    badge: 'Career Pipeline',
-    status: 'Review Queue',
-    titleA: 'Applicant',
-    titleB: 'Review',
-    titleC: '& Decisions',
-    module: 'Career applications',
-    completion: '100%',
-    spent: '6h',
-    grade: 'A',
-    efficiency: '95%',
-    level: '06',
-    levelLabel: 'HR Admin',
-    weekly: 'Review pending applicants',
-    activity: [
-      ['New', 'Incoming Applications', 'CVs and details ready'],
-      ['Queue', 'Decision Status', 'Approve or reject applicants'],
-      ['Next', 'Notify Candidates', 'Email status update'],
-    ],
-  },
-  'Manage Interns': {
-    heading: 'Manage Interns',
-    badge: 'Workspace Controls',
-    status: 'Configurable',
-    titleA: 'Team',
-    titleB: 'Settings',
-    titleC: '& Access Control',
-    module: 'Policy version 2.3',
-    completion: '100%',
-    spent: '9h',
-    grade: 'A',
-    efficiency: '99%',
-    level: '09',
-    levelLabel: 'Platform Admin',
-    weekly: '1 policy sync due',
-    activity: [
-      ['2FA', 'Authentication Enabled', 'All admin users secured'],
-      ['12', 'Active Seats', 'License utilization in range'],
-      ['0', 'Critical Issues', 'No current blockers'],
-    ],
-  },
-  'Manage Employee': {
-    heading: 'Manage Employee',
-    badge: 'Employee Records',
-    status: 'Synchronized',
-    titleA: 'Employee',
-    titleB: 'Records',
-    titleC: '& Hired Profiles',
-    module: 'Hiring pipeline sync',
-    completion: '100%',
-    spent: '5h',
-    grade: 'A',
-    efficiency: '97%',
-    level: '08',
-    levelLabel: 'People Ops',
-    weekly: 'Review hired employee records',
-    activity: [
-      ['Sync', 'Hiring Actions', 'Hired applicants are copied automatically'],
-      ['Roster', 'Employee Records', 'Search and review all hired staff'],
-      ['Ready', 'Profile Access', 'Available to signed-in approved accounts'],
-    ],
-  },
-}
-
-const analyticsInterns = [
-  { name: 'Antopina, John Wrexel', performance: 56, attendance: 61, progress: 48, low: true },
-  { name: 'Barluado, Francis Merc', performance: 58, attendance: 64, progress: 52, low: true },
-  { name: 'Cabrillos, Dane Kiev', performance: 91, attendance: 93, progress: 87, low: false },
-  { name: 'Cagampang, Emmanuel Jr.', performance: 90, attendance: 95, progress: 88, low: false },
-  { name: 'Casidsid, Twinky', performance: 88, attendance: 92, progress: 84, low: false },
-  { name: 'Castrodes, Atilla Hadrian', performance: 89, attendance: 94, progress: 86, low: false },
-  { name: 'Damayo, Jholmer', performance: 87, attendance: 91, progress: 83, low: false },
-  { name: 'Francisco, Ezzel Jan', performance: 90, attendance: 92, progress: 85, low: false },
-  { name: 'Gelborion, Francis Dave', performance: 88, attendance: 90, progress: 84, low: false },
-  { name: 'Inocentes, Jose Danielle', performance: 89, attendance: 93, progress: 86, low: false },
-  { name: 'Jumao-as, Andre Daniel', performance: 92, attendance: 95, progress: 89, low: false },
-  { name: 'Jusga, Ailyn', performance: 86, attendance: 90, progress: 82, low: false },
-  { name: 'Lastimosa, Julius Jr.', performance: 91, attendance: 94, progress: 88, low: false },
-  { name: 'Lico, Trixie Sandra', performance: 87, attendance: 91, progress: 83, low: false },
-  { name: 'Mahasol, Jayred Deil', performance: 90, attendance: 92, progress: 86, low: false },
-  { name: 'Mandado, Gerard Luis', performance: 88, attendance: 93, progress: 85, low: false },
-  { name: 'Muntear, Justine Mhars', performance: 89, attendance: 92, progress: 84, low: false },
-  { name: 'Prandas, Jumar', performance: 86, attendance: 89, progress: 82, low: false },
-  { name: 'Quitco, Kyle Matthew', performance: 90, attendance: 94, progress: 87, low: false },
-  { name: 'Soriano, Darin Jan', performance: 88, attendance: 90, progress: 84, low: false },
-  { name: 'Sungahid, Raily', performance: 87, attendance: 91, progress: 83, low: false },
-  { name: 'Tacatani, Dominic', performance: 100, attendance: 100, progress: 100, low: false },
-  { name: 'Tampepe, Prince Christian', performance: 90, attendance: 94, progress: 88, low: false },
-  { name: 'Tumungha, Hara Alexa', performance: 88, attendance: 92, progress: 85, low: false },
-  { name: 'Ugdamin, Willa Mae', performance: 89, attendance: 91, progress: 84, low: false },
-  { name: 'Vargas, Harvey', performance: 87, attendance: 90, progress: 82, low: false },
-  { name: 'Vergara, Aleah June', performance: 90, attendance: 93, progress: 87, low: false },
-  { name: 'Paug, Mart Francesfil', performance: 88, attendance: 92, progress: 85, low: false },
-  { name: 'Pegarido, Sol Andrew', performance: 89, attendance: 90, progress: 84, low: false },
-  { name: 'Villaflor, Philip Vincent', performance: 91, attendance: 94, progress: 88, low: false },
-  { name: 'Nilama, Francis Gary', performance: 88, attendance: 91, progress: 84, low: false },
-]
-
-const schoolOptions = [
-  'University of Cebu',
-  'University of San Jose Recoletos',
-  'University of San Carlos',
-  'Cebu Normal University',
-  'Cebu Technological University',
-  'Cebu Institute of Technology-University',
-  'Southwestern University',
-]
-
-const internSchoolByName = {
-  'Antopina, John Wrexel': 'University of Cebu',
-  'Barluado, Francis Merc': 'University of Cebu',
-  'Cabrillos, Dane Kiev': 'Cebu Institute of Technology-University',
-  'Cagampang, Emmanuel Jr.': 'Cebu Institute of Technology-University',
-  'Casidsid, Twinky': 'University of Cebu',
-  'Castrodes, Atilla Hadrian': 'University of Cebu',
-  'Damayo, Jholmer': 'University of Cebu',
-  'Francisco, Ezzel Jan': 'Cebu Institute of Technology-University',
-  'Gelborion, Francis Dave': 'University of Cebu',
-  'Inocentes, Jose Danielle': 'University of Cebu',
-  'Jumao-as, Andre Daniel': 'University of Cebu',
-  'Jusga, Ailyn': 'Cebu Technological University',
-  'Lastimosa, Julius Jr.': 'Cebu Technological University',
-  'Lico, Trixie Sandra': 'Cebu Institute of Technology-University',
-  'Mahasol, Jayred Deil': 'University of Cebu',
-  'Mandado, Gerard Luis': 'University of Cebu',
-  'Muntear, Justine Mhars': 'University of Cebu',
-  'Prandas, Jumar': 'University of Cebu',
-  'Quitco, Kyle Matthew': 'Cebu Institute of Technology-University',
-  'Soriano, Darin Jan': 'University of Cebu',
-  'Sungahid, Raily': 'University of Cebu',
-  'Tacatani, Dominic': 'University of Cebu',
-  'Tampepe, Prince Christian': 'Cebu Technological University',
-  'Tumungha, Hara Alexa': 'Cebu Institute of Technology-University',
-  'Ugdamin, Willa Mae': 'Cebu Technological University',
-  'Vargas, Harvey': 'University of Cebu',
-  'Vergara, Aleah June': 'University of Cebu',
-  'Paug, Mart Francesfil': 'Cebu Institute of Technology-University',
-  'Pegarido, Sol Andrew': 'Cebu Institute of Technology-University',
-  'Villaflor, Philip Vincent': 'Cebu Institute of Technology-University',
-  'Nilama, Francis Gary': 'Cebu Institute of Technology-University',
-}
-
-const internProfileByName = {
-  'Antopina, John Wrexel': { gender: 'Male', course: 'BS Information Technology', contact: '0962-602-4717', email: 'jw.antopina@gmail.com', requiredHours: 540 },
-  'Barluado, Francis Merc': { gender: 'Male', course: 'BS Information Technology', contact: '0969-355-2175', email: 'fmbarluado25@gmail.com', requiredHours: 540 },
-  'Cabrillos, Dane Kiev': { gender: 'Female', course: 'BS Psychology', contact: '0975-188-7320', email: 'danekiev2003@gmail.com', requiredHours: 200 },
-  'Cagampang, Emmanuel Jr.': { gender: 'Male', course: 'BS Information Technology', contact: '0927-787-5247', email: 'orientaleac@gmail.com', requiredHours: 500 },
-  'Casidsid, Twinky': { gender: 'Male', course: 'BS Information Technology', contact: '0968-695-7301', email: 'twinkycasidsidx@gmail.com', requiredHours: 540 },
-  'Castrodes, Atilla Hadrian': { gender: 'Female', course: 'BS Information Technology', contact: '0956-039-6527', email: 'atillahadrianc@gmail.com', requiredHours: 540 },
-  'Damayo, Jholmer': { gender: 'Male', course: 'BS Information Technology', contact: '0951-585-6382', email: 'damayojholmer@gmail.com', requiredHours: 540 },
-  'Francisco, Ezzel Jan': { gender: 'Female', course: 'BS Information Technology', contact: '0991-836-1647', email: 'ezzelfrancisco95@gmail.com', requiredHours: 500 },
-  'Gelborion, Francis Dave': { gender: 'Male', course: 'BS Information Technology', contact: '0921-854-9562', email: 'gelboriondave@gmail.com', requiredHours: 540 },
-  'Inocentes, Jose Danielle': { gender: 'Male', course: 'BS Information Technology', contact: '0915-458-6387', email: 'daniel.inocentes30@gmail.com', requiredHours: 540 },
-  'Jumao-as, Andre Daniel': { gender: 'Male', course: 'BS Information Technology', contact: '0917-951-6740', email: 'jumaosandre2003@gmail.com', requiredHours: 540 },
-  'Jusga, Ailyn': { gender: 'Female', course: 'BS Information Technology', contact: '0962-537-8473', email: 'ailynjusga99@gmail.com', requiredHours: 250 },
-  'Lastimosa, Julius Jr.': { gender: 'Male', course: 'BS Information Technology', contact: '0960-852-1349', email: 'juliusjrclastimosa@gmail.com', requiredHours: 250 },
-  'Lico, Trixie Sandra': { gender: 'Female', course: 'BS General Business Management', contact: '0981-491-4545', email: 'licotrixie@gmail.com', requiredHours: 600 },
-  'Mahasol, Jayred Deil': { gender: 'Male', course: 'BS Information Technology', contact: '0935-545-2624', email: 'jayredmahasol@gmail.com', requiredHours: 540 },
-  'Mandado, Gerard Luis': { gender: 'Male', course: 'BS Information Technology', contact: '0932-506-2156', email: 'gerardmandado@gmail.com', requiredHours: 540 },
-  'Muntear, Justine Mhars': { gender: 'Male', course: 'BS Information Technology', contact: '0929-616-1918', email: 'justinemharsmumar@gmail.com', requiredHours: 540 },
-  'Prandas, Jumar': { gender: 'Male', course: 'BS Finance', contact: '0960-803-7765', email: 'prandasmarie@gmail.com', requiredHours: 600 },
-  'Quitco, Kyle Matthew': { gender: 'Male', course: 'BS Information Technology', contact: '0968-204-9428', email: 'kylequitco3212@gmail.com', requiredHours: 500 },
-  'Soriano, Darin Jan': { gender: 'Male', course: 'BS Information Technology', contact: '0968-434-8724', email: 'darinjan13@gmail.com', requiredHours: 540 },
-  'Sungahid, Raily': { gender: 'Male', course: 'BS Information Technology', contact: '0927-600-8268', email: 'railysungahid@gmail.com', requiredHours: 540 },
-  'Tacatani, Dominic': { gender: 'Male', course: 'BS Information Technology', contact: '0929-289-1124', email: 'dominictacatani123@gmail.com', requiredHours: 540 },
-  'Tampepe, Prince Christian': { gender: 'Male', course: 'BS Information Technology', contact: '0931-915-4737', email: 'tadeochristianprince@gmail.com', requiredHours: 729 },
-  'Tumungha, Hara Alexa': { gender: 'Female', course: 'BS Information Technology', contact: '0995-489-5471', email: 'haraalexatumungha@gmail.com', requiredHours: 500 },
-  'Ugdamin, Willa Mae': { gender: 'Female', course: 'BS Information Technology', contact: '0930-633-4982', email: 'willamaeu@gmail.com', requiredHours: 729 },
-  'Vargas, Harvey': { gender: 'Male', course: 'BS Finance', contact: '0956-534-4841', email: 'harveycvargas@gmail.com', requiredHours: 600 },
-  'Vergara, Aleah June': { gender: 'Female', course: 'BS Finance', contact: '0954-982-7240', email: 'azeleah1@gmail.com', requiredHours: 600 },
-  'Paug, Mart Francesfil': { gender: 'Female', course: 'BS Marketing Management', contact: '0991-587-4770', email: 'pmartfrancesfilromarate@gmail.com', requiredHours: 600 },
-  'Pegarido, Sol Andrew': { gender: 'Male', course: 'BS Marketing Management', contact: '0939-650-5683', email: 'solandrewlabadpegarido@gmail.com', requiredHours: 600 },
-  'Villaflor, Philip Vincent': { gender: 'Male', course: 'BS Marketing Management', contact: '0968-364-0944', email: 'philsuvilo@gmail.com', requiredHours: 600 },
-  'Nilama, Francis Gary': { gender: 'Male', course: 'BS Information Technology', contact: '0910-810-7156', email: 'paenggwapokaayo123@gmail.com', requiredHours: 500 },
-}
-
-const careersTracks = [
-  {
-    title: 'AI Data Operations',
-    details: 'Data annotation, validation, QA, and workflow execution for large-scale AI model pipelines.',
-  },
-  {
-    title: 'Program & Delivery Management',
-    details: 'Lead teams, coordinate global execution, manage SLAs, and ensure quality and throughput outcomes.',
-  },
-  {
-    title: 'Data Engineering & Platform',
-    details: 'Build and optimize pipelines, automation, reporting, and tools that support enterprise AI delivery.',
-  },
-  {
-    title: 'Corporate & Shared Services',
-    details: 'Support growth through HR, finance, legal, compliance, and operations functions.',
-  },
-]
-
-const careersSteps = [
-  {
-    step: '01',
-    title: 'Apply',
-    details: 'Submit your profile and role preference through our careers intake process.',
-  },
-  {
-    step: '02',
-    title: 'Assess',
-    details: 'Complete interviews and practical evaluations aligned to role requirements.',
-  },
-  {
-    step: '03',
-    title: 'Onboard',
-    details: 'Join the team with structured onboarding, tools setup, and role-based training.',
-  },
-]
-
-const aboutPrinciples = [
-  {
-    title: 'Diversity',
-    code: 'D',
-    details:
-      'We celebrate differences in belief, philosophy and ways of life, because they bring unique perspectives and ideas that encourage everyone to move forward.',
-    icon: FolderTree,
-  },
-  {
-    title: 'Caring',
-    code: 'C',
-    details:
-      'We care for every person deeply and equally, because without care work becomes meaningless.',
-    icon: ShieldCheck,
-  },
-  {
-    title: 'Innovation',
-    code: 'I',
-    details:
-      'Innovation is at the heart of all we do, enriching our lives and challenging us to continually improve ourselves and our service.',
-    icon: Sparkles,
-  },
-  {
-    title: 'Integrity',
-    code: 'I',
-    details:
-      'We are dedicated to act ethically and sustainably in everything we do. More than just the bare minimum. It is the basis of our existence as a company.',
-    icon: Database,
-  },
-]
-
-const aboutStats = [
-  { label: 'Global Locations', value: '40+' },
-  { label: 'Countries', value: '30+' },
-  { label: 'Languages', value: '50+' },
-  { label: 'Workforce', value: '56,000+' },
-]
-
-const aboutShowcase = {
-  heroImage: 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1600&q=80',
-  collabImage: 'https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=1200&q=80',
-}
-
-const aboutMissionVision = {
-  mission: {
-    title: 'Our Mission',
-    description:
-      'To develop and deploy cutting-edge AI technologies that solve real-world problems, empower communities, and advance sustainable practices. We are committed to fostering a culture of innovation, collaborating with stakeholders across sectors, and making a meaningful impact on society and the environment.',
-    image: 'https://images.unsplash.com/photo-1581092335397-9583eb92d232?auto=format&fit=crop&w=1400&q=80',
-  },
-  vision: {
-    title: 'Our Vision',
-    description:
-      'To be the global champion in AI data solutions, igniting a culture of innovation and sustainability that enriches lives and transforms communities worldwide.',
-    image: 'https://images.unsplash.com/photo-1526628953301-3e589a6a8b74?auto=format&fit=crop&w=1400&q=80',
-  },
-}
-
-const contactChannels = [
-  {
-    title: 'Email',
-    value: 'hr.lifewood@gmail.com',
-    href: 'mailto:hr.lifewood@gmail.com',
-    icon: Mail,
-  },
-  {
-    title: 'Phone',
-    value: '+1 (555) 123-4567',
-    href: 'tel:+15551234567',
-    icon: Phone,
-  },
-  {
-    title: 'Headquarters',
-    value: 'Global Delivery Offices',
-    href: '#contact-offices',
-    icon: MapPin,
-  },
-]
-
-const contactOffices = [
-  {
-    region: 'Asia Pacific',
-    city: 'Hong Kong',
-    details: 'Program delivery, client operations, and regional coordination hub.',
-  },
-  {
-    region: 'Southeast Asia',
-    city: 'Philippines',
-    details: 'Large-scale data operations, QA workflows, and managed annotation teams.',
-  },
-  {
-    region: 'South Asia',
-    city: 'India',
-    details: 'AI operations support, multilingual processing, and rapid scale-up teams.',
-  },
-]
-
-const lifewoodWorldwideOffices = [
-  { name: 'South Africa', lat: -30.5595, lon: 22.9375, region: 'Africa' },
-  { name: 'Madagascar', lat: -18.7669, lon: 46.8691, region: 'Africa' },
-  { name: 'China', lat: 35.8617, lon: 104.1954, region: 'Asia' },
-  { name: 'Hong Kong', lat: 22.3193, lon: 114.1694, region: 'Asia' },
-  { name: 'Japan', lat: 36.2048, lon: 138.2529, region: 'Asia' },
-  { name: 'Philippines', lat: 12.8797, lon: 121.774, region: 'Asia' },
-  { name: 'Vietnam', lat: 14.0583, lon: 108.2772, region: 'Asia' },
-  { name: 'Thailand', lat: 15.87, lon: 100.9925, region: 'Asia' },
-  { name: 'Malaysia', lat: 4.2105, lon: 101.9758, region: 'Asia' },
-  { name: 'Indonesia', lat: -0.7893, lon: 113.9213, region: 'Asia' },
-  { name: 'India', lat: 20.5937, lon: 78.9629, region: 'Asia' },
-  { name: 'Bangladesh', lat: 23.685, lon: 90.3563, region: 'Asia' },
-  { name: 'Australia', lat: -25.2744, lon: 133.7751, region: 'Oceania' },
-  { name: 'Germany', lat: 51.1657, lon: 10.4515, region: 'Europe' },
-  { name: 'Finland', lat: 61.9241, lon: 25.7482, region: 'Europe' },
-  { name: 'United Kingdom', lat: 55.3781, lon: -3.436, region: 'Europe' },
-  { name: 'United States', lat: 37.0902, lon: -95.7129, region: 'Americas' },
-  { name: 'Brazil', lat: -14.235, lon: -51.9253, region: 'Americas' },
-  { name: 'Africa', lat: 0.7893, lon: 21.0937, region: 'Regional Hub' },
-  { name: 'Middle East', lat: 26.8206, lon: 45.0792, region: 'Regional Hub' },
-]
-
-const routeContent = {
-  '/careers': {
-    title: 'Careers',
-    description: 'Join Lifewood teams delivering AI data operations across global markets.',
-  },
-  '/ai-services': {
-    title: 'AI Services',
-    description: 'Explore Lifewood AI service capabilities across data annotation and operations.',
-  },
-  '/ai-projects': {
-    title: 'AI Projects',
-    description: 'Review selected AI program areas and project delivery tracks.',
-  },
-  '/type-a-data-servicing': {
-    title: 'Type A - Data Servicing',
-    description: 'Managed data servicing operations with quality and throughput controls.',
-  },
-  '/type-b-horizontal-llm-data': {
-    title: 'Type B - Horizontal LLM Data',
-    description: 'Cross-domain LLM data creation and labeling pipelines for broad model training.',
-  },
-  '/type-c-vertical-llm-data': {
-    title: 'Type C - Vertical LLM Data',
-    description: 'Domain-specific LLM datasets built for industry-focused model outcomes.',
-  },
-  '/type-d-aigc': {
-    title: 'Type D - AIGC',
-    description: 'Data workflows for generative AI systems and content production loops.',
-  },
-  '/philanthropy-impact': {
-    title: 'Philanthropy & Impact',
-    description: 'Programs focused on social impact, inclusion, and sustainable operations.',
-  },
-  '/contact-us': {
-    title: 'Contact Us',
-    description: 'Speak with our team about your data operations, AI services, and delivery requirements.',
-  },
-  '/sign-in': {
-    title: 'Sign In',
-    description: 'Access your Lifewood workspace, projects, and delivery dashboards.',
-  },
-  '/admin-dashboard': {
-    title: 'Admin Dashboard',
-    description: 'Monitor delivery performance, tasks, and team activity.',
-  },
-  '/about-us': {
-    title: 'About Us',
-    description: 'Learn about Lifewood, our values, and how we deliver global AI data engineering services.',
-  },
-  '/offices': {
-    title: 'Offices',
-    description: 'Explore Lifewood regional teams and operational locations.',
-  },
-  '/internal-news': {
-    title: 'Internal News',
-    description: 'Latest company updates and operational announcements from Lifewood.',
-  },
-}
-
-const buildSeedInternAnalyticsData = () =>
-  analyticsInterns.map((intern, index) => ({
-    ...intern,
-    id: `seed-intern-${index + 1}`,
-    email: intern.email || internProfileByName[intern.name]?.email || `intern${index + 1}@lifewood.com`,
-    gender: intern.gender || internProfileByName[intern.name]?.gender || 'Male',
-    course: intern.course || internProfileByName[intern.name]?.course || 'BS Information Technology',
-    contact: intern.contact || internProfileByName[intern.name]?.contact || '09XX-XXX-XXXX',
-    requiredHours: intern.requiredHours || internProfileByName[intern.name]?.requiredHours || 540,
-    track: intern.track || (index % 3 === 0 ? 'AI Data Operations' : index % 3 === 1 ? 'Quality Assurance' : 'Reporting & PMO'),
-    status: intern.status === 'On Leave' ? 'Suspend' : (intern.status || 'Active'),
-    mentor: intern.mentor || (index % 2 === 0 ? 'Team Lead A' : 'Team Lead B'),
-    joinDate: intern.joinDate || `2026-0${(index % 3) + 1}-${String((index % 27) + 1).padStart(2, '0')}`,
-    school: intern.school || internSchoolByName[intern.name] || schoolOptions[0],
-  }))
-
-const seedAnalyticsTaskEntries = [
-  { id: 'seed-task-1', internName: 'Cabrillos, Dane Kiev', task: 'Image Label Audit', score: 91, activityType: 'Task', createdAt: '2026-03-10' },
-  { id: 'seed-task-2', internName: 'Damayo, Jholmer', task: 'Dataset QA Review', score: 88, activityType: 'Quality Check', createdAt: '2026-03-11' },
-  { id: 'seed-task-3', internName: 'Tacatani, Dominic', task: 'Daily Standup Report', score: 100, activityType: 'Activity', createdAt: '2026-03-12' },
-]
-
-const mapInternRowToClient = (row) => ({
-  id: row.id,
-  name: row.name,
-  email: row.email || '',
-  gender: row.gender || 'Male',
-  course: row.course || 'BS Information Technology',
-  contact: row.contact || '',
-  requiredHours: row.required_hours || 0,
-  school: row.school || schoolOptions[0],
-  track: row.track || 'AI Data Operations',
-  status: row.status || 'Active',
-  mentor: row.mentor || 'Unassigned',
-  joinDate: row.join_date || '2026-01-01',
-  performance: row.performance ?? 0,
-  attendance: row.attendance ?? 0,
-  progress: row.progress ?? 0,
-  low: Boolean(row.low),
-})
-
-const mapTaskRowToClient = (row) => ({
-  id: row.id,
-  internName: row.intern_name,
-  task: row.task,
-  score: row.score,
-  activityType: row.activity_type,
-  createdAt: row.created_at_date,
-})
-
-const mapSignupRequestRowToClient = (row) => ({
-  id: row.id,
-  fullName: row.full_name,
-  email: row.email,
-  phone: row.phone || '',
-  department: row.department || '',
-  status: row.status,
-  adminNote: row.admin_note || '',
-  reviewedAt: row.reviewed_at || '',
-  createdAt: row.created_at,
-})
-
-const mapCareerApplicationRowToClient = (row) => ({
-  id: row.id,
-  firstName: row.first_name || '',
-  lastName: row.last_name || '',
-  email: row.email || '',
-  phoneCode: row.phone_code || '',
-  phoneNumber: row.phone_number || '',
-  gender: row.gender || '',
-  age: row.age ?? '',
-  country: row.country || '',
-  address: row.address || '',
-  positions: row.positions || [],
-  status: row.status || 'pending',
-  hireStatus: row.hire_status || '',
-  adminNote: row.admin_note || '',
-  reviewedAt: row.reviewed_at || '',
-  createdAt: row.created_at,
-  cvFilename: row.cv_filename || '',
-  cvPath: row.cv_path || '',
-  cvScore: row.cv_score ?? null,
-  cvBreakdown: row.cv_breakdown || null,
-  cvSummary: row.cv_summary || '',
-  cvScoredAt: row.cv_scored_at || '',
-})
-
-const mapHiredEmployeeRowToClient = (row) => ({
-  id: row.id,
-  applicationId: row.application_id,
-  ownerUserId: row.owner_user_id,
-  firstName: row.first_name || '',
-  lastName: row.last_name || '',
-  email: row.email || '',
-  phoneCode: row.phone_code || '',
-  phoneNumber: row.phone_number || '',
-  gender: row.gender || '',
-  age: row.age ?? '',
-  country: row.country || '',
-  address: row.address || '',
-  positions: row.positions || [],
-  applicationStatus: row.application_status || '',
-  hireStatus: row.hire_status || 'hired',
-  hiredAt: row.hired_at || row.created_at || '',
-  reviewedBy: row.reviewed_by || '',
-  createdAt: row.created_at || '',
-  updatedAt: row.updated_at || '',
-})
-
-const approvalStatusOrder = {
-  pending: 0,
-  approved: 1,
-  suspended: 2,
-  rejected: 3,
-}
-
-const applicationStatusOrder = {
-  pending: 0,
-  approved: 1,
-  'Proceeding to HR Interview': 1,
-  rejected: 2,
-}
-
-const emailJsConfig = {
-  publicKey: import.meta.env.VITE_EMAILJS_PUBLIC_KEY || '',
-  serviceId: import.meta.env.VITE_EMAILJS_SERVICE_ID || '',
-  templateApproved: import.meta.env.VITE_EMAILJS_TEMPLATE_APPROVED || '',
-  templateRejected: import.meta.env.VITE_EMAILJS_TEMPLATE_REJECTED || '',
-  fromName: import.meta.env.VITE_EMAILJS_FROM_NAME || 'Lifewood HR',
-  replyTo: import.meta.env.VITE_EMAILJS_REPLY_TO || '',
-  companyEmail: import.meta.env.VITE_EMAILJS_COMPANY_EMAIL || '',
-  companyUrl: import.meta.env.VITE_EMAILJS_COMPANY_URL || '',
-  logoUrl: import.meta.env.VITE_EMAILJS_LOGO_URL || '',
 }
 
 function ViewModeToggle({ value, onChange }) {
@@ -1247,6 +315,14 @@ function App() {
   const [applicationNoteDrafts, setApplicationNoteDrafts] = useState({})
   const [reviewedPendingApplicationIds, setReviewedPendingApplicationIds] = useState([])
   const [selectedApplication, setSelectedApplication] = useState(null)
+  const [isInterviewScheduleModalOpen, setIsInterviewScheduleModalOpen] = useState(false)
+  const [interviewScheduleForm, setInterviewScheduleForm] = useState(() => createInitialInterviewScheduleForm())
+  const [interviewScheduleError, setInterviewScheduleError] = useState('')
+  const interviewScheduleMinDate = useMemo(() => formatDateInputValue(new Date()), [])
+  const interviewTimeOptions = useMemo(
+    () => buildInterviewTimeOptions(interviewScheduleForm.date || interviewScheduleMinDate),
+    [interviewScheduleForm.date, interviewScheduleMinDate]
+  )
   const [isScoringCv, setIsScoringCv] = useState(false)
   const [cvScoreError, setCvScoreError] = useState('')
   const [isBatchScoring, setIsBatchScoring] = useState(false)
@@ -1281,7 +357,9 @@ function App() {
     '- Open selected applications, interns, report details, or the latest report',
     '- Open the application form or the analytics task panel',
     '- Clear filters, clear the chat, or focus a tab search field',
-    '- Proceed a selected application to HR interview',
+    '- Approve or reject the selected application',
+    '- Open interview scheduling for the selected application',
+    '- Mark the selected scheduled applicant as hired or not hired',
     '- Reject a selected application',
     '- Start batch CV scoring for pending applications',
   ]
@@ -1383,16 +461,68 @@ function App() {
   }
   const hrInterviewStatus = 'Proceeding to HR Interview'
   const isHrInterviewStatus = (status) => status === 'approved' || status === hrInterviewStatus
-  const canSetHireStatus = (application) => isHrInterviewStatus(application?.status)
+  const hasInterviewSchedule = (application) => Boolean(application?.interviewScheduledAt)
+  const isFinalHireDecision = (application) => ['hired', 'not_hired'].includes(application?.hireStatus)
+  const canSetHireStatus = (application) => isHrInterviewStatus(application?.status) && hasInterviewSchedule(application)
   const hireStatusLabel = (status) => {
     if (status === 'hired') return 'Hired'
     if (status === 'not_hired') return 'Not Hired'
     return 'Pending Hire Decision'
   }
+  const applicationDisplayStatusLabel = (application) => {
+    if (isFinalHireDecision(application)) return hireStatusLabel(application?.hireStatus)
+    return applicationStatusLabel(application?.status)
+  }
   const applicationStatusLabel = (status) => {
     if (isHrInterviewStatus(status)) return hrInterviewStatus
     if (status === 'rejected') return 'Rejected'
     return 'Pending'
+  }
+  const formatInterviewSchedule = (application) => {
+    if (!application?.interviewScheduledAt) return 'Interview schedule pending'
+    const dateLabel = new Date(application.interviewScheduledAt).toLocaleString()
+    const timezoneLabel = application.interviewTimezone ? ` (${application.interviewTimezone})` : ''
+    const locationLabel = application.interviewLocation ? ` • ${application.interviewLocation}` : ''
+    return `${dateLabel}${timezoneLabel}${locationLabel}`
+  }
+  const buildInterviewEmailMessage = (meetingType) => {
+    if (meetingType === 'google-meet') {
+      return 'Please make sure you have a stable internet connection, a working camera and microphone, and join the Google Meet link a few minutes before your scheduled interview time.'
+    }
+    return 'Please bring a printed copy of your CV and any other documents required for the interview. Kindly arrive a few minutes early to complete any necessary check-in procedures.'
+  }
+  function formatDateInputValue(date) {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+  function roundMinutesUp(minutes, step) {
+    return Math.ceil(minutes / step) * step
+  }
+  function buildInterviewTimeOptions(selectedDate) {
+    const options = []
+    const now = new Date()
+    const todayLabel = formatDateInputValue(now)
+    let startHour = selectedDate === todayLabel ? now.getHours() : 8
+    let startMinute = selectedDate === todayLabel ? roundMinutesUp(now.getMinutes(), 30) : 0
+    if (startMinute >= 60) {
+      startHour += 1
+      startMinute = 0
+    }
+
+    for (let hour = startHour; hour < 20; hour += 1) {
+      for (const minute of [0, 30]) {
+        if (hour === startHour && minute < startMinute) continue
+        const value = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+        const labelDate = new Date(2000, 0, 1, hour, minute)
+        options.push({
+          value,
+          label: labelDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+        })
+      }
+    }
+    return options
   }
   const applicationFilterChips = useMemo(() => {
     const chips = []
@@ -1414,6 +544,21 @@ function App() {
   const [employeeSearch, setEmployeeSearch] = useState('')
   const [employeeCountryFilter, setEmployeeCountryFilter] = useState('All')
   const [employeePage, setEmployeePage] = useState(1)
+  const [editingEmployeeId, setEditingEmployeeId] = useState(null)
+  const [isEmployeeModalOpen, setIsEmployeeModalOpen] = useState(false)
+  const [employeeFormError, setEmployeeFormError] = useState('')
+  const [employeeForm, setEmployeeForm] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phoneCode: '',
+    phoneNumber: '',
+    gender: '',
+    age: '',
+    country: '',
+    address: '',
+    positions: '',
+  })
   const employeePageSize = 10
   const employeeCountries = useMemo(
     () => ['All', ...Array.from(new Set(hiredEmployees.map((item) => item.country).filter(Boolean))).sort((a, b) => a.localeCompare(b))],
@@ -1457,6 +602,9 @@ function App() {
   const manageInternsFollowTrackRef = useRef(null)
   const adminNavRef = useRef(null)
   const manageInternsTableScrollRef = useRef(null)
+  const employeeFollowScrollRef = useRef(null)
+  const employeeFollowTrackRef = useRef(null)
+  const employeeTableScrollRef = useRef(null)
   const analyticsSearchRef = useRef(null)
   const evaluationSearchRef = useRef(null)
   const reportsSearchRef = useRef(null)
@@ -1465,6 +613,7 @@ function App() {
   const settingsSearchRef = useRef(null)
   const employeeSearchRef = useRef(null)
   const isSyncingManageInternsScrollRef = useRef(false)
+  const isSyncingEmployeeScrollRef = useRef(false)
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false)
   const hasAdminAccess = isAdminAuthenticated && isApprovedUser
 
@@ -2243,10 +1392,79 @@ function App() {
   }, [currentPath, activeAdminTab, settingsPage, settingsSearch, settingsStatusFilter, settingsInternRows.length])
 
   useEffect(() => {
+    window.requestAnimationFrame(syncEmployeeScrollMetrics)
+  }, [currentPath, activeAdminTab, employeePage, employeeSearch, employeeCountryFilter, filteredEmployeeRows.length])
+
+  useEffect(() => {
+    const syncAllAdminScrollbars = () => {
+      window.requestAnimationFrame(() => {
+        syncManageInternsScrollMetrics()
+        syncEmployeeScrollMetrics()
+      })
+    }
+
+    syncAllAdminScrollbars()
+    const timeoutIds = [80, 180, 360, 720].map((delay) => window.setTimeout(syncAllAdminScrollbars, delay))
+
+    let cancelled = false
+    if (document.fonts?.ready) {
+      void document.fonts.ready.then(() => {
+        if (!cancelled) syncAllAdminScrollbars()
+      })
+    }
+
+    const onLoad = () => syncAllAdminScrollbars()
+    window.addEventListener('load', onLoad)
+
+    return () => {
+      cancelled = true
+      timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId))
+      window.removeEventListener('load', onLoad)
+    }
+  }, [activeAdminTab, currentPath])
+
+  useEffect(() => {
     const onResize = () => window.requestAnimationFrame(syncManageInternsScrollMetrics)
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
+
+  useEffect(() => {
+    const manageTableEl = manageInternsTableScrollRef.current
+    const manageTopEl = manageInternsFollowScrollRef.current
+    const employeeTableEl = employeeTableScrollRef.current
+    const employeeTopEl = employeeFollowScrollRef.current
+    const ResizeObserverCtor = window.ResizeObserver
+
+    if (!ResizeObserverCtor) return undefined
+
+    const observer = new ResizeObserverCtor(() => {
+      window.requestAnimationFrame(() => {
+        syncManageInternsScrollMetrics()
+        syncEmployeeScrollMetrics()
+      })
+    })
+
+    if (manageTableEl) observer.observe(manageTableEl)
+    if (manageTopEl) observer.observe(manageTopEl)
+    if (employeeTableEl) observer.observe(employeeTableEl)
+    if (employeeTopEl) observer.observe(employeeTopEl)
+
+    const viewport = window.visualViewport
+    const onViewportResize = () => {
+      window.requestAnimationFrame(() => {
+        syncManageInternsScrollMetrics()
+        syncEmployeeScrollMetrics()
+      })
+    }
+
+    viewport?.addEventListener('resize', onViewportResize)
+
+    return () => {
+      observer.disconnect()
+      viewport?.removeEventListener('resize', onViewportResize)
+    }
+  }, [activeAdminTab, currentPath, settingsInternRows.length, filteredEmployeeRows.length])
 
   const pageData = useMemo(() => routeContent[currentPath], [currentPath])
   const isAdminRoute = currentPath === '/admin-dashboard'
@@ -2561,15 +1779,24 @@ function App() {
     }
   }
 
-  const sendApplicationEmail = async (application, status, adminNote) => {
-    if (!emailJsConfig.publicKey || !emailJsConfig.serviceId) {
-      return { ok: false, message: 'EmailJS is not configured' }
-    }
+  const sendApplicationEmail = async (application, status, adminNote, options = {}) => {
     if (!application.email) {
       return { ok: false, message: 'Applicant email is missing' }
     }
-    const templateId =
-      isHrInterviewStatus(status) ? emailJsConfig.templateApproved : emailJsConfig.templateRejected
+    const interviewScheduledAt = options.interviewScheduledAt || application.interviewScheduledAt || ''
+    const interviewTimezone = options.interviewTimezone || application.interviewTimezone || ''
+    const interviewLocation = options.interviewLocation || application.interviewLocation || ''
+    const fixedMessage = options.message || ''
+    const useInterviewEmailConfig = Boolean(options.useInterviewEmailConfig)
+    const activeConfig = useInterviewEmailConfig ? interviewEmailJsConfig : emailJsConfig
+    if (!activeConfig.publicKey || !activeConfig.serviceId) {
+      return { ok: false, message: 'EmailJS is not configured' }
+    }
+    const templateId = useInterviewEmailConfig
+      ? interviewEmailJsConfig.templateId
+      : status === 'rejected'
+        ? emailJsConfig.templateRejected
+        : emailJsConfig.templateApproved
     if (!templateId) {
       return { ok: false, message: 'EmailJS template is missing' }
     }
@@ -2584,26 +1811,92 @@ function App() {
       application_id: application.id,
       status,
       admin_note: adminNote || '',
+      message: fixedMessage,
       reviewed_at: new Date().toISOString(),
+      interview_scheduled_at: interviewScheduledAt,
+      interview_schedule: interviewScheduledAt ? new Date(interviewScheduledAt).toLocaleString() : '',
+      interview_timezone: interviewTimezone,
+      interview_location: interviewLocation,
       company_name: 'Lifewood',
-      company_email: emailJsConfig.companyEmail,
-      company_url: emailJsConfig.companyUrl,
-      logo_url: emailJsConfig.logoUrl,
-      from_name: emailJsConfig.fromName,
-      reply_to: emailJsConfig.replyTo,
+      company_email: activeConfig.companyEmail,
+      company_url: activeConfig.companyUrl,
+      logo_url: activeConfig.logoUrl,
+      from_name: activeConfig.fromName,
+      reply_to: activeConfig.replyTo,
     }
 
     try {
       await emailjs.send(
-        emailJsConfig.serviceId,
+        activeConfig.serviceId,
         templateId,
         templateParams,
-        { publicKey: emailJsConfig.publicKey }
+        { publicKey: activeConfig.publicKey }
       )
       return { ok: true }
     } catch (error) {
       return { ok: false, message: error?.text || error?.message || 'Email send failed' }
     }
+  }
+
+  const sendHireDecisionEmail = async (application, hireStatus) => {
+    if (!application.email) {
+      return { ok: false, message: 'Applicant email is missing' }
+    }
+    if (!interviewEmailJsConfig.publicKey || !interviewEmailJsConfig.serviceId) {
+      return { ok: false, message: 'EmailJS is not configured' }
+    }
+
+    const templateId = emailJsConfig.templateHireDecision
+
+    if (!templateId) {
+      return { ok: false, message: 'EmailJS template is missing' }
+    }
+
+    const message = hireStatus === 'hired'
+      ? 'We are pleased to inform you that you have been selected to move forward as a hired applicant. Our team will contact you with the next onboarding steps.'
+      : 'Thank you for your time and interest in Lifewood. After careful review, we will not be moving forward with your application at this time.'
+
+    const templateParams = {
+      to_name: `${application.firstName} ${application.lastName}`.trim(),
+      to_email: application.email,
+      email: application.email,
+      user_email: application.email,
+      recipient: application.email,
+      position: (application.positions || []).join(', ') || 'Applicant',
+      application_id: application.id,
+      status: hireStatus,
+      hire_status: hireStatus,
+      message,
+      company_name: 'Lifewood',
+      company_email: interviewEmailJsConfig.companyEmail,
+      company_url: interviewEmailJsConfig.companyUrl,
+      logo_url: interviewEmailJsConfig.logoUrl,
+      from_name: interviewEmailJsConfig.fromName,
+      reply_to: interviewEmailJsConfig.replyTo,
+    }
+
+    try {
+      await emailjs.send(
+        interviewEmailJsConfig.serviceId,
+        templateId,
+        templateParams,
+        { publicKey: interviewEmailJsConfig.publicKey }
+      )
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, message: error?.text || error?.message || 'Email send failed' }
+    }
+  }
+
+  const openInterviewScheduleModal = (application) => {
+    setInterviewScheduleError('')
+    setInterviewScheduleForm(createInitialInterviewScheduleForm(application))
+    setIsInterviewScheduleModalOpen(true)
+  }
+
+  const closeInterviewScheduleModal = () => {
+    setInterviewScheduleError('')
+    setIsInterviewScheduleModalOpen(false)
   }
 
   const handleApplicationDecision = (applicationId, status) => {
@@ -2618,12 +1911,12 @@ function App() {
         runAdminAction('Application not found')
         return
       }
-      if (!(currentApplication.status === 'pending' && [hrInterviewStatus, 'rejected'].includes(status))) {
+      if (!(currentApplication.status === 'pending' && ['approved', 'rejected'].includes(status))) {
         runAdminAction('Decision already recorded')
         return
       }
 
-      const actionLabel = isHrInterviewStatus(status) ? 'proceed to HR interview' : 'reject'
+      const actionLabel = status === 'approved' ? 'approve' : 'reject'
       confirmAdminAction({
         message: `Are you sure you want to ${actionLabel} ${currentApplication.firstName} ${currentApplication.lastName}?`,
         confirmLabel: actionLabel.charAt(0).toUpperCase() + actionLabel.slice(1),
@@ -2656,14 +1949,143 @@ function App() {
           const updatedApplication = mapCareerApplicationRowToClient(data)
           setCareerApplications((prev) => prev.map((item) => (item.id === updatedApplication.id ? updatedApplication : item)))
           setApplicationNoteDrafts((prev) => ({ ...prev, [applicationId]: updatedApplication.adminNote }))
+          if (status === 'approved') {
+            setSelectedApplication(null)
+          }
           const emailResult = await sendApplicationEmail(updatedApplication, status, note)
           if (!emailResult.ok) {
             setApplicationsError(emailResult.message || 'Email send failed')
             runAdminAction(`Application ${status}, email failed`)
             return
           }
-          setSelectedApplication(null)
+          if (status !== 'approved') {
+            setSelectedApplication(null)
+          }
           runAdminAction(`Application ${status}, email sent`)
+        },
+      })
+    })()
+  }
+
+  const handleInterviewScheduleSubmit = (event) => {
+    event.preventDefault()
+    void (async () => {
+      if (!supabase || !authUser?.id) {
+        setInterviewScheduleError('Supabase is not ready for scheduling.')
+        return
+      }
+
+      const applicationId = interviewScheduleForm.applicationId
+      const currentApplication = careerApplications.find((item) => item.id === applicationId)
+      if (!currentApplication) {
+        setInterviewScheduleError('Application not found.')
+        return
+      }
+
+      if (!interviewScheduleForm.date || !interviewScheduleForm.time) {
+        setInterviewScheduleError('Select a valid interview date and time.')
+        return
+      }
+
+      const scheduledAt = new Date(`${interviewScheduleForm.date}T${interviewScheduleForm.time}`)
+      if (!scheduledAt || Number.isNaN(scheduledAt.getTime())) {
+        setInterviewScheduleError('Select a valid interview date and time.')
+        return
+      }
+      if (scheduledAt.getTime() < Date.now()) {
+        setInterviewScheduleError('Interview date and time cannot be in the past.')
+        return
+      }
+      if (!interviewScheduleForm.timezone.trim()) {
+        setInterviewScheduleError('Interview timezone is required.')
+        return
+      }
+      const resolvedInterviewLocation =
+        interviewScheduleForm.meetingType === 'google-meet'
+          ? interviewScheduleForm.meetingLink.trim()
+          : defaultFaceToFaceInterviewLocation
+      if (!resolvedInterviewLocation) {
+        setInterviewScheduleError('Interview location or meeting link is required.')
+        return
+      }
+      if (
+        interviewScheduleForm.meetingType === 'google-meet' &&
+        !/^https?:\/\/.+/i.test(resolvedInterviewLocation)
+      ) {
+        setInterviewScheduleError('Enter a valid Google Meet link starting with http:// or https://.')
+        return
+      }
+
+      confirmAdminAction({
+        message: `Schedule the HR interview for ${currentApplication.firstName} ${currentApplication.lastName} on ${scheduledAt.toLocaleString()}?`,
+        confirmLabel: 'Schedule Interview',
+        onConfirm: async () => {
+          const note = applicationNoteDrafts[applicationId] || ''
+          const interviewMessage = buildInterviewEmailMessage(interviewScheduleForm.meetingType)
+          const schedulePayload = {
+            status: hrInterviewStatus,
+            admin_note: note,
+            reviewed_by: authUser.id,
+            reviewed_at: new Date().toISOString(),
+            interview_scheduled_at: scheduledAt.toISOString(),
+            interview_timezone: interviewScheduleForm.timezone.trim(),
+            interview_location: resolvedInterviewLocation,
+          }
+
+          const { data, error } = await supabase
+            .from('career_applications')
+            .update(schedulePayload)
+            .eq('id', applicationId)
+            .select('*')
+            .maybeSingle()
+
+          if (error) {
+            setInterviewScheduleError(error.message)
+            setApplicationsError(error.message)
+            runAdminAction('Interview scheduling failed')
+            return
+          }
+          if (!data) {
+            const message = 'No rows updated. Check RLS policy for career_applications.'
+            setInterviewScheduleError(message)
+            setApplicationsError(message)
+            runAdminAction('Interview scheduling failed')
+            return
+          }
+
+          const updatedApplication = mapCareerApplicationRowToClient(data)
+          setCareerApplications((prev) => prev.map((item) => (item.id === updatedApplication.id ? updatedApplication : item)))
+          setApplicationNoteDrafts((prev) => ({ ...prev, [applicationId]: updatedApplication.adminNote }))
+          setSelectedApplication((prev) => (prev?.id === updatedApplication.id ? updatedApplication : prev))
+          const emailResult = await sendApplicationEmail(updatedApplication, hrInterviewStatus, note, {
+            interviewScheduledAt: schedulePayload.interview_scheduled_at,
+            interviewTimezone: schedulePayload.interview_timezone,
+            interviewLocation: schedulePayload.interview_location,
+            message: interviewMessage,
+            useInterviewEmailConfig: true,
+          })
+
+          if (!emailResult.ok) {
+            setInterviewScheduleError(emailResult.message || 'Interview email send failed')
+            setApplicationsError(emailResult.message || 'Interview email send failed')
+            runAdminAction('Interview scheduled, email failed')
+            return
+          }
+
+          const { data: emailedRow } = await supabase
+            .from('career_applications')
+            .update({ interview_schedule_sent_at: new Date().toISOString() })
+            .eq('id', applicationId)
+            .select('*')
+            .maybeSingle()
+
+          const finalApplication = emailedRow ? mapCareerApplicationRowToClient(emailedRow) : updatedApplication
+          setCareerApplications((prev) => prev.map((item) => (item.id === finalApplication.id ? finalApplication : item)))
+          setApplicationNoteDrafts((prev) => ({ ...prev, [applicationId]: finalApplication.adminNote }))
+          setSelectedApplication(finalApplication)
+          setApplicationsError('')
+          closeInterviewScheduleModal()
+          runAdminAction('Interview scheduled and email sent')
         },
       })
     })()
@@ -2800,6 +2222,17 @@ function App() {
 
   const closeConfirmationDialog = () => setConfirmationDialog(null)
 
+  const getHorizontalScrollContentWidth = (scrollContainer) => {
+    if (!scrollContainer) return 0
+    const primaryChild = scrollContainer.firstElementChild
+    return Math.max(
+      primaryChild?.scrollWidth || 0,
+      primaryChild?.getBoundingClientRect?.().width || 0,
+      scrollContainer.scrollWidth || 0,
+      scrollContainer.clientWidth || 0
+    )
+  }
+
   const syncManageInternsHorizontalScroll = (source) => {
     if (isSyncingManageInternsScrollRef.current) return
     const topEl = manageInternsFollowScrollRef.current
@@ -2823,8 +2256,38 @@ function App() {
     const trackEl = manageInternsFollowTrackRef.current
     if (!topEl || !tableEl || !trackEl) return
 
-    const contentWidth = Math.max(tableEl.scrollWidth, tableEl.clientWidth)
+    const contentWidth = getHorizontalScrollContentWidth(tableEl)
     trackEl.style.width = `${contentWidth}px`
+    topEl.style.visibility = contentWidth > tableEl.clientWidth + 1 ? 'visible' : 'hidden'
+    topEl.scrollLeft = tableEl.scrollLeft
+  }
+
+  const syncEmployeeHorizontalScroll = (source) => {
+    if (isSyncingEmployeeScrollRef.current) return
+    const topEl = employeeFollowScrollRef.current
+    const tableEl = employeeTableScrollRef.current
+    if (!topEl || !tableEl) return
+
+    isSyncingEmployeeScrollRef.current = true
+    if (source === 'top') {
+      tableEl.scrollLeft = topEl.scrollLeft
+    } else {
+      topEl.scrollLeft = tableEl.scrollLeft
+    }
+    window.requestAnimationFrame(() => {
+      isSyncingEmployeeScrollRef.current = false
+    })
+  }
+
+  const syncEmployeeScrollMetrics = () => {
+    const topEl = employeeFollowScrollRef.current
+    const tableEl = employeeTableScrollRef.current
+    const trackEl = employeeFollowTrackRef.current
+    if (!topEl || !tableEl || !trackEl) return
+
+    const contentWidth = getHorizontalScrollContentWidth(tableEl)
+    trackEl.style.width = `${contentWidth}px`
+    topEl.style.visibility = contentWidth > tableEl.clientWidth + 1 ? 'visible' : 'hidden'
     topEl.scrollLeft = tableEl.scrollLeft
   }
 
@@ -3257,6 +2720,138 @@ function App() {
     return <FolderTree className="w-4 h-4" />
   }
 
+  const resetEmployeeForm = () => {
+    setEditingEmployeeId(null)
+    setEmployeeFormError('')
+    setEmployeeForm({
+      firstName: '',
+      lastName: '',
+      email: '',
+      phoneCode: '',
+      phoneNumber: '',
+      gender: '',
+      age: '',
+      country: '',
+      address: '',
+      positions: '',
+    })
+    setIsEmployeeModalOpen(false)
+  }
+
+  const handleEmployeeEdit = (employee) => {
+    if (!employee) return
+    setEditingEmployeeId(employee.id)
+    setEmployeeFormError('')
+    setEmployeeForm({
+      firstName: employee.firstName || '',
+      lastName: employee.lastName || '',
+      email: employee.email || '',
+      phoneCode: employee.phoneCode || '',
+      phoneNumber: employee.phoneNumber || '',
+      gender: employee.gender || '',
+      age: employee.age || '',
+      country: employee.country || '',
+      address: employee.address || '',
+      positions: (employee.positions || []).join(', '),
+    })
+    setIsEmployeeModalOpen(true)
+    runAdminAction(`Editing employee ${employee.firstName} ${employee.lastName}`.trim())
+  }
+
+  const handleEmployeeSave = (event) => {
+    event.preventDefault()
+    void (async () => {
+      if (!supabase || !editingEmployeeId) {
+        setEmployeeFormError('Employee editing is not ready.')
+        return
+      }
+
+      const firstName = employeeForm.firstName.trim()
+      const lastName = employeeForm.lastName.trim()
+      const email = employeeForm.email.trim()
+      if (!firstName || !lastName || !email) {
+        setEmployeeFormError('First name, last name, and email are required.')
+        return
+      }
+
+      const payload = {
+        first_name: firstName,
+        last_name: lastName,
+        email,
+        phone_code: employeeForm.phoneCode.trim() || null,
+        phone_number: employeeForm.phoneNumber.trim() || null,
+        gender: employeeForm.gender.trim() || null,
+        age: employeeForm.age ? Number(employeeForm.age) : null,
+        country: employeeForm.country.trim() || null,
+        address: employeeForm.address.trim() || null,
+        positions: employeeForm.positions
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean),
+      }
+
+      const { data, error } = await supabase
+        .from('hired_employees')
+        .update(payload)
+        .eq('id', editingEmployeeId)
+        .select('*')
+        .maybeSingle()
+
+      if (error || !data) {
+        setEmployeeFormError(error?.message || 'Failed to update employee record.')
+        return
+      }
+
+      const updatedEmployee = mapHiredEmployeeRowToClient(data)
+      setHiredEmployees((prev) => prev.map((item) => (item.id === updatedEmployee.id ? updatedEmployee : item)))
+      setCareerApplications((prev) =>
+        prev.map((item) =>
+          item.id === updatedEmployee.applicationId
+            ? {
+                ...item,
+                firstName: updatedEmployee.firstName,
+                lastName: updatedEmployee.lastName,
+                email: updatedEmployee.email,
+                phoneCode: updatedEmployee.phoneCode,
+                phoneNumber: updatedEmployee.phoneNumber,
+                gender: updatedEmployee.gender,
+                age: updatedEmployee.age,
+                country: updatedEmployee.country,
+                address: updatedEmployee.address,
+                positions: updatedEmployee.positions,
+              }
+            : item
+        )
+      )
+      runAdminAction(`Updated employee ${updatedEmployee.firstName} ${updatedEmployee.lastName}`.trim())
+      resetEmployeeForm()
+    })()
+  }
+
+  const handleEmployeeDelete = (employee) => {
+    void (async () => {
+      if (!supabase || !employee?.id) return
+      confirmAdminAction({
+        message: `Delete employee record for ${employee.firstName} ${employee.lastName}?`,
+        confirmLabel: 'Delete',
+        tone: 'danger',
+        onConfirm: async () => {
+          const { error } = await supabase.from('hired_employees').delete().eq('id', employee.id)
+          if (error) {
+            setApplicationsError(error.message)
+            runAdminAction('Employee delete failed')
+            return
+          }
+          setHiredEmployees((prev) => prev.filter((item) => item.id !== employee.id))
+          if (editingEmployeeId === employee.id) {
+            resetEmployeeForm()
+          }
+          runAdminAction(`Deleted employee ${employee.firstName} ${employee.lastName}`.trim())
+        },
+      })
+    })()
+  }
+
   const handleApplicationHireStatus = (applicationId, hireStatus) => {
     void (async () => {
       if (!supabase || !authUser?.id) {
@@ -3271,6 +2866,10 @@ function App() {
       }
       if (!canSetHireStatus(currentApplication)) {
         runAdminAction('Hire decision is only available after HR interview progression')
+        return
+      }
+      if (isFinalHireDecision(currentApplication)) {
+        runAdminAction('Final hire decision already recorded')
         return
       }
       if (currentApplication.hireStatus === hireStatus) {
@@ -3367,10 +2966,16 @@ function App() {
           }
 
           const updatedApplication = mapCareerApplicationRowToClient(data)
+          const emailResult = await sendHireDecisionEmail(updatedApplication, hireStatus)
+          if (!emailResult.ok) {
+            setApplicationsError(emailResult.message || 'Email send failed')
+            runAdminAction(`Application marked as ${hireStatusLabel(hireStatus).toLowerCase()}, email failed`)
+            return
+          }
           setCareerApplications((prev) => prev.map((item) => (item.id === updatedApplication.id ? updatedApplication : item)))
           setApplicationNoteDrafts((prev) => ({ ...prev, [applicationId]: updatedApplication.adminNote }))
           setSelectedApplication((prev) => (prev?.id === updatedApplication.id ? updatedApplication : prev))
-          runAdminAction(`Application marked as ${hireStatusLabel(hireStatus).toLowerCase()}`)
+          runAdminAction(`Application marked as ${hireStatusLabel(hireStatus).toLowerCase()} and email sent`)
         },
       })
     })()
@@ -3403,6 +3008,10 @@ function App() {
         counts: {
           applicationsPending: pendingApplicationsCount,
           applicationsProceedingToHr: careerApplications.filter((item) => isHrInterviewStatus(item.status)).length,
+          interviewsScheduled: careerApplications.filter((item) => hasInterviewSchedule(item)).length,
+          hired: careerApplications.filter((item) => item.hireStatus === 'hired').length,
+          notHired: careerApplications.filter((item) => item.hireStatus === 'not_hired').length,
+          employees: hiredEmployees.length,
           signupRequestsPending: pendingApprovalsCount,
         },
       },
@@ -3411,6 +3020,9 @@ function App() {
           total: careerApplications.length,
           pending: pendingApplicationsCount,
           proceedingToHr: careerApplications.filter((item) => isHrInterviewStatus(item.status)).length,
+          interviewsScheduled: careerApplications.filter((item) => hasInterviewSchedule(item)).length,
+          hired: careerApplications.filter((item) => item.hireStatus === 'hired').length,
+          notHired: careerApplications.filter((item) => item.hireStatus === 'not_hired').length,
         },
         search: applicationSearch,
         sort: applicationSortBy,
@@ -3418,14 +3030,21 @@ function App() {
         selected: selectedApplication
           ? {
               name: `${selectedApplication.firstName} ${selectedApplication.lastName}`.trim(),
-              status: applicationStatusLabel(selectedApplication.status),
+              status: applicationDisplayStatusLabel(selectedApplication),
               score: selectedApplication.cvScore ?? null,
+              interviewScheduled: hasInterviewSchedule(selectedApplication),
+              interviewSchedule: hasInterviewSchedule(selectedApplication)
+                ? formatInterviewSchedule(selectedApplication)
+                : null,
+              hireStatus: selectedApplication.hireStatus || null,
             }
           : null,
         recent: careerApplications.slice(0, 3).map((item) => ({
           name: `${item.firstName} ${item.lastName}`.trim(),
-          status: applicationStatusLabel(item.status),
+          status: applicationDisplayStatusLabel(item),
           score: item.cvScore ?? null,
+          interviewScheduled: hasInterviewSchedule(item),
+          hireStatus: item.hireStatus || null,
         })),
       },
       Approvals: {
@@ -3479,6 +3098,20 @@ function App() {
           total: settingsInternRows.length,
         },
       },
+      'Manage Employee': {
+        search: employeeSearch,
+        countryFilter: employeeCountryFilter,
+        page: employeePage,
+        counts: {
+          total: filteredEmployeeRows.length,
+          hired: hiredEmployees.length,
+        },
+        recent: filteredEmployeeRows.slice(0, 3).map((item) => ({
+          name: `${item.firstName} ${item.lastName}`.trim(),
+          country: item.country || null,
+          positions: item.positions || [],
+        })),
+      },
     }
 
     return {
@@ -3493,12 +3126,13 @@ function App() {
         Evaluation: summaries.Evaluation,
         Reports: summaries.Reports,
         'Manage Interns': summaries['Manage Interns'],
+        'Manage Employee': summaries['Manage Employee'],
       },
       selection: {
         application: selectedApplication
           ? {
               name: `${selectedApplication.firstName} ${selectedApplication.lastName}`.trim(),
-              status: applicationStatusLabel(selectedApplication.status),
+              status: applicationDisplayStatusLabel(selectedApplication),
               score: selectedApplication.cvScore ?? null,
             }
           : null,
@@ -3606,7 +3240,7 @@ function App() {
   const chatbotSuggestions = [
     {
       title: 'Applicants',
-      description: 'Review pending, approved, and progressing applications.',
+      description: 'Review pending, scheduled, hired, and not hired applications.',
       prompt: 'How many pending applications?',
       icon: FileCheck2,
     },
@@ -3630,8 +3264,8 @@ function App() {
     },
     {
       title: 'Activity',
-      description: 'Ask about recent dashboard activity and patterns.',
-      prompt: 'What changed most recently on the dashboard?',
+      description: 'Ask about hiring actions, interview schedules, and recent dashboard activity.',
+      prompt: 'What changed most recently in applications and hiring?',
       icon: TrendingUp,
     },
     {
@@ -3903,12 +3537,12 @@ function App() {
       void handleScoreAllPending()
       return 'Starting batch CV scoring for all pending applications.'
     },
-    proceedSelectedApplicationToHr: () => {
+    approveSelectedApplication: () => {
       if (!selectedApplication) {
-        return 'Open an application first, then I can proceed it to HR interview.'
+        return 'Open an application first, then I can approve it.'
       }
-      handleApplicationDecision(selectedApplication.id, hrInterviewStatus)
-      return `I opened the confirmation for ${selectedApplication.firstName} ${selectedApplication.lastName}.`
+      handleApplicationDecision(selectedApplication.id, 'approved')
+      return `I opened the approval confirmation for ${selectedApplication.firstName} ${selectedApplication.lastName}.`
     },
     rejectSelectedApplication: () => {
       if (!selectedApplication) {
@@ -3916,6 +3550,36 @@ function App() {
       }
       handleApplicationDecision(selectedApplication.id, 'rejected')
       return `I opened the confirmation for ${selectedApplication.firstName} ${selectedApplication.lastName}.`
+    },
+    scheduleSelectedInterview: () => {
+      if (!selectedApplication) {
+        return 'Open an application first, then I can open interview scheduling.'
+      }
+      if (isFinalHireDecision(selectedApplication)) {
+        return `${selectedApplication.firstName} ${selectedApplication.lastName} already has a final hire decision.`
+      }
+      openInterviewScheduleModal(selectedApplication)
+      return `Opened the interview scheduler for ${selectedApplication.firstName} ${selectedApplication.lastName}.`
+    },
+    markSelectedApplicationHired: () => {
+      if (!selectedApplication) {
+        return 'Open an application first, then I can mark it as hired.'
+      }
+      if (!canSetHireStatus(selectedApplication)) {
+        return 'The selected application needs an HR interview schedule before it can be marked as hired.'
+      }
+      handleApplicationHireStatus(selectedApplication.id, 'hired')
+      return `I opened the hired confirmation for ${selectedApplication.firstName} ${selectedApplication.lastName}.`
+    },
+    markSelectedApplicationNotHired: () => {
+      if (!selectedApplication) {
+        return 'Open an application first, then I can mark it as not hired.'
+      }
+      if (!canSetHireStatus(selectedApplication)) {
+        return 'The selected application needs an HR interview schedule before it can be marked as not hired.'
+      }
+      handleApplicationHireStatus(selectedApplication.id, 'not_hired')
+      return `I opened the not hired confirmation for ${selectedApplication.firstName} ${selectedApplication.lastName}.`
     },
   }
 
@@ -4043,8 +3707,20 @@ function App() {
       return { id: 'scoreAllPendingApplications', dangerous: true, confirmLabel: 'Score All' }
     }
 
-    if (/\b(proceed|approve)\b/.test(query) && /\b(hr|interview)\b/.test(query)) {
-      return { id: 'proceedSelectedApplicationToHr' }
+    if (/\bapprove|approved\b/.test(query) && /\bapplication|applicant|selected\b/.test(query)) {
+      return { id: 'approveSelectedApplication' }
+    }
+
+    if (/\b(schedule|reschedule)\b/.test(query) && /\b(interview|hr)\b/.test(query)) {
+      return { id: 'scheduleSelectedInterview' }
+    }
+
+    if (/\b(hired|mark hired|hire)\b/.test(query) && /\b(application|applicant|selected)?\b/.test(query)) {
+      return { id: 'markSelectedApplicationHired' }
+    }
+
+    if (/\b(not hired|mark not hired)\b/.test(query)) {
+      return { id: 'markSelectedApplicationNotHired' }
     }
 
     if (/\breject\b/.test(query) && /\bapplication\b/.test(query)) {
@@ -4072,12 +3748,7 @@ function App() {
       ]
       appendChatbotReply(previewLines.join('\n'))
       confirmAdminAction({
-        message:
-          action.id === 'scoreAllPendingApplications'
-            ? 'Do you want to score all pending applications now?'
-            : action.id === 'proceedSelectedApplicationToHr'
-              ? 'Do you want to proceed the selected application to HR interview?'
-              : 'Do you want to reject the selected application?',
+        message: 'Do you want to score all pending applications now?',
         confirmLabel: action.confirmLabel || 'Confirm',
         tone: 'danger',
         onConfirm: () => {
@@ -6828,263 +6499,50 @@ function App() {
                 </div>
               </section>
             ) : hasAdminAccess ? (
-              <section className="w-full text-black lg:min-h-screen">
-                {chatWidget}
-                <div className="relative">
-                  {isAdminNavOpen ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsAdminNavOpen(false)
-                        setIsAdminNavPinned(false)
-                      }}
-                      className="lg:hidden fixed inset-0 bg-black/30 z-40"
-                      aria-label="Close navigation"
-                    />
-                  ) : null}
-                  <div
-                    ref={adminNavRef}
-                    className={`space-y-3 flex flex-col items-center fixed left-0 top-0 inset-y-0 z-50 justify-start pt-5 pb-4 transition-[width] duration-300 ${
-                      isAdminNavOpen
-                        ? 'w-[240px] sm:w-[260px] lg:w-[280px] px-3 sm:px-4 bg-[linear-gradient(165deg,#0f5a3f,#0d4d38_52%,#0a3f31)] border-r border-castleton/30'
-                        : 'w-[56px] sm:w-[60px] px-2 bg-[linear-gradient(165deg,#0f5a3f,#0d4d38_52%,#0a3f31)] border-r border-castleton/30'
-                    }`}
-                    onMouseEnter={undefined}
-                  >
-                    <div className={`w-full ${isAdminNavOpen ? 'grid grid-cols-[1fr_auto_1fr] items-center' : 'flex items-center justify-center'}`}>
-                      <div />
-                      {isAdminNavOpen ? (
-                        <div className="h-14 flex items-center justify-center lg:h-16">
-                          <img
-                            src="https://framerusercontent.com/images/Ca8ppNsvJIfTsWEuHr50gvkDow.png"
-                            alt="Lifewood logo"
-                            className="h-5 w-auto lg:h-7"
-                          />
-                        </div>
-                      ) : null}
-                      <div className={isAdminNavOpen ? 'flex items-center justify-end' : ''}>
-                        <button
-                          type="button"
-                          onMouseEnter={() => {
-                            if (!isAdminNavPinned) setIsAdminNavOpen(true)
-                          }}
-                          onClick={() => {
-                            if (isAdminNavOpen) {
-                              setIsAdminNavOpen(false)
-                              setIsAdminNavPinned(false)
-                            } else {
-                              setIsAdminNavOpen(true)
-                              setIsAdminNavPinned(true)
-                            }
-                          }}
-                          className="focus-brand inline-flex items-center justify-center text-white hover:text-white/80 transition-colors"
-                          aria-label={isAdminNavOpen ? 'Hide navigation' : 'Show navigation'}
-                        >
-                          <AlignJustify className="w-5 h-5" />
-                        </button>
-                      </div>
-                    </div>
-                    {isAdminNavOpen ? (
-                      <>
-                        <aside className="w-full h-full rounded-[26px] lg:rounded-[18px] border border-castleton/25 bg-transparent text-[#eef4e9] overflow-hidden shadow-soft lg:shadow-none">
-                        <div className="h-full flex flex-col">
-                        <div className="p-3 mt-2 space-y-3">
-                          <button
-                            type="button"
-                            onClick={() => setIsAdminProfileModalOpen(true)}
-                            className="focus-brand w-full rounded-xl border border-white/30 bg-white/5 px-3 py-3 text-left hover:bg-white/15 transition-colors"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className="inline-flex w-8 h-8 rounded-full items-center justify-center bg-saffron text-black font-bold">
-                                {(adminProfileForm.firstName?.[0] || 'L').toUpperCase()}
-                              </span>
-                              <div className="min-w-0">
-                                <p className="text-sm font-semibold text-white truncate">
-                                  {adminProfileForm.firstName} {adminProfileForm.lastName}
-                                </p>
-                                <p className="text-xs text-white/80 truncate">{adminProfileForm.email}</p>
-                              </div>
-                            </div>
-                          </button>
-                        </div>
-                      <nav className="px-3 pb-4 space-y-2">
-                          {adminMenuItems
-                            .filter((item) => item.label !== 'Approvals' || canManageApprovals)
-                            .map((item) => {
-                              const Icon = item.icon
-const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label === 'Approvals' ? 'Admin Approval' : item.label
-                              return (
-                                <button
-                                  key={item.label}
-                                  type="button"
-                                  onClick={() => {
-                                    setActiveAdminTab(item.label)
-                                    runAdminAction(`${item.label} panel opened`)
-                                  }}
-                                  className={`w-full text-left px-3 py-2.5 rounded-xl transition-colors ${
-                                    activeAdminTab === item.label
-                                      ? 'bg-saffron/20 border border-saffron/45 text-saffron font-semibold'
-                                      : 'hover:bg-white/10 text-white/90'
-                                  }`}
-                                >
-                                  <span className="flex items-center justify-between gap-2">
-                                    <span className="flex items-center gap-2">
-                                      <Icon className="h-4 w-4" />
-                                      {displayLabel}
-                                    </span>
-                                    {item.label === 'Applications' && hasPendingApplications ? (
-                                      <UnreadNotificationBadge count={unreviewedPendingApplicationsCount} />
-                                    ) : null}
-                                  </span>
-                                </button>
-                              )
-                            })}
-                        </nav>
-                        <div className="mt-auto px-3 pb-3">
-                          <button
-                            type="button"
-                            onClick={handleAdminSignOut}
-                            className="focus-brand w-full rounded-xl border border-white/30 px-3 py-2.5 text-sm sm:text-base font-semibold hover:bg-white/15 transition-colors"
-                          >
-                            Sign Out
-                          </button>
-                        </div>
-                        </div>
-                        </aside>
-                      </>
-                    ) : (
-                      <div className="mt-2 w-full flex-1 flex flex-col items-center justify-between pb-3">
-                        <nav className="w-full flex flex-col items-center gap-2">
-                          {adminMenuItems
-                            .filter((item) => item.label !== 'Approvals' || canManageApprovals)
-                            .map((item) => {
-                              const Icon = item.icon
-                              const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label === 'Approvals' ? 'Admin Approval' : item.label
-                              const isActive = activeAdminTab === item.label
-                              return (
-                                <button
-                                  key={item.label}
-                                  type="button"
-                                  onClick={() => {
-                                    setActiveAdminTab(item.label)
-                                    runAdminAction(`${item.label} panel opened`)
-                                  }}
-                                  className={`focus-brand relative inline-flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${
-                                    isActive ? 'bg-saffron/25 text-saffron' : 'text-white/90 hover:bg-white/10'
-                                  }`}
-                                  aria-label={displayLabel}
-                                >
-                                  <Icon className="h-4 w-4" />
-                                  {item.label === 'Applications' && hasPendingApplications ? (
-                                    <UnreadNotificationBadge count={unreviewedPendingApplicationsCount} compact />
-                                  ) : null}
-                                </button>
-                              )
-                            })}
-                        </nav>
-                        <button
-                          type="button"
-                          onClick={handleAdminSignOut}
-                          className="focus-brand inline-flex h-10 w-10 items-center justify-center rounded-xl text-white/90 hover:bg-white/10 transition-colors"
-                          aria-label="Sign Out"
-                        >
-                          <LogOut className="h-4 w-4" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  <main className={`admin-glass p-1 sm:p-2 min-h-screen ${isAdminNavOpen ? 'ml-[60px] sm:ml-[64px] lg:ml-[280px]' : 'ml-[56px] sm:ml-[60px]'}`}>
-                    <div className="sticky top-0 z-20 -mx-1 sm:-mx-2 px-1 sm:px-2 pt-1 pb-3 bg-gradient-to-b from-[#f7faf8] via-[#f7faf8]/90 to-transparent backdrop-blur">
-  <div className="rounded-[22px] border border-castleton/15 bg-white/90 px-4 py-3 flex flex-wrap items-center justify-between gap-3 shadow-sm">
-    <div className="space-y-1">
-      <p className="text-[11px] uppercase tracking-[0.18em] text-castleton/70">Admin Dashboard</p>
-      <h1 className="text-3xl sm:text-4xl font-semibold">{activeAdminData.heading}</h1>
-      <span className="inline-flex items-center rounded-full bg-white border border-castleton/15 px-3 py-1 text-xs font-semibold">
-        {activeAdminData.badge}
-      </span>
-    </div>
-
-
-  </div>
-  <div className="mt-3 grid grid-cols-2 lg:grid-cols-4 gap-3">
-    {[
-      {
-        label: 'Pending Approvals',
-        value: pendingApprovalsCount,
-        icon: UserCheck2,
-        tone: 'bg-[#fff6e4] text-[#8a5a14] border-[#f0d8a8]',
-        targetTab: 'Approvals'
-      },
-      {
-        label: 'Pending Applications',
-        value: pendingApplicationsCount,
-        icon: FileText,
-        tone: 'bg-[#e9f3ee] text-castleton border-castleton/20',
-        targetTab: 'Applications'
-      },
-      {
-        label: 'Active Interns',
-        value: totalInterns,
-        icon: UserSquare2,
-        tone: 'bg-[#eef2ff] text-[#3c4a7a] border-[#d8def5]',
-        targetTab: 'Manage Interns'
-      },
-      {
-        label: 'Avg Performance',
-        value: `${averagePerformance}%`,
-        icon: TrendingUp,
-        tone: 'bg-[#f7f8f6] text-[#5f5a44] border-[#e6e2d6]',
-        targetTab: 'Analytics'
-      },
-    ].map((card) => {
-      const Icon = card.icon
-      return (
-        <motion.button
-          key={card.label}
-          type="button"
-          onClick={() => {
-            setActiveAdminTab(card.targetTab)
-            runAdminAction(`${card.label} opened`)
-          }}
-          className={`rounded-2xl border px-4 py-3 bg-white/90 shadow-sm text-left transition-transform ${card.tone}`}
-          whileHover={{ y: -2 }}
-          transition={{ duration: 0.15 }}
-        >
-          <div className="flex items-center justify-between">
-            <p className="text-xs uppercase tracking-[0.12em]">{card.label}</p>
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/80">
-              <Icon className="h-4 w-4" />
-            </span>
-          </div>
-          <p className="mt-2 text-2xl font-semibold">{card.value}</p>
-        </motion.button>
-      )
-    })}
-  </div>
-  <div className="mt-3 flex flex-wrap gap-2">
-    {adminNotice ? (
-      <motion.p
-        className="text-xs inline-flex rounded-full bg-white border border-castleton/15 px-3 py-1.5"
-        initial={{ opacity: 0, y: -6 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0 }}
-      >
-        {adminNotice}
-      </motion.p>
-    ) : null}
-    {isAdminDataLoading ? (
-      <p className="text-xs inline-flex rounded-full bg-white border border-castleton/15 px-3 py-1.5">
-        Syncing admin data from Supabase...
-      </p>
-    ) : null}
-    {adminDataError ? (
-      <p className="text-xs inline-flex rounded-full bg-[#fde8e8] border border-[#efb6b6] px-3 py-1.5 text-[#8a3528]">
-        {adminDataError}
-      </p>
-    ) : null}
-  </div>
-</div><AnimatePresence mode="wait">
+              <Suspense fallback={<SectionFallback className="min-h-screen" />}>
+                <AdminDashboardShell
+                  chatWidget={chatWidget}
+                  isAdminNavOpen={isAdminNavOpen}
+                  adminNavRef={adminNavRef}
+                  adminProfileForm={adminProfileForm}
+                  adminMenuItems={adminMenuItems}
+                  canManageApprovals={canManageApprovals}
+                  activeAdminTab={activeAdminTab}
+                  hasPendingApplications={hasPendingApplications}
+                  unreviewedPendingApplicationsCount={unreviewedPendingApplicationsCount}
+                  UnreadNotificationBadgeComponent={UnreadNotificationBadge}
+                  onCloseMobileNav={() => {
+                    setIsAdminNavOpen(false)
+                    setIsAdminNavPinned(false)
+                  }}
+                  onHoverNavToggle={() => {
+                    if (!isAdminNavPinned) setIsAdminNavOpen(true)
+                  }}
+                  onToggleNav={() => {
+                    if (isAdminNavOpen) {
+                      setIsAdminNavOpen(false)
+                      setIsAdminNavPinned(false)
+                    } else {
+                      setIsAdminNavOpen(true)
+                      setIsAdminNavPinned(true)
+                    }
+                  }}
+                  onOpenProfile={() => setIsAdminProfileModalOpen(true)}
+                  onSelectTab={(tab, notice) => {
+                    setActiveAdminTab(tab)
+                    runAdminAction(notice)
+                  }}
+                  onSignOut={handleAdminSignOut}
+                  activeAdminData={activeAdminData}
+                  pendingApprovalsCount={pendingApprovalsCount}
+                  pendingApplicationsCount={pendingApplicationsCount}
+                  totalInterns={totalInterns}
+                  averagePerformance={averagePerformance}
+                  adminNotice={adminNotice}
+                  isAdminDataLoading={isAdminDataLoading}
+                  adminDataError={adminDataError}
+                >
+                  <AnimatePresence mode="wait">
                       <motion.div
                         key={activeAdminTab}
                         initial={{ opacity: 0, y: 10 }}
@@ -8386,7 +7844,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                           {paginatedApplications.length ? (
                             applicationViewMode === 'list' ? (
                               <div className="rounded-[22px] border border-castleton/15 bg-[#f8faf7] p-2 space-y-2">
-                                <div className="grid grid-cols-[1.2fr_1fr_0.8fr_0.6fr_260px] gap-3 px-4 py-2 text-xs uppercase tracking-[0.12em] text-black/50 rounded-2xl bg-white border border-castleton/10">
+                                <div className="hidden md:grid grid-cols-[1.2fr_1fr_0.8fr_0.6fr_320px] gap-3 px-4 py-2 text-xs uppercase tracking-[0.12em] text-black/50 rounded-2xl bg-white border border-castleton/10">
                                   <span>Applicant</span>
                                   <span>Position</span>
                                   <span>Status</span>
@@ -8394,87 +7852,238 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                                   <span>Action</span>
                                 </div>
                                 {paginatedApplications.map((application) => (
-                                  <div
-                                    key={application.id}
-                                    className="grid grid-cols-[1.2fr_1fr_0.8fr_0.6fr_260px] gap-3 px-4 py-3 rounded-2xl bg-white border border-castleton/10 shadow-sm"
-                                  >
-                                    <div>
-                                      <p className="text-sm font-semibold text-black">
-                                        <span className="inline-flex items-center gap-2">
-                                          {application.firstName} {application.lastName}
-                                          {isApplicationUnreviewed(application) ? <UnreadPulseDot /> : null}
-                                        </span>
-                                      </p>
-                                      <p className="text-xs text-black/60">{application.email}</p>
+                                  <div key={application.id}>
+                                    <div
+                                      className={`md:hidden rounded-2xl border p-3 shadow-sm ${
+                                        application.hireStatus === 'hired'
+                                          ? 'bg-[#f3fbf6] border-emerald-200'
+                                          : application.hireStatus === 'not_hired'
+                                            ? 'bg-[#fff8f8] border-rose-200'
+                                            : 'bg-white border-castleton/10'
+                                      }`}
+                                    >
+                                      <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                          <p className="text-sm font-semibold text-black">
+                                            <span className="inline-flex items-center gap-2">
+                                              <span className="break-words">{application.firstName} {application.lastName}</span>
+                                              {isApplicationUnreviewed(application) ? <UnreadPulseDot /> : null}
+                                            </span>
+                                          </p>
+                                          <p className="mt-1 break-all text-xs text-black/60">{application.email}</p>
+                                        </div>
+                                        <div className="shrink-0">
+                                          {application.cvScore !== null && application.cvScore !== undefined ? (
+                                            <span
+                                              className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                                                application.cvScore >= 85
+                                                  ? 'bg-[#e9f3ee] text-castleton'
+                                                  : application.cvScore >= 70
+                                                    ? 'bg-[#fff6e4] text-[#8a5a14]'
+                                                    : 'bg-[#fde8e8] text-[#8a3528]'
+                                              }`}
+                                            >
+                                              {application.cvScore}
+                                            </span>
+                                          ) : (
+                                            <span className="text-sm font-semibold text-black">—</span>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                                        <div className="rounded-xl bg-[#f8faf9] px-3 py-2">
+                                          <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Position</p>
+                                          <p className="mt-1 text-sm text-black/80 break-words">
+                                            {(application.positions || []).join(', ') || 'Not specified'}
+                                          </p>
+                                        </div>
+                                        <div className="rounded-xl bg-[#f8faf9] px-3 py-2">
+                                          <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Status</p>
+                                          <span
+                                            className={`mt-1 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
+                                              application.hireStatus === 'hired'
+                                                ? 'bg-emerald-50 text-emerald-700'
+                                                : application.hireStatus === 'not_hired'
+                                                  ? 'bg-rose-50 text-rose-700'
+                                                  : isHrInterviewStatus(application.status)
+                                                    ? 'bg-[#e9f3ee] text-castleton'
+                                                    : application.status === 'rejected'
+                                                      ? 'bg-[#fde8e8] text-[#8a3528]'
+                                                      : 'bg-[#fff6e4] text-[#8a5a14]'
+                                            }`}
+                                          >
+                                            {application.hireStatus === 'hired' ? (
+                                              <CheckCircle2 className="h-3.5 w-3.5" />
+                                            ) : application.hireStatus === 'not_hired' ? (
+                                              <XCircle className="h-3.5 w-3.5" />
+                                            ) : isHrInterviewStatus(application.status) ? (
+                                              <CheckCircle2 className="h-3.5 w-3.5" />
+                                            ) : application.status === 'rejected' ? (
+                                              <XCircle className="h-3.5 w-3.5" />
+                                            ) : (
+                                              <Clock3 className="h-3.5 w-3.5" />
+                                            )}
+                                            {applicationDisplayStatusLabel(application)}
+                                          </span>
+                                        </div>
+                                      </div>
+
+                                      {isHrInterviewStatus(application.status) && application.hireStatus !== 'hired' ? (
+                                        <p className="mt-3 text-xs text-black/60 break-words">{formatInterviewSchedule(application)}</p>
+                                      ) : null}
+
+                                      <div className="mt-3 flex flex-col gap-2">
+                                        {!isFinalHireDecision(application) && isHrInterviewStatus(application.status) ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => openInterviewScheduleModal(application)}
+                                            className="focus-brand w-full rounded-full border border-castleton/20 bg-[#f4f7f5] px-3 py-2 text-center text-xs font-semibold text-castleton transition-colors hover:bg-[#e7efe9]"
+                                          >
+                                            {application.interviewScheduledAt ? 'Reschedule Interview' : 'Schedule Interview'}
+                                          </button>
+                                        ) : null}
+                                        {!isFinalHireDecision(application) ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => openApplicationDetails(application)}
+                                            className="focus-brand w-full rounded-full border border-castleton/20 bg-white px-3 py-2 text-center text-xs font-semibold text-castleton transition-colors hover:bg-[#eef3ef]"
+                                          >
+                                            Review
+                                          </button>
+                                        ) : null}
+                                        {!isFinalHireDecision(application) && canSetHireStatus(application) ? (
+                                          <div className="grid grid-cols-2 gap-2">
+                                            <button
+                                              type="button"
+                                              onClick={() => handleApplicationHireStatus(application.id, 'hired')}
+                                              disabled={application.hireStatus === 'hired'}
+                                              className="focus-brand w-full rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-center text-xs font-semibold text-emerald-700 transition-colors enabled:hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-45"
+                                            >
+                                              Hired
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleApplicationHireStatus(application.id, 'not_hired')}
+                                              disabled={application.hireStatus === 'not_hired'}
+                                              className="focus-brand w-full rounded-full border border-rose-200 bg-rose-50 px-3 py-2 text-center text-xs font-semibold text-rose-700 transition-colors enabled:hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-45"
+                                            >
+                                              Not Hired
+                                            </button>
+                                          </div>
+                                        ) : null}
+                                      </div>
                                     </div>
-                                    <div className="text-sm text-black/80">
-                                      {(application.positions || []).join(', ') || 'Not specified'}
-                                    </div>
-                                    <div>
-                                      <span
-                                        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
-                                          isHrInterviewStatus(application.status)
-                                            ? 'bg-[#e9f3ee] text-castleton'
-                                            : application.status === 'rejected'
-                                              ? 'bg-[#fde8e8] text-[#8a3528]'
-                                              : 'bg-[#fff6e4] text-[#8a5a14]'
-                                        }`}
-                                      >
-                                        {isHrInterviewStatus(application.status) ? (
-                                          <CheckCircle2 className="h-3.5 w-3.5" />
-                                        ) : application.status === 'rejected' ? (
-                                          <XCircle className="h-3.5 w-3.5" />
-                                        ) : (
-                                          <Clock3 className="h-3.5 w-3.5" />
-                                        )}
-                                        {applicationStatusLabel(application.status)}
-                                      </span>
-                                    </div>
-                                    <div className="text-sm font-semibold text-black">
-                                      {application.cvScore !== null && application.cvScore !== undefined ? (
+
+                                    <div
+                                      className={`hidden md:grid grid-cols-[1.2fr_1fr_0.8fr_0.6fr_320px] gap-3 px-4 py-3 rounded-2xl border shadow-sm ${
+                                        application.hireStatus === 'hired'
+                                          ? 'bg-[#f3fbf6] border-emerald-200'
+                                          : application.hireStatus === 'not_hired'
+                                            ? 'bg-[#fff8f8] border-rose-200'
+                                            : 'bg-white border-castleton/10'
+                                      }`}
+                                    >
+                                      <div>
+                                        <p className="text-sm font-semibold text-black">
+                                          <span className="inline-flex items-center gap-2">
+                                            {application.firstName} {application.lastName}
+                                            {isApplicationUnreviewed(application) ? <UnreadPulseDot /> : null}
+                                          </span>
+                                        </p>
+                                        <p className="text-xs text-black/60">{application.email}</p>
+                                      </div>
+                                      <div className="text-sm text-black/80">
+                                        {(application.positions || []).join(', ') || 'Not specified'}
+                                      </div>
+                                      <div>
                                         <span
-                                          className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                                            application.cvScore >= 85
-                                              ? 'bg-[#e9f3ee] text-castleton'
-                                              : application.cvScore >= 70
-                                                ? 'bg-[#fff6e4] text-[#8a5a14]'
-                                                : 'bg-[#fde8e8] text-[#8a3528]'
+                                          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
+                                            application.hireStatus === 'hired'
+                                              ? 'bg-emerald-50 text-emerald-700'
+                                              : application.hireStatus === 'not_hired'
+                                                ? 'bg-rose-50 text-rose-700'
+                                                : isHrInterviewStatus(application.status)
+                                                  ? 'bg-[#e9f3ee] text-castleton'
+                                                  : application.status === 'rejected'
+                                                    ? 'bg-[#fde8e8] text-[#8a3528]'
+                                                    : 'bg-[#fff6e4] text-[#8a5a14]'
                                           }`}
                                         >
-                                          {application.cvScore}
+                                          {application.hireStatus === 'hired' ? (
+                                            <CheckCircle2 className="h-3.5 w-3.5" />
+                                          ) : application.hireStatus === 'not_hired' ? (
+                                            <XCircle className="h-3.5 w-3.5" />
+                                          ) : isHrInterviewStatus(application.status) ? (
+                                            <CheckCircle2 className="h-3.5 w-3.5" />
+                                          ) : application.status === 'rejected' ? (
+                                            <XCircle className="h-3.5 w-3.5" />
+                                          ) : (
+                                            <Clock3 className="h-3.5 w-3.5" />
+                                          )}
+                                          {applicationDisplayStatusLabel(application)}
                                         </span>
-                                      ) : (
-                                        '—'
-                                      )}
-                                    </div>
-                                    <div className="flex flex-wrap gap-2">
-                                      <button
-                                        type="button"
-                                        onClick={() => openApplicationDetails(application)}
-                                        className="focus-brand rounded-full border border-castleton/20 bg-white px-3 py-1.5 text-xs font-semibold text-castleton transition-colors hover:bg-[#eef3ef]"
-                                      >
-                                        Review
-                                      </button>
-                                      {canSetHireStatus(application) ? (
-                                        <>
+                                        {isHrInterviewStatus(application.status) && application.hireStatus !== 'hired' ? (
+                                          <p className="mt-2 text-xs text-black/60">{formatInterviewSchedule(application)}</p>
+                                        ) : null}
+                                      </div>
+                                      <div className="text-sm font-semibold text-black">
+                                        {application.cvScore !== null && application.cvScore !== undefined ? (
+                                          <span
+                                            className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                                              application.cvScore >= 85
+                                                ? 'bg-[#e9f3ee] text-castleton'
+                                                : application.cvScore >= 70
+                                                  ? 'bg-[#fff6e4] text-[#8a5a14]'
+                                                  : 'bg-[#fde8e8] text-[#8a3528]'
+                                            }`}
+                                          >
+                                            {application.cvScore}
+                                          </span>
+                                        ) : (
+                                          '—'
+                                        )}
+                                      </div>
+                                      <div className="grid grid-cols-2 gap-2 items-start">
+                                        {!isFinalHireDecision(application) && isHrInterviewStatus(application.status) ? (
                                           <button
                                             type="button"
-                                            onClick={() => handleApplicationHireStatus(application.id, 'hired')}
-                                            disabled={application.hireStatus === 'hired'}
-                                            className="focus-brand rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors enabled:hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-45"
+                                            onClick={() => openInterviewScheduleModal(application)}
+                                            className="focus-brand w-full rounded-full border border-castleton/20 bg-[#f4f7f5] px-3 py-1.5 text-center text-xs font-semibold text-castleton transition-colors hover:bg-[#e7efe9]"
                                           >
-                                            Hired
+                                            {application.interviewScheduledAt ? 'Reschedule' : 'Schedule Interview'}
                                           </button>
+                                        ) : null}
+                                        {!isFinalHireDecision(application) ? (
                                           <button
                                             type="button"
-                                            onClick={() => handleApplicationHireStatus(application.id, 'not_hired')}
-                                            disabled={application.hireStatus === 'not_hired'}
-                                            className="focus-brand rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 transition-colors enabled:hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-45"
+                                            onClick={() => openApplicationDetails(application)}
+                                            className="focus-brand w-full rounded-full border border-castleton/20 bg-white px-3 py-1.5 text-center text-xs font-semibold text-castleton transition-colors hover:bg-[#eef3ef]"
                                           >
-                                            Not Hired
+                                            Review
                                           </button>
-                                        </>
-                                      ) : null}
+                                        ) : null}
+                                        {!isFinalHireDecision(application) && canSetHireStatus(application) ? (
+                                          <>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleApplicationHireStatus(application.id, 'hired')}
+                                              disabled={application.hireStatus === 'hired'}
+                                              className="focus-brand w-full rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-center text-xs font-semibold text-emerald-700 transition-colors enabled:hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-45"
+                                            >
+                                              Hired
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleApplicationHireStatus(application.id, 'not_hired')}
+                                              disabled={application.hireStatus === 'not_hired'}
+                                              className="focus-brand w-full rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-center text-xs font-semibold text-rose-700 transition-colors enabled:hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-45"
+                                            >
+                                              Not Hired
+                                            </button>
+                                          </>
+                                        ) : null}
+                                      </div>
                                     </div>
                                   </div>
                                 ))}
@@ -8484,11 +8093,15 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                                 <motion.article
                                   key={application.id}
                                   className={`rounded-[18px] border bg-white p-3.5 transition-colors ${
-                                    application.status === 'pending'
-                                      ? 'border-[#e2c676] shadow-[0_16px_40px_-30px_rgba(138,90,20,0.45)]'
-                                      : isHrInterviewStatus(application.status)
-                                        ? 'border-castleton/20'
-                                        : 'border-[#dfc1bb]'
+                                    application.hireStatus === 'hired'
+                                      ? 'border-emerald-200 bg-[#f3fbf6] shadow-[0_16px_40px_-30px_rgba(16,185,129,0.28)]'
+                                      : application.hireStatus === 'not_hired'
+                                        ? 'border-rose-200 bg-[#fff8f8] shadow-[0_16px_40px_-30px_rgba(244,63,94,0.18)]'
+                                        : application.status === 'pending'
+                                          ? 'border-[#e2c676] shadow-[0_16px_40px_-30px_rgba(138,90,20,0.45)]'
+                                          : isHrInterviewStatus(application.status)
+                                            ? 'border-castleton/20'
+                                            : 'border-[#dfc1bb]'
                                   }`}
                                   initial={{ opacity: 0, y: 10 }}
                                   animate={{ opacity: 1, y: 0 }}
@@ -8529,21 +8142,29 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                                         <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Status</p>
                                         <span
                                           className={`mt-1.5 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-semibold ${
-                                            isHrInterviewStatus(application.status)
-                                              ? 'bg-[#e9f3ee] text-castleton'
-                                              : application.status === 'rejected'
-                                                ? 'bg-[#fde8e8] text-[#8a3528]'
-                                                : 'bg-[#fff6e4] text-[#8a5a14]'
+                                            application.hireStatus === 'hired'
+                                              ? 'bg-emerald-50 text-emerald-700'
+                                              : application.hireStatus === 'not_hired'
+                                                ? 'bg-rose-50 text-rose-700'
+                                                : isHrInterviewStatus(application.status)
+                                                  ? 'bg-[#e9f3ee] text-castleton'
+                                                  : application.status === 'rejected'
+                                                    ? 'bg-[#fde8e8] text-[#8a3528]'
+                                                    : 'bg-[#fff6e4] text-[#8a5a14]'
                                           }`}
                                         >
-                                          {isHrInterviewStatus(application.status) ? (
+                                          {application.hireStatus === 'hired' ? (
+                                            <CheckCircle2 className="h-3.5 w-3.5" />
+                                          ) : application.hireStatus === 'not_hired' ? (
+                                            <XCircle className="h-3.5 w-3.5" />
+                                          ) : isHrInterviewStatus(application.status) ? (
                                             <CheckCircle2 className="h-3.5 w-3.5" />
                                           ) : application.status === 'rejected' ? (
                                             <XCircle className="h-3.5 w-3.5" />
                                           ) : (
                                             <Clock3 className="h-3.5 w-3.5" />
                                           )}
-                                          {applicationStatusLabel(application.status)}
+                                          {applicationDisplayStatusLabel(application)}
                                         </span>
                                         <div className="mt-2">
                                           {application.cvScore !== null && application.cvScore !== undefined ? (
@@ -8569,20 +8190,31 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                                     <div className="rounded-[16px] border border-castleton/12 bg-[#fbfcfb] p-3">
                                       <span
                                         className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.12em] ${
-                                          isHrInterviewStatus(application.status)
-                                            ? 'bg-[#e9f3ee] text-castleton'
-                                            : application.status === 'rejected'
-                                              ? 'bg-[#fde8e8] text-[#8a3528]'
-                                              : 'bg-[#fff6e4] text-[#8a5a14]'
+                                          application.hireStatus === 'hired'
+                                            ? 'bg-emerald-50 text-emerald-700'
+                                            : application.hireStatus === 'not_hired'
+                                              ? 'bg-rose-50 text-rose-700'
+                                              : isHrInterviewStatus(application.status)
+                                                ? 'bg-[#e9f3ee] text-castleton'
+                                                : application.status === 'rejected'
+                                                  ? 'bg-[#fde8e8] text-[#8a3528]'
+                                                  : 'bg-[#fff6e4] text-[#8a5a14]'
                                         }`}
                                       >
-                                        {application.status === 'pending' ? 'Needs Review' : `Status: ${applicationStatusLabel(application.status)}`}
+                                        {isFinalHireDecision(application)
+                                          ? applicationDisplayStatusLabel(application)
+                                          : application.status === 'pending'
+                                            ? 'Needs Review'
+                                            : `Status: ${applicationStatusLabel(application.status)}`}
                                       </span>
                                       <p className="mt-3 text-sm text-black/65">
                                         {application.reviewedAt
                                           ? `Reviewed ${new Date(application.reviewedAt).toLocaleString()}`
                                           : 'Awaiting admin review'}
                                       </p>
+                                      {isHrInterviewStatus(application.status) && application.hireStatus !== 'hired' ? (
+                                        <p className="mt-2 text-sm text-black/65">{formatInterviewSchedule(application)}</p>
+                                      ) : null}
                                       <textarea
                                         value={applicationNoteDrafts[application.id] ?? application.adminNote}
                                         onChange={(event) =>
@@ -8594,14 +8226,25 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                                       />
 
                                       <div className="mt-3 flex flex-wrap gap-2">
-                                        <button
-                                          type="button"
-                                          onClick={() => openApplicationDetails(application)}
-                                          className="focus-brand rounded-full border border-castleton/20 bg-castleton px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_24px_-14px_rgba(4,98,65,0.7)] transition-colors hover:bg-serpent"
-                                        >
-                                          Review Applicant
-                                        </button>
-                                        {canSetHireStatus(application) ? (
+                                        {!isFinalHireDecision(application) && isHrInterviewStatus(application.status) ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => openInterviewScheduleModal(application)}
+                                            className="focus-brand rounded-full border border-castleton/20 bg-[#f4f7f5] px-4 py-2 text-sm font-semibold text-castleton transition-colors hover:bg-[#e7efe9]"
+                                          >
+                                            {application.interviewScheduledAt ? 'Reschedule Interview' : 'Schedule Interview'}
+                                          </button>
+                                        ) : null}
+                                        {!isFinalHireDecision(application) ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => openApplicationDetails(application)}
+                                            className="focus-brand rounded-full border border-castleton/20 bg-castleton px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_24px_-14px_rgba(4,98,65,0.7)] transition-colors hover:bg-serpent"
+                                          >
+                                            Review Applicant
+                                          </button>
+                                        ) : null}
+                                        {!isFinalHireDecision(application) && canSetHireStatus(application) ? (
                                           <>
                                             <button
                                               type="button"
@@ -9121,10 +8764,10 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                             <div
                               ref={manageInternsFollowScrollRef}
                               onScroll={() => syncManageInternsHorizontalScroll('top')}
-                              className="admin-follow-x-scroll z-20 mt-2 w-full overflow-x-auto overflow-y-hidden rounded-xl border border-castleton/25 bg-[#f9fbfa]/96 backdrop-blur-md shadow-[0_14px_34px_-18px_rgba(19,48,32,0.45)] py-1"
+                              className="admin-follow-x-scroll z-20 mt-2 w-full overflow-x-auto overflow-y-hidden rounded-full border border-castleton/20 bg-[#f3f7f4] px-1 py-0.5 shadow-[0_10px_26px_-18px_rgba(19,48,32,0.4)]"
                               aria-label="Manage interns horizontal scrollbar"
                             >
-                              <div ref={manageInternsFollowTrackRef} className="h-6" />
+                              <div ref={manageInternsFollowTrackRef} className="h-3" />
                             </div>
                           </div>
                           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
@@ -9598,7 +9241,11 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                             </select>
                           </div>
                           <div className="relative rounded-xl">
-                            <div className="w-full overflow-x-auto overflow-y-visible rounded-xl border border-castleton/10 hide-x-scrollbar">
+                            <div
+                              ref={employeeTableScrollRef}
+                              onScroll={() => syncEmployeeHorizontalScroll('table')}
+                              className="w-full overflow-x-auto overflow-y-visible rounded-xl border border-castleton/10 hide-x-scrollbar"
+                            >
                               <table className="manage-interns-table w-max min-w-full text-center">
                                 <thead className="sticky top-0 z-10 bg-[#eef4f0]">
                                   <tr className="border-b border-castleton/15 text-black/75">
@@ -9611,6 +9258,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                                     <th className="py-2 px-3 text-sm font-semibold whitespace-nowrap text-center">Position</th>
                                     <th className="py-2 px-3 text-sm font-semibold whitespace-nowrap text-center">Hire Status</th>
                                     <th className="py-2 px-3 text-sm font-semibold whitespace-nowrap text-center">Hired At</th>
+                                    <th className="py-2 px-3 text-sm font-semibold whitespace-nowrap text-center">Actions</th>
                                   </tr>
                                 </thead>
                                 <tbody>
@@ -9636,10 +9284,36 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                                       <td className="py-2 px-3 text-sm text-black/80 whitespace-nowrap text-center">
                                         {employee.hiredAt ? new Date(employee.hiredAt).toLocaleDateString() : '-'}
                                       </td>
+                                      <td className="py-2 px-3 whitespace-nowrap text-center">
+                                        <div className="flex items-center justify-center gap-2">
+                                          <button
+                                            type="button"
+                                            onClick={() => handleEmployeeEdit(employee)}
+                                            className="focus-brand rounded-lg border border-castleton/20 px-2.5 py-1 text-xs font-semibold text-castleton hover:bg-castleton hover:text-white transition-colors"
+                                          >
+                                            Edit
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleEmployeeDelete(employee)}
+                                            className="focus-brand rounded-lg border border-[#c67c72]/40 px-2.5 py-1 text-xs font-semibold text-[#9d4436] hover:bg-[#c05345] hover:text-white transition-colors"
+                                          >
+                                            Delete
+                                          </button>
+                                        </div>
+                                      </td>
                                     </tr>
                                   ))}
                                 </tbody>
                               </table>
+                            </div>
+                            <div
+                              ref={employeeFollowScrollRef}
+                              onScroll={() => syncEmployeeHorizontalScroll('top')}
+                              className="admin-follow-x-scroll z-20 mt-2 w-full overflow-x-auto overflow-y-hidden rounded-full border border-castleton/20 bg-[#f3f7f4] px-1 py-0.5 shadow-[0_10px_26px_-18px_rgba(19,48,32,0.4)]"
+                              aria-label="Manage employee horizontal scrollbar"
+                            >
+                              <div ref={employeeFollowTrackRef} className="h-3" />
                             </div>
                           </div>
 
@@ -9789,8 +9463,6 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                     )}
                       </motion.div>
                     </AnimatePresence>
-                  </main>
-                </div>
 
                 <AnimatePresence>
                   {isAdminProfileModalOpen ? (
@@ -9880,7 +9552,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                 <AnimatePresence>
                   {confirmationDialog ? (
                     <motion.div
-                      className="fixed inset-0 z-[96] bg-black/55 backdrop-blur-[3px] flex items-center justify-center p-4"
+                      className="fixed inset-0 z-[110] bg-black/55 backdrop-blur-[3px] flex items-center justify-center p-4"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
@@ -9998,6 +9670,368 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                 </AnimatePresence>
 
                 <AnimatePresence>
+                  {isInterviewScheduleModalOpen ? (
+                    <motion.div
+                      className="fixed inset-0 z-[98] bg-black/60 backdrop-blur-[3px] flex items-center justify-center p-4"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      onClick={closeInterviewScheduleModal}
+                    >
+                      <motion.form
+                        onSubmit={handleInterviewScheduleSubmit}
+                        className="w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-[28px] border border-castleton/20 bg-[linear-gradient(165deg,#f9fcfa,#eef5f1_65%,#e7efeb)] p-4 sm:p-6 shadow-2xl"
+                        initial={{ opacity: 0, y: 16, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 12, scale: 0.98 }}
+                        transition={{ duration: 0.22 }}
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <div className="flex items-start justify-between gap-3 sm:gap-4">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.12em] text-castleton mb-1">Interview Schedule</p>
+                            <h2 className="text-lg sm:text-xl font-semibold text-black">Set HR interview details</h2>
+                            <p className="mt-2 text-sm text-black/65">Choose a future interview slot and send the schedule in one step.</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={closeInterviewScheduleModal}
+                            className="focus-brand inline-flex h-9 w-9 items-center justify-center rounded-full border border-castleton/15 text-castleton hover:bg-[#f4f7f5] transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        <div className="mt-5 rounded-[24px] border border-castleton/15 bg-white/85 p-4 sm:p-5">
+                          <div className="mb-4 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.11em] text-castleton">Interview Slot</p>
+                              <p className="mt-1 text-sm text-black/60">Past dates and times are blocked automatically.</p>
+                            </div>
+                            <span className="rounded-full bg-[#e8f1ec] px-3 py-1 text-xs font-semibold text-castleton">
+                              {interviewScheduleForm.date && interviewScheduleForm.time ? `${interviewScheduleForm.date} • ${interviewScheduleForm.time}` : 'Pick a slot'}
+                            </span>
+                          </div>
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <label className="grid gap-2">
+                              <span className="text-sm font-semibold text-black">Interview date</span>
+                              <input
+                                type="date"
+                                min={interviewScheduleMinDate}
+                                value={interviewScheduleForm.date}
+                                onChange={(event) => {
+                                  const nextDate = event.target.value
+                                  setInterviewScheduleError('')
+                                  setInterviewScheduleForm((prev) => ({
+                                    ...prev,
+                                    date: nextDate,
+                                    time:
+                                      prev.time && buildInterviewTimeOptions(nextDate).some((option) => option.value === prev.time)
+                                        ? prev.time
+                                        : '',
+                                  }))
+                                }}
+                                className="focus-brand rounded-2xl border border-castleton/30 bg-[#fcfefd] px-3.5 py-3 text-black shadow-[0_10px_26px_-22px_rgba(19,48,32,0.35)] outline outline-1 outline-castleton/15"
+                              />
+                            </label>
+                            <label className="grid gap-2">
+                              <span className="text-sm font-semibold text-black">Interview time</span>
+                              <select
+                                value={interviewScheduleForm.time}
+                                onChange={(event) => {
+                                  setInterviewScheduleError('')
+                                  setInterviewScheduleForm((prev) => ({ ...prev, time: event.target.value }))
+                                }}
+                                className="focus-brand rounded-2xl border border-castleton/30 bg-[#fcfefd] px-3.5 py-3 text-black shadow-[0_10px_26px_-22px_rgba(19,48,32,0.35)] outline outline-1 outline-castleton/15"
+                              >
+                                <option value="">Select time</option>
+                                {interviewTimeOptions.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 grid gap-3">
+                          <label className="grid gap-2">
+                            <span className="text-sm font-semibold text-black">Interview mode</span>
+                            <select
+                              value={interviewScheduleForm.meetingType}
+                              onChange={(event) => {
+                                const meetingType = event.target.value
+                                setInterviewScheduleError('')
+                                setInterviewScheduleForm((prev) => ({
+                                  ...prev,
+                                  meetingType,
+                                  location: meetingType === 'google-meet'
+                                    ? prev.meetingLink || ''
+                                    : defaultFaceToFaceInterviewLocation,
+                                }))
+                              }}
+                              className="focus-brand rounded-2xl border border-castleton/25 bg-white px-3.5 py-3 text-black"
+                            >
+                              <option value="face-to-face">Face to Face</option>
+                              <option value="google-meet">Google Meet</option>
+                            </select>
+                          </label>
+                          <label className="grid gap-2">
+                            <span className="text-sm font-semibold text-black">Timezone</span>
+                            <input
+                              type="text"
+                              value={interviewScheduleForm.timezone}
+                              onChange={(event) => {
+                                setInterviewScheduleError('')
+                                setInterviewScheduleForm((prev) => ({ ...prev, timezone: event.target.value }))
+                              }}
+                              placeholder="Asia/Taipei"
+                              className="focus-brand rounded-2xl border border-castleton/25 bg-white px-3.5 py-3 text-black"
+                            />
+                          </label>
+                          {interviewScheduleForm.meetingType === 'google-meet' ? (
+                            <label className="grid gap-2">
+                              <span className="text-sm font-semibold text-black">Google Meet link</span>
+                              <input
+                                type="url"
+                                value={interviewScheduleForm.meetingLink}
+                                onChange={(event) => {
+                                  const meetingLink = event.target.value
+                                  setInterviewScheduleError('')
+                                  setInterviewScheduleForm((prev) => ({
+                                    ...prev,
+                                    meetingLink,
+                                    location: meetingLink,
+                                  }))
+                                }}
+                                placeholder="https://meet.google.com/..."
+                                className="focus-brand rounded-2xl border border-castleton/25 bg-white px-3.5 py-3 text-black"
+                              />
+                            </label>
+                          ) : (
+                            <label className="grid gap-2">
+                              <span className="text-sm font-semibold text-black">Face to face location</span>
+                              <textarea
+                                value={defaultFaceToFaceInterviewLocation}
+                                readOnly
+                                rows={3}
+                                className="rounded-2xl border border-castleton/20 bg-[#f4f7f5] px-3.5 py-3 text-black/80 outline-none resize-none"
+                              />
+                            </label>
+                          )}
+                        </div>
+
+                        {interviewScheduleError ? (
+                          <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                            {interviewScheduleError}
+                          </div>
+                        ) : null}
+
+                        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+                          <button
+                            type="button"
+                            onClick={closeInterviewScheduleModal}
+                            className="focus-brand w-full rounded-full border border-castleton/15 bg-white px-4 py-2 text-sm font-semibold text-castleton hover:bg-[#f4f7f5] transition-colors sm:w-auto"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="submit"
+                            className="focus-brand inline-flex w-full items-center justify-center gap-2 rounded-full border border-castleton/20 bg-castleton px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-serpent sm:w-auto"
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                            Save Schedule and Email
+                          </button>
+                        </div>
+                      </motion.form>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
+
+                <AnimatePresence>
+                  {isEmployeeModalOpen ? (
+                    <motion.div
+                      className="fixed inset-0 z-[99] bg-black/55 backdrop-blur-[3px] flex items-center justify-center p-4"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      onClick={resetEmployeeForm}
+                    >
+                      <motion.form
+                        onSubmit={handleEmployeeSave}
+                        className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-[28px] border border-castleton/20 bg-[linear-gradient(165deg,#f8fbf9,#edf5f1_65%,#e8f0ec)] p-5 sm:p-6 shadow-2xl"
+                        initial={{ opacity: 0, y: 16, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 12, scale: 0.98 }}
+                        transition={{ duration: 0.22 }}
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <div className="mb-5 flex items-start justify-between gap-3 sm:gap-4">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.12em] text-castleton mb-1">Manage Employee</p>
+                            <h2 className="text-xl sm:text-3xl font-semibold text-black">Edit Employee Record</h2>
+                            <p className="mt-2 text-sm text-black/65">Update the employee profile and role details from a single record.</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={resetEmployeeForm}
+                            className="focus-brand inline-flex h-9 w-9 items-center justify-center rounded-full border border-castleton/15 text-castleton hover:bg-[#f4f7f5] transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 2xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)] gap-4 lg:gap-5">
+                          <div className="rounded-[22px] border border-castleton/15 bg-white/90 p-4 sm:p-5">
+                            <p className="text-xs uppercase tracking-[0.11em] text-castleton mb-4">Employee Information</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <label className="block">
+                                <span className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.08em] text-black/55">First name</span>
+                                <input
+                                  type="text"
+                                  placeholder="First name"
+                                  value={employeeForm.firstName}
+                                  onChange={(event) => setEmployeeForm((prev) => ({ ...prev, firstName: event.target.value }))}
+                                  className="focus-brand w-full rounded-xl border border-castleton/45 outline outline-1 outline-castleton/20 bg-[#fcfefd] px-3.5 py-3 text-base text-black shadow-[0_10px_26px_-22px_rgba(19,48,32,0.4),inset_0_1px_0_rgba(255,255,255,0.75)] placeholder:text-black/35"
+                                />
+                              </label>
+                              <label className="block">
+                                <span className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.08em] text-black/55">Last name</span>
+                                <input
+                                  type="text"
+                                  placeholder="Last name"
+                                  value={employeeForm.lastName}
+                                  onChange={(event) => setEmployeeForm((prev) => ({ ...prev, lastName: event.target.value }))}
+                                  className="focus-brand w-full rounded-xl border border-castleton/45 outline outline-1 outline-castleton/20 bg-[#fcfefd] px-3.5 py-3 text-base text-black shadow-[0_10px_26px_-22px_rgba(19,48,32,0.4),inset_0_1px_0_rgba(255,255,255,0.75)] placeholder:text-black/35"
+                                />
+                              </label>
+                              <label className="block md:col-span-2">
+                                <span className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.08em] text-black/55">Email address</span>
+                                <input
+                                  type="email"
+                                  placeholder="name@company.com"
+                                  value={employeeForm.email}
+                                  onChange={(event) => setEmployeeForm((prev) => ({ ...prev, email: event.target.value }))}
+                                  className="focus-brand w-full rounded-xl border border-castleton/45 outline outline-1 outline-castleton/20 bg-[#fcfefd] px-3.5 py-3 text-base text-black shadow-[0_10px_26px_-22px_rgba(19,48,32,0.4),inset_0_1px_0_rgba(255,255,255,0.75)] placeholder:text-black/35"
+                                />
+                              </label>
+                              <label className="block">
+                                <span className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.08em] text-black/55">Country</span>
+                                <input
+                                  type="text"
+                                  placeholder="Country"
+                                  value={employeeForm.country}
+                                  onChange={(event) => setEmployeeForm((prev) => ({ ...prev, country: event.target.value }))}
+                                  className="focus-brand w-full rounded-xl border border-castleton/45 outline outline-1 outline-castleton/20 bg-[#fcfefd] px-3.5 py-3 text-base text-black shadow-[0_10px_26px_-22px_rgba(19,48,32,0.4),inset_0_1px_0_rgba(255,255,255,0.75)] placeholder:text-black/35"
+                                />
+                              </label>
+                              <label className="block">
+                                <span className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.08em] text-black/55">Age</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  placeholder="Age"
+                                  value={employeeForm.age}
+                                  onChange={(event) => setEmployeeForm((prev) => ({ ...prev, age: event.target.value }))}
+                                  className="focus-brand w-full rounded-xl border border-castleton/45 outline outline-1 outline-castleton/20 bg-[#fcfefd] px-3.5 py-3 text-base text-black shadow-[0_10px_26px_-22px_rgba(19,48,32,0.4),inset_0_1px_0_rgba(255,255,255,0.75)] placeholder:text-black/35"
+                                />
+                              </label>
+                              <label className="block">
+                                <span className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.08em] text-black/55">Phone code</span>
+                                <input
+                                  type="text"
+                                  placeholder="+63"
+                                  value={employeeForm.phoneCode}
+                                  onChange={(event) => setEmployeeForm((prev) => ({ ...prev, phoneCode: event.target.value }))}
+                                  className="focus-brand w-full rounded-xl border border-castleton/45 outline outline-1 outline-castleton/20 bg-[#fcfefd] px-3.5 py-3 text-base text-black shadow-[0_10px_26px_-22px_rgba(19,48,32,0.4),inset_0_1px_0_rgba(255,255,255,0.75)] placeholder:text-black/35"
+                                />
+                              </label>
+                              <label className="block">
+                                <span className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.08em] text-black/55">Phone number</span>
+                                <input
+                                  type="text"
+                                  placeholder="Phone number"
+                                  value={employeeForm.phoneNumber}
+                                  onChange={(event) => setEmployeeForm((prev) => ({ ...prev, phoneNumber: event.target.value }))}
+                                  className="focus-brand w-full rounded-xl border border-castleton/45 outline outline-1 outline-castleton/20 bg-[#fcfefd] px-3.5 py-3 text-base text-black shadow-[0_10px_26px_-22px_rgba(19,48,32,0.4),inset_0_1px_0_rgba(255,255,255,0.75)] placeholder:text-black/35"
+                                />
+                              </label>
+                              <label className="block md:col-span-2">
+                                <span className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.08em] text-black/55">Address</span>
+                                <textarea
+                                  placeholder="Office or home address"
+                                  value={employeeForm.address}
+                                  onChange={(event) => setEmployeeForm((prev) => ({ ...prev, address: event.target.value }))}
+                                  rows={4}
+                                  className="focus-brand min-h-[132px] w-full rounded-xl border border-castleton/45 outline outline-1 outline-castleton/20 bg-[#fcfefd] px-3.5 py-3 text-base text-black shadow-[0_10px_26px_-22px_rgba(19,48,32,0.4),inset_0_1px_0_rgba(255,255,255,0.75)] placeholder:text-black/35 resize-y"
+                                />
+                              </label>
+                            </div>
+                          </div>
+
+                          <div className="rounded-[22px] border border-castleton/15 bg-white/90 p-4 sm:p-5">
+                            <p className="text-xs uppercase tracking-[0.11em] text-castleton mb-4">Role Details</p>
+                            <div className="space-y-3">
+                              <label className="block">
+                                <span className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.08em] text-black/55">Gender</span>
+                                <select
+                                  value={employeeForm.gender}
+                                  onChange={(event) => setEmployeeForm((prev) => ({ ...prev, gender: event.target.value }))}
+                                  className="focus-brand w-full rounded-xl border border-castleton/45 outline outline-1 outline-castleton/20 bg-[#fcfefd] px-3.5 py-3 text-base text-black shadow-[0_10px_26px_-22px_rgba(19,48,32,0.4),inset_0_1px_0_rgba(255,255,255,0.75)]"
+                                >
+                                  <option value="">Select gender</option>
+                                  <option value="Male">Male</option>
+                                  <option value="Female">Female</option>
+                                </select>
+                              </label>
+                              <label className="block">
+                                <span className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.08em] text-black/55">Assigned positions</span>
+                                <textarea
+                                  placeholder="Positions, separated by commas"
+                                  value={employeeForm.positions}
+                                  onChange={(event) => setEmployeeForm((prev) => ({ ...prev, positions: event.target.value }))}
+                                  rows={5}
+                                  className="focus-brand min-h-[164px] w-full rounded-xl border border-castleton/45 outline outline-1 outline-castleton/20 bg-[#fcfefd] px-3.5 py-3 text-base text-black shadow-[0_10px_26px_-22px_rgba(19,48,32,0.4),inset_0_1px_0_rgba(255,255,255,0.75)] placeholder:text-black/35 resize-y"
+                                />
+                              </label>
+                              <div className="rounded-2xl border border-castleton/15 bg-[#f7fbf8] px-4 py-3 text-sm text-black/75">
+                                <p className="font-semibold text-black">Preview</p>
+                                <p className="mt-2">{[employeeForm.firstName, employeeForm.lastName].filter(Boolean).join(' ') || 'Unnamed employee'}</p>
+                                <p>{employeeForm.email || 'No email provided'}</p>
+                                <p>{employeeForm.country || 'Country not set'}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {employeeFormError ? (
+                          <div className="mt-4 rounded-xl border border-[#c05345]/35 bg-[#fff3f1] px-3 py-2 text-sm font-medium text-[#9d4436]">
+                            {employeeFormError}
+                          </div>
+                        ) : null}
+
+                        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+                          <button
+                            type="button"
+                            onClick={resetEmployeeForm}
+                            className="focus-brand w-full rounded-full border border-castleton/20 px-3 py-2 text-sm font-semibold text-castleton hover:bg-castleton hover:text-white transition-colors sm:w-auto sm:py-1.5"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="submit"
+                            className="focus-brand w-full rounded-full bg-castleton px-4 py-2 text-sm font-semibold text-white hover:bg-serpent transition-colors sm:w-auto"
+                          >
+                            Update Employee Record
+                          </button>
+                        </div>
+                      </motion.form>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
+
+                <AnimatePresence>
                   {selectedApplication ? (
                     <motion.div
                       className="fixed inset-0 z-[95] bg-black/55 backdrop-blur-[3px] flex items-center justify-center p-4"
@@ -10014,10 +10048,10 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                         transition={{ duration: 0.22 }}
                         onClick={(event) => event.stopPropagation()}
                       >
-                        <div className="flex items-start justify-between gap-4 px-5 sm:px-6 pt-5 sm:pt-6 pb-4 border-b border-castleton/10">
+                        <div className="flex items-start justify-between gap-3 px-4 sm:px-6 pt-4 sm:pt-6 pb-4 border-b border-castleton/10">
                           <div>
                             <p className="text-xs uppercase tracking-[0.12em] text-castleton mb-1">Applicant Review</p>
-                            <h2 className="text-xl font-semibold text-black">
+                            <h2 className="text-lg sm:text-xl font-semibold text-black">
                               {selectedApplication.firstName} {selectedApplication.lastName}
                             </h2>
                             <p className="text-sm text-black/65 mt-1">{selectedApplication.email}</p>
@@ -10031,7 +10065,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                           </button>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto px-5 sm:px-6 pb-5 sm:pb-6">
+                        <div className="flex-1 overflow-y-auto px-4 sm:px-6 pb-5 sm:pb-6">
                           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-4">
                             <div className="rounded-xl border border-castleton/12 bg-[#f8faf9] px-3 py-2.5">
                             <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Phone</p>
@@ -10049,19 +10083,21 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                             <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Status</p>
                             <span
                               className={`mt-1.5 inline-flex rounded-full px-2.5 py-1 text-sm font-semibold ${
-                                isHrInterviewStatus(selectedApplication.status)
-                                  ? 'bg-[#e9f3ee] text-castleton'
-                                  : selectedApplication.status === 'rejected'
-                                    ? 'bg-[#fde8e8] text-[#8a3528]'
-                                    : 'bg-[#fff6e4] text-[#8a5a14]'
+                                selectedApplication.hireStatus === 'hired'
+                                  ? 'bg-emerald-50 text-emerald-700'
+                                  : selectedApplication.hireStatus === 'not_hired'
+                                    ? 'bg-rose-50 text-rose-700'
+                                    : isHrInterviewStatus(selectedApplication.status)
+                                      ? 'bg-[#e9f3ee] text-castleton'
+                                      : selectedApplication.status === 'rejected'
+                                        ? 'bg-[#fde8e8] text-[#8a3528]'
+                                        : 'bg-[#fff6e4] text-[#8a5a14]'
                               }`}
                             >
-                              {applicationStatusLabel(selectedApplication.status)}
+                              {applicationDisplayStatusLabel(selectedApplication)}
                             </span>
-                            {canSetHireStatus(selectedApplication) ? (
-                              <p className="mt-2 text-xs font-semibold text-black/65">
-                                {hireStatusLabel(selectedApplication.hireStatus)}
-                              </p>
+                            {isHrInterviewStatus(selectedApplication.status) && !isFinalHireDecision(selectedApplication) ? (
+                              <p className="mt-2 text-xs text-black/65">{formatInterviewSchedule(selectedApplication)}</p>
                             ) : null}
                           </div>
                             <div className="rounded-xl border border-castleton/12 bg-[#f8faf9] px-3 py-2.5">
@@ -10090,6 +10126,18 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                             {selectedApplication.address || 'Not specified'}
                           </p>
                         </div>
+
+                        {isHrInterviewStatus(selectedApplication.status) && !isFinalHireDecision(selectedApplication) ? (
+                          <div className="rounded-2xl border border-castleton/12 bg-[#fbfcfb] p-4 mb-4">
+                            <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Interview Schedule</p>
+                            <p className="mt-1.5 text-sm font-medium text-black">{formatInterviewSchedule(selectedApplication)}</p>
+                            <p className="mt-2 text-xs text-black/55">
+                              {selectedApplication.interviewScheduleSentAt
+                                ? `Interview email sent ${new Date(selectedApplication.interviewScheduleSentAt).toLocaleString()}`
+                                : 'Interview email not yet confirmed as sent.'}
+                            </p>
+                          </div>
+                        ) : null}
 
                         <div className="grid gap-3 sm:grid-cols-2 mb-4">
                           <div className="rounded-2xl border border-castleton/12 bg-[#fbfcfb] p-4">
@@ -10147,68 +10195,73 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                         </div>
                         </div>
 
-                        <div className="mt-auto flex flex-wrap justify-end gap-2 px-5 sm:px-6 pb-5 sm:pb-6 pt-4 border-t border-castleton/10 bg-white/70 backdrop-blur">
-                          <button
-                            type="button"
-                            onClick={() => handleScoreApplication(selectedApplication)}
-                            disabled={isScoringCv}
-                            className="focus-brand inline-flex items-center gap-2 rounded-full border border-castleton/15 bg-white px-3 py-1.5 text-sm font-semibold text-castleton hover:bg-[#f4f7f5] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            <RefreshCw className="h-4 w-4" />
-                            {selectedApplication.cvScore ? 'Rescore CV' : 'Score CV'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleOpenApplicationCv(selectedApplication)}
-                            className="focus-brand inline-flex items-center gap-2 rounded-full border border-black/10 bg-[#f4f4f4] px-4 py-2 text-sm font-semibold text-black/75 transition-colors hover:bg-[#e8e8e8]"
-                          >
-                            <FileText className="h-4 w-4" />
-                            View CV
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleApplicationDecision(selectedApplication.id, 'rejected')}
-                            disabled={selectedApplication.status !== 'pending'}
-                            className="focus-brand inline-flex items-center gap-2 rounded-full border border-[#dcb7b0] bg-white px-4 py-2 text-sm font-semibold text-[#8a3528] transition-colors enabled:hover:bg-[#fde8e8] disabled:cursor-not-allowed disabled:opacity-45"
-                          >
-                            <XCircle className="h-4 w-4" />
-                            Reject
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleApplicationDecision(selectedApplication.id, hrInterviewStatus)}
-                            disabled={selectedApplication.status !== 'pending'}
-                            className="focus-brand inline-flex items-center gap-2 rounded-full border border-castleton/20 bg-castleton px-4 py-2 text-sm font-semibold text-white transition-colors enabled:hover:bg-serpent disabled:cursor-not-allowed disabled:opacity-45"
-                          >
-                            <CheckCircle2 className="h-4 w-4" />
-                            Approve
-                          </button>
-                          {canSetHireStatus(selectedApplication) ? (
+                        <div className="mt-auto flex flex-col gap-2 px-4 sm:px-6 pb-4 sm:pb-6 pt-4 border-t border-castleton/10 bg-white/70 backdrop-blur sm:flex-row sm:flex-wrap sm:justify-end">
+                          {!isFinalHireDecision(selectedApplication) ? (
                             <>
                               <button
                                 type="button"
-                                onClick={() => handleApplicationHireStatus(selectedApplication.id, 'hired')}
-                                disabled={selectedApplication.hireStatus === 'hired'}
-                                className="focus-brand inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 transition-colors enabled:hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-45"
+                                onClick={() => handleScoreApplication(selectedApplication)}
+                                disabled={isScoringCv}
+                                className="focus-brand inline-flex w-full items-center justify-center gap-2 rounded-full border border-castleton/15 bg-white px-3 py-2 text-sm font-semibold text-castleton hover:bg-[#f4f7f5] transition-colors disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:py-1.5"
                               >
-                                Hired
+                                <RefreshCw className="h-4 w-4" />
+                                {selectedApplication.cvScore ? 'Rescore CV' : 'Score CV'}
                               </button>
                               <button
                                 type="button"
-                                onClick={() => handleApplicationHireStatus(selectedApplication.id, 'not_hired')}
-                                disabled={selectedApplication.hireStatus === 'not_hired'}
-                                className="focus-brand inline-flex items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition-colors enabled:hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-45"
+                                onClick={() => handleOpenApplicationCv(selectedApplication)}
+                                className="focus-brand inline-flex w-full items-center justify-center gap-2 rounded-full border border-black/10 bg-[#f4f4f4] px-4 py-2 text-sm font-semibold text-black/75 transition-colors hover:bg-[#e8e8e8] sm:w-auto"
                               >
-                                Not Hired
+                                <FileText className="h-4 w-4" />
+                                View CV
                               </button>
+                              <button
+                                type="button"
+                                onClick={() => handleApplicationDecision(selectedApplication.id, 'rejected')}
+                                disabled={selectedApplication.status !== 'pending'}
+                                className="focus-brand inline-flex w-full items-center justify-center gap-2 rounded-full border border-[#dcb7b0] bg-white px-4 py-2 text-sm font-semibold text-[#8a3528] transition-colors enabled:hover:bg-[#fde8e8] disabled:cursor-not-allowed disabled:opacity-45 sm:w-auto"
+                              >
+                                <XCircle className="h-4 w-4" />
+                                Reject
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleApplicationDecision(selectedApplication.id, 'approved')}
+                                disabled={selectedApplication.status !== 'pending'}
+                                className="focus-brand inline-flex w-full items-center justify-center gap-2 rounded-full border border-castleton/20 bg-castleton px-4 py-2 text-sm font-semibold text-white transition-colors enabled:hover:bg-serpent disabled:cursor-not-allowed disabled:opacity-45 sm:w-auto"
+                              >
+                                <CheckCircle2 className="h-4 w-4" />
+                                Approve
+                              </button>
+                              {canSetHireStatus(selectedApplication) ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleApplicationHireStatus(selectedApplication.id, 'hired')}
+                                    disabled={selectedApplication.hireStatus === 'hired'}
+                                    className="focus-brand inline-flex w-full items-center justify-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 transition-colors enabled:hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-45 sm:w-auto"
+                                  >
+                                    Hired
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleApplicationHireStatus(selectedApplication.id, 'not_hired')}
+                                    disabled={selectedApplication.hireStatus === 'not_hired'}
+                                    className="focus-brand inline-flex w-full items-center justify-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition-colors enabled:hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-45 sm:w-auto"
+                                  >
+                                    Not Hired
+                                  </button>
+                                </>
+                              ) : null}
                             </>
                           ) : null}
                         </div>
                       </motion.div>
                   </motion.div>
                   ) : null}
-                </AnimatePresence>
-              </section>
+                  </AnimatePresence>
+                </AdminDashboardShell>
+              </Suspense>
             ) : (
               <section className="max-w-xl mx-auto">
                 <div className="bg-[#f3f3f3] rounded-3xl border border-castleton/15 p-7 sm:p-9 text-center">
