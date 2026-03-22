@@ -504,6 +504,7 @@ const adminMenuItems = [
   { label: 'Applications', icon: FileText },
   { label: 'Approvals', icon: UserCheck2 },
   { label: 'Manage Interns', icon: UserSquare2 },
+  { label: 'Manage Employee', icon: UserCheck2 },
 ]
 
 const adminPanelContent = {
@@ -652,6 +653,27 @@ const adminPanelContent = {
       ['2FA', 'Authentication Enabled', 'All admin users secured'],
       ['12', 'Active Seats', 'License utilization in range'],
       ['0', 'Critical Issues', 'No current blockers'],
+    ],
+  },
+  'Manage Employee': {
+    heading: 'Manage Employee',
+    badge: 'Employee Records',
+    status: 'Synchronized',
+    titleA: 'Employee',
+    titleB: 'Records',
+    titleC: '& Hired Profiles',
+    module: 'Hiring pipeline sync',
+    completion: '100%',
+    spent: '5h',
+    grade: 'A',
+    efficiency: '97%',
+    level: '08',
+    levelLabel: 'People Ops',
+    weekly: 'Review hired employee records',
+    activity: [
+      ['Sync', 'Hiring Actions', 'Hired applicants are copied automatically'],
+      ['Roster', 'Employee Records', 'Search and review all hired staff'],
+      ['Ready', 'Profile Access', 'Available to signed-in approved accounts'],
     ],
   },
 }
@@ -1059,6 +1081,7 @@ const mapCareerApplicationRowToClient = (row) => ({
   address: row.address || '',
   positions: row.positions || [],
   status: row.status || 'pending',
+  hireStatus: row.hire_status || '',
   adminNote: row.admin_note || '',
   reviewedAt: row.reviewed_at || '',
   createdAt: row.created_at,
@@ -1068,6 +1091,28 @@ const mapCareerApplicationRowToClient = (row) => ({
   cvBreakdown: row.cv_breakdown || null,
   cvSummary: row.cv_summary || '',
   cvScoredAt: row.cv_scored_at || '',
+})
+
+const mapHiredEmployeeRowToClient = (row) => ({
+  id: row.id,
+  applicationId: row.application_id,
+  ownerUserId: row.owner_user_id,
+  firstName: row.first_name || '',
+  lastName: row.last_name || '',
+  email: row.email || '',
+  phoneCode: row.phone_code || '',
+  phoneNumber: row.phone_number || '',
+  gender: row.gender || '',
+  age: row.age ?? '',
+  country: row.country || '',
+  address: row.address || '',
+  positions: row.positions || [],
+  applicationStatus: row.application_status || '',
+  hireStatus: row.hire_status || 'hired',
+  hiredAt: row.hired_at || row.created_at || '',
+  reviewedBy: row.reviewed_by || '',
+  createdAt: row.created_at || '',
+  updatedAt: row.updated_at || '',
 })
 
 const approvalStatusOrder = {
@@ -1197,6 +1242,7 @@ function App() {
   const [signupRequests, setSignupRequests] = useState([])
   const [approvalNoteDrafts, setApprovalNoteDrafts] = useState({})
   const [careerApplications, setCareerApplications] = useState([])
+  const [hiredEmployees, setHiredEmployees] = useState([])
   const [applicationsError, setApplicationsError] = useState('')
   const [applicationNoteDrafts, setApplicationNoteDrafts] = useState({})
   const [reviewedPendingApplicationIds, setReviewedPendingApplicationIds] = useState([])
@@ -1228,8 +1274,8 @@ function App() {
   ]
   const chatbotCapabilityLines = [
     'I can help with these admin dashboard actions:',
-    '- Open tabs: Dashboard, Applicants, Approvals, Analytics, Evaluation, Reports, Manage Interns',
-    '- Search across Applicants, Approvals, Analytics, Evaluation, Reports, and Manage Interns',
+    '- Open tabs: Dashboard, Applicants, Approvals, Analytics, Evaluation, Reports, Manage Interns, Manage Employee',
+    '- Search across Applicants, Approvals, Analytics, Evaluation, Reports, Manage Interns, and Manage Employee',
     '- Change sort order for Applicants, Approvals, Analytics, Evaluation, and Reports',
     '- Switch view mode for Applicants, Analytics, Evaluation, and Reports',
     '- Open selected applications, interns, report details, or the latest report',
@@ -1337,6 +1383,12 @@ function App() {
   }
   const hrInterviewStatus = 'Proceeding to HR Interview'
   const isHrInterviewStatus = (status) => status === 'approved' || status === hrInterviewStatus
+  const canSetHireStatus = (application) => isHrInterviewStatus(application?.status)
+  const hireStatusLabel = (status) => {
+    if (status === 'hired') return 'Hired'
+    if (status === 'not_hired') return 'Not Hired'
+    return 'Pending Hire Decision'
+  }
   const applicationStatusLabel = (status) => {
     if (isHrInterviewStatus(status)) return hrInterviewStatus
     if (status === 'rejected') return 'Rejected'
@@ -1359,6 +1411,48 @@ function App() {
   const [settingsStatusFilter, setSettingsStatusFilter] = useState('All')
   const [settingsPage, setSettingsPage] = useState(1)
   const settingsPageSize = 10
+  const [employeeSearch, setEmployeeSearch] = useState('')
+  const [employeeCountryFilter, setEmployeeCountryFilter] = useState('All')
+  const [employeePage, setEmployeePage] = useState(1)
+  const employeePageSize = 10
+  const employeeCountries = useMemo(
+    () => ['All', ...Array.from(new Set(hiredEmployees.map((item) => item.country).filter(Boolean))).sort((a, b) => a.localeCompare(b))],
+    [hiredEmployees]
+  )
+  const filteredEmployeeRows = useMemo(() => {
+    const query = employeeSearch.trim().toLowerCase()
+    return hiredEmployees.filter((employee) => {
+      const passSearch =
+        !query ||
+        `${employee.firstName} ${employee.lastName}`.toLowerCase().includes(query) ||
+        (employee.email || '').toLowerCase().includes(query) ||
+        (employee.country || '').toLowerCase().includes(query) ||
+        (employee.positions || []).join(', ').toLowerCase().includes(query) ||
+        (employee.phoneNumber || '').toLowerCase().includes(query)
+      const passCountry = employeeCountryFilter === 'All' || employee.country === employeeCountryFilter
+      return passSearch && passCountry
+    })
+  }, [hiredEmployees, employeeCountryFilter, employeeSearch])
+  const employeeTotalPages = useMemo(
+    () => Math.max(1, Math.ceil(filteredEmployeeRows.length / employeePageSize)),
+    [filteredEmployeeRows.length]
+  )
+  const paginatedEmployeeRows = useMemo(() => {
+    const start = (employeePage - 1) * employeePageSize
+    return filteredEmployeeRows.slice(start, start + employeePageSize)
+  }, [employeePage, filteredEmployeeRows])
+  const employeePageButtons = useMemo(() => {
+    if (employeeTotalPages <= 7) {
+      return Array.from({ length: employeeTotalPages }, (_, index) => index + 1)
+    }
+    if (employeePage <= 4) {
+      return [1, 2, 3, 4, 5, '...', employeeTotalPages]
+    }
+    if (employeePage >= employeeTotalPages - 3) {
+      return [1, '...', employeeTotalPages - 4, employeeTotalPages - 3, employeeTotalPages - 2, employeeTotalPages - 1, employeeTotalPages]
+    }
+    return [1, '...', employeePage - 1, employeePage, employeePage + 1, '...', employeeTotalPages]
+  }, [employeePage, employeeTotalPages])
   const manageInternsFollowScrollRef = useRef(null)
   const manageInternsFollowTrackRef = useRef(null)
   const adminNavRef = useRef(null)
@@ -1369,6 +1463,7 @@ function App() {
   const applicationSearchRef = useRef(null)
   const approvalSearchRef = useRef(null)
   const settingsSearchRef = useRef(null)
+  const employeeSearchRef = useRef(null)
   const isSyncingManageInternsScrollRef = useRef(false)
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false)
   const hasAdminAccess = isAdminAuthenticated && isApprovedUser
@@ -1480,6 +1575,7 @@ function App() {
       if (!isAdminAuthenticated) {
         setInternAnalyticsData([])
         setAnalyticsTaskEntries([])
+        setHiredEmployees([])
         setAdminDataError('')
         setIsAdminDataLoading(false)
       }
@@ -1496,16 +1592,18 @@ function App() {
         { data: internRows, error: internError },
         { data: taskRows, error: taskError },
         { data: signupRequestRows, error: signupRequestError },
+        { data: hiredEmployeeRows, error: hiredEmployeeError },
       ] = await Promise.all([
         supabase.from('admin_interns').select('*').order('name'),
         supabase.from('admin_task_entries').select('*').order('created_at', { ascending: false }),
         supabase.from('signup_requests').select('*').order('created_at', { ascending: false }),
+        supabase.from('hired_employees').select('*').order('hired_at', { ascending: false }),
       ])
 
       if (!isMounted) return
 
-      if (internError || taskError || signupRequestError) {
-        setAdminDataError(internError?.message || taskError?.message || signupRequestError?.message || 'Failed to load admin data.')
+      if (internError || taskError || signupRequestError || hiredEmployeeError) {
+        setAdminDataError(internError?.message || taskError?.message || signupRequestError?.message || hiredEmployeeError?.message || 'Failed to load admin data.')
         setIsAdminDataLoading(false)
         return
       }
@@ -1578,6 +1676,7 @@ function App() {
       setInternAnalyticsData(resolvedInternRows.map(mapInternRowToClient))
       setAnalyticsTaskEntries(resolvedTaskRows.map(mapTaskRowToClient).slice(0, 80))
       setSignupRequests((signupRequestRows || []).map(mapSignupRequestRowToClient))
+      setHiredEmployees((hiredEmployeeRows || []).map(mapHiredEmployeeRowToClient))
       setIsAdminDataLoading(false)
     }
 
@@ -2130,6 +2229,16 @@ function App() {
   }, [settingsPage, settingsTotalPages])
 
   useEffect(() => {
+    setEmployeePage(1)
+  }, [employeeSearch, employeeCountryFilter])
+
+  useEffect(() => {
+    if (employeePage > employeeTotalPages) {
+      setEmployeePage(employeeTotalPages)
+    }
+  }, [employeePage, employeeTotalPages])
+
+  useEffect(() => {
     window.requestAnimationFrame(syncManageInternsScrollMetrics)
   }, [currentPath, activeAdminTab, settingsPage, settingsSearch, settingsStatusFilter, settingsInternRows.length])
 
@@ -2643,6 +2752,7 @@ function App() {
     if (activeAdminTab === 'Evaluation') return focus(evaluationSearchRef)
     if (activeAdminTab === 'Reports') return focus(reportsSearchRef)
     if (activeAdminTab === 'Manage Interns') return focus(settingsSearchRef)
+    if (activeAdminTab === 'Manage Employee') return focus(employeeSearchRef)
     return undefined
   }
 
@@ -2653,6 +2763,10 @@ function App() {
     }
     if (activeAdminTab === 'Manage Interns') {
       setIsInternStepperOpen(true)
+      return
+    }
+    if (activeAdminTab === 'Manage Employee') {
+      focusAdminSearchInput()
       return
     }
     if (activeAdminTab === 'Applications') {
@@ -3143,6 +3257,125 @@ function App() {
     return <FolderTree className="w-4 h-4" />
   }
 
+  const handleApplicationHireStatus = (applicationId, hireStatus) => {
+    void (async () => {
+      if (!supabase || !authUser?.id) {
+        runAdminAction('Supabase is not ready for application actions')
+        return
+      }
+
+      const currentApplication = careerApplications.find((item) => item.id === applicationId)
+      if (!currentApplication) {
+        runAdminAction('Application not found')
+        return
+      }
+      if (!canSetHireStatus(currentApplication)) {
+        runAdminAction('Hire decision is only available after HR interview progression')
+        return
+      }
+      if (currentApplication.hireStatus === hireStatus) {
+        runAdminAction('Hire decision already recorded')
+        return
+      }
+
+      const actionLabel = hireStatus === 'hired' ? 'mark as hired' : 'mark as not hired'
+      confirmAdminAction({
+        message: `Are you sure you want to ${actionLabel} ${currentApplication.firstName} ${currentApplication.lastName}?`,
+        confirmLabel: hireStatus === 'hired' ? 'Hired' : 'Not Hired',
+        tone: hireStatus === 'hired' ? 'default' : 'danger',
+        onConfirm: async () => {
+          const note = applicationNoteDrafts[applicationId] || ''
+          const employeePayload = {
+            owner_user_id: authUser.id,
+            application_id: currentApplication.id,
+            first_name: currentApplication.firstName,
+            last_name: currentApplication.lastName,
+            email: currentApplication.email,
+            phone_code: currentApplication.phoneCode,
+            phone_number: currentApplication.phoneNumber,
+            gender: currentApplication.gender || null,
+            age: currentApplication.age ? Number(currentApplication.age) : null,
+            country: currentApplication.country || null,
+            address: currentApplication.address || null,
+            positions: currentApplication.positions || [],
+            cv_filename: currentApplication.cvFilename || null,
+            cv_path: currentApplication.cvPath || null,
+            application_status: currentApplication.status || null,
+            hire_status: 'hired',
+            hired_at: new Date().toISOString(),
+            reviewed_by: authUser.id,
+          }
+          const { data, error } = await supabase
+            .from('career_applications')
+            .update({
+              hire_status: hireStatus,
+              admin_note: note,
+              reviewed_by: authUser.id,
+              reviewed_at: new Date().toISOString(),
+            })
+            .eq('id', applicationId)
+            .select('*')
+            .maybeSingle()
+
+          if (error) {
+            setApplicationsError(error.message)
+            runAdminAction(`${hireStatus} failed`)
+            return
+          }
+          if (!data) {
+            setApplicationsError('No rows updated. Check RLS policy for career_applications.')
+            runAdminAction(`${hireStatus} failed`)
+            return
+          }
+
+          if (hireStatus === 'hired') {
+            const { data: employeeRow, error: employeeError } = await supabase
+              .from('hired_employees')
+              .upsert(employeePayload, { onConflict: 'application_id' })
+              .select('*')
+              .maybeSingle()
+
+            if (employeeError) {
+              setApplicationsError(employeeError.message)
+              runAdminAction('Employee sync failed')
+              return
+            }
+
+            if (employeeRow) {
+              const mappedEmployee = mapHiredEmployeeRowToClient(employeeRow)
+              setHiredEmployees((prev) => {
+                const existing = prev.some((item) => item.applicationId === mappedEmployee.applicationId)
+                if (existing) {
+                  return prev.map((item) => (item.applicationId === mappedEmployee.applicationId ? mappedEmployee : item))
+                }
+                return [mappedEmployee, ...prev]
+              })
+            }
+          } else {
+            const { error: employeeDeleteError } = await supabase
+              .from('hired_employees')
+              .delete()
+              .eq('application_id', currentApplication.id)
+
+            if (employeeDeleteError) {
+              setApplicationsError(employeeDeleteError.message)
+              runAdminAction('Employee sync failed')
+              return
+            }
+
+            setHiredEmployees((prev) => prev.filter((item) => item.applicationId !== currentApplication.id))
+          }
+
+          const updatedApplication = mapCareerApplicationRowToClient(data)
+          setCareerApplications((prev) => prev.map((item) => (item.id === updatedApplication.id ? updatedApplication : item)))
+          setApplicationNoteDrafts((prev) => ({ ...prev, [applicationId]: updatedApplication.adminNote }))
+          setSelectedApplication((prev) => (prev?.id === updatedApplication.id ? updatedApplication : prev))
+          runAdminAction(`Application marked as ${hireStatusLabel(hireStatus).toLowerCase()}`)
+        },
+      })
+    })()
+  }
+
   const handleChatbotSend = (event) => {
     event.preventDefault()
     const trimmed = chatbotInput.trim()
@@ -3517,12 +3750,14 @@ function App() {
       if (tab === 'Evaluation') setEvaluationSearch(value)
       if (tab === 'Reports') setReportsSearch(value)
       if (tab === 'Manage Interns') setSettingsSearch(value)
+      if (tab === 'Manage Employee') setEmployeeSearch(value)
       runAdminAction(`${tab} search updated`)
       return `Updated ${tab === 'Applications' ? 'Applicants' : tab} search.`
     },
     setPage: (tab, value) => {
       if (tab === 'Applications') setApplicationPage(value)
       if (tab === 'Manage Interns') setSettingsPage(value)
+      if (tab === 'Manage Employee') setEmployeePage(value)
       runAdminAction(`${tab} page changed`)
       return `Changed ${tab === 'Applications' ? 'Applicants' : tab} page.`
     },
@@ -3600,6 +3835,10 @@ function App() {
         setSettingsSearch('')
         setSettingsStatusFilter('All')
         setSettingsPage(1)
+      } else if (tab === 'Manage Employee') {
+        setEmployeeSearch('')
+        setEmployeeCountryFilter('All')
+        setEmployeePage(1)
       }
       runAdminAction(`${tab} filters cleared`)
       return `Cleared ${tab === 'Applications' ? 'Applicants' : tab} filters.`
@@ -3638,6 +3877,8 @@ function App() {
         setActiveAdminTab('Reports')
       } else if (tab === 'Manage Interns') {
         setActiveAdminTab('Manage Interns')
+      } else if (tab === 'Manage Employee') {
+        setActiveAdminTab('Manage Employee')
       }
       window.setTimeout(() => focusAdminSearchInput(), 0)
       return `Focused ${tab === 'Applications' ? 'Applicants' : tab} search.`
@@ -8145,7 +8386,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                           {paginatedApplications.length ? (
                             applicationViewMode === 'list' ? (
                               <div className="rounded-[22px] border border-castleton/15 bg-[#f8faf7] p-2 space-y-2">
-                                <div className="grid grid-cols-[1.2fr_1fr_0.7fr_0.6fr_140px] gap-3 px-4 py-2 text-xs uppercase tracking-[0.12em] text-black/50 rounded-2xl bg-white border border-castleton/10">
+                                <div className="grid grid-cols-[1.2fr_1fr_0.8fr_0.6fr_260px] gap-3 px-4 py-2 text-xs uppercase tracking-[0.12em] text-black/50 rounded-2xl bg-white border border-castleton/10">
                                   <span>Applicant</span>
                                   <span>Position</span>
                                   <span>Status</span>
@@ -8155,7 +8396,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                                 {paginatedApplications.map((application) => (
                                   <div
                                     key={application.id}
-                                    className="grid grid-cols-[1.2fr_1fr_0.7fr_0.6fr_140px] gap-3 px-4 py-3 rounded-2xl bg-white border border-castleton/10 shadow-sm"
+                                    className="grid grid-cols-[1.2fr_1fr_0.8fr_0.6fr_260px] gap-3 px-4 py-3 rounded-2xl bg-white border border-castleton/10 shadow-sm"
                                   >
                                     <div>
                                       <p className="text-sm font-semibold text-black">
@@ -8206,7 +8447,7 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                                         '—'
                                       )}
                                     </div>
-                                    <div>
+                                    <div className="flex flex-wrap gap-2">
                                       <button
                                         type="button"
                                         onClick={() => openApplicationDetails(application)}
@@ -8214,6 +8455,26 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                                       >
                                         Review
                                       </button>
+                                      {canSetHireStatus(application) ? (
+                                        <>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleApplicationHireStatus(application.id, 'hired')}
+                                            disabled={application.hireStatus === 'hired'}
+                                            className="focus-brand rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors enabled:hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-45"
+                                          >
+                                            Hired
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleApplicationHireStatus(application.id, 'not_hired')}
+                                            disabled={application.hireStatus === 'not_hired'}
+                                            className="focus-brand rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 transition-colors enabled:hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-45"
+                                          >
+                                            Not Hired
+                                          </button>
+                                        </>
+                                      ) : null}
                                     </div>
                                   </div>
                                 ))}
@@ -8340,6 +8601,26 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                                         >
                                           Review Applicant
                                         </button>
+                                        {canSetHireStatus(application) ? (
+                                          <>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleApplicationHireStatus(application.id, 'hired')}
+                                              disabled={application.hireStatus === 'hired'}
+                                              className="focus-brand rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 transition-colors enabled:hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-45"
+                                            >
+                                              Hired
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleApplicationHireStatus(application.id, 'not_hired')}
+                                              disabled={application.hireStatus === 'not_hired'}
+                                              className="focus-brand rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition-colors enabled:hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-45"
+                                            >
+                                              Not Hired
+                                            </button>
+                                          </>
+                                        ) : null}
                                       </div>
                                     </div>
                                   </div>
@@ -9184,6 +9465,215 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                           ) : null}
                         </AnimatePresence>
                       </div>
+                    ) : activeAdminTab === 'Manage Employee' ? (
+                      <div className="space-y-5">
+                        <motion.div
+                          className="rounded-[24px] border border-castleton/20 bg-white p-5 sm:p-6"
+                          initial={{ opacity: 0, y: 12 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.25 }}
+                        >
+                          <h2 className="text-3xl sm:text-4xl font-semibold text-black">Manage Employee</h2>
+                          <p className="text-black/70 text-base sm:text-lg">
+                            Hired applicants are synced here automatically from the Applicants tab. Review employee records using the same management flow.
+                          </p>
+                        </motion.div>
+
+                        <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-4 items-stretch">
+                          <motion.article
+                            className="rounded-[22px] border border-castleton/15 bg-[linear-gradient(180deg,#ffffff,#f6faf8)] p-4 sm:p-5 h-full shadow-[0_18px_50px_-36px_rgba(19,48,32,0.5)]"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.22 }}
+                          >
+                            <p className="text-xs uppercase tracking-[0.1em] text-castleton">Employee Sync</p>
+                            <h3 className="text-2xl sm:text-3xl font-semibold text-black mt-1">Hired Applicant Records</h3>
+                            <p className="text-black/70 mt-2 text-sm sm:text-base">
+                              Every applicant marked as hired is copied into the employee roster with their application details.
+                            </p>
+                            <div className="mt-5 rounded-xl border border-castleton/15 bg-[#f7faf8] px-3 py-2.5">
+                              <p className="text-xs text-black/70">
+                                Tip: Use the Applicants tab to mark HR-ready candidates as Hired so they appear here automatically.
+                              </p>
+                            </div>
+
+                            <div className="mt-3 rounded-xl border border-castleton/15 bg-[#f7faf8] p-3">
+                              <p className="text-xs uppercase tracking-[0.1em] text-castleton mb-2">Recent Hires</p>
+                              <div className="space-y-2">
+                                {hiredEmployees.slice(0, 4).map((employee) => (
+                                  <div key={`recent-employee-${employee.id}`} className="admin-name-card flex items-center justify-between gap-2 rounded-lg border border-castleton/10 bg-white px-2.5 py-2">
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-semibold text-black truncate">{employee.firstName} {employee.lastName}</p>
+                                      <p className="text-xs text-black/65 truncate">{employee.email}</p>
+                                    </div>
+                                    <span className="rounded-full px-2 py-0.5 text-xs font-semibold bg-emerald-50 text-emerald-700">
+                                      Hired
+                                    </span>
+                                  </div>
+                                ))}
+                                {!hiredEmployees.length ? (
+                                  <p className="text-sm text-black/60">No hired employees synced yet.</p>
+                                ) : null}
+                              </div>
+                            </div>
+                          </motion.article>
+
+                          <motion.div
+                            className="rounded-[22px] border border-castleton/15 bg-[linear-gradient(180deg,#ffffff,#f6faf8)] p-4 sm:p-5 h-full flex flex-col gap-3 shadow-[0_18px_50px_-36px_rgba(19,48,32,0.5)]"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.22, delay: 0.03 }}
+                          >
+                            <div className="grid grid-cols-2 gap-3">
+                              {[
+                                ['Total Employees', hiredEmployees.length],
+                                ['PH Based', hiredEmployees.filter((item) => item.country === 'Philippines').length],
+                                ['US Based', hiredEmployees.filter((item) => item.country === 'United States').length],
+                                ['Recent 30 Days', hiredEmployees.filter((item) => item.hiredAt && Date.now() - new Date(item.hiredAt).getTime() <= 30 * 24 * 60 * 60 * 1000).length],
+                              ].map(([label, value]) => (
+                                <motion.div
+                                  key={label}
+                                  className="rounded-xl border border-castleton/15 bg-[#f7faf8] p-3"
+                                  whileHover={{ y: -2, scale: 1.01 }}
+                                  transition={{ duration: 0.16 }}
+                                >
+                                  <p className="text-xs uppercase tracking-[0.1em] text-castleton">{label}</p>
+                                  <p className="text-xl font-semibold text-black">{value}</p>
+                                </motion.div>
+                              ))}
+                            </div>
+                            <p className="text-sm text-black/70 leading-relaxed">
+                              This roster gives signed-in approved accounts a single view of people who have already moved from applicants into employees.
+                            </p>
+
+                            <div className="rounded-xl border border-castleton/15 bg-[#f7faf8] p-3 mt-auto">
+                              <p className="text-xs uppercase tracking-[0.1em] text-castleton mb-2">Country Distribution</p>
+                              <div className="space-y-2">
+                                {employeeCountries.filter((country) => country !== 'All').slice(0, 5).map((country) => {
+                                  const count = hiredEmployees.filter((item) => item.country === country).length
+                                  const percent = hiredEmployees.length ? Math.round((count / hiredEmployees.length) * 100) : 0
+                                  return (
+                                    <motion.div key={`employee-country-${country}`} className="space-y-1" whileHover={{ x: 2 }} transition={{ duration: 0.14 }}>
+                                      <div className="flex items-center justify-between gap-2">
+                                        <p className="text-xs text-black/80 truncate">{country}</p>
+                                        <p className="text-xs font-semibold text-castleton">{count}</p>
+                                      </div>
+                                      <div className="h-1.5 rounded-full bg-[#dde5e0] overflow-hidden">
+                                        <motion.div
+                                          className="h-full bg-castleton"
+                                          initial={{ width: 0 }}
+                                          animate={{ width: `${percent}%` }}
+                                          transition={{ duration: 0.45, ease: 'easeOut' }}
+                                        />
+                                      </div>
+                                    </motion.div>
+                                  )
+                                })}
+                                {!hiredEmployees.length ? <p className="text-sm text-black/60">No employee distribution data yet.</p> : null}
+                              </div>
+                            </div>
+                          </motion.div>
+                        </div>
+
+                        <div className="rounded-[22px] border border-castleton/15 bg-white p-4 sm:p-5">
+                          <div className="flex flex-wrap gap-2 mb-4">
+                            <input
+                              type="text"
+                              ref={employeeSearchRef}
+                              value={employeeSearch}
+                              onChange={(event) => dashboardActionRegistry.setSearch('Manage Employee', event.target.value)}
+                              placeholder="Search name, email, country, position, or contact"
+                              className="focus-brand min-w-[260px] flex-1 rounded-xl border border-castleton/20 px-3 py-2.5 bg-[#f9fbfa]"
+                            />
+                            <select
+                              value={employeeCountryFilter}
+                              onChange={(event) => setEmployeeCountryFilter(event.target.value)}
+                              className="focus-brand rounded-xl border border-castleton/20 px-3 py-2.5 bg-[#f9fbfa] font-medium text-castleton"
+                            >
+                              {employeeCountries.map((country) => (
+                                <option key={country} value={country}>
+                                  {country === 'All' ? 'All Countries' : country}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="relative rounded-xl">
+                            <div className="w-full overflow-x-auto overflow-y-visible rounded-xl border border-castleton/10 hide-x-scrollbar">
+                              <table className="manage-interns-table w-max min-w-full text-center">
+                                <thead className="sticky top-0 z-10 bg-[#eef4f0]">
+                                  <tr className="border-b border-castleton/15 text-black/75">
+                                    <th className="py-2 px-3 text-sm font-semibold whitespace-nowrap text-center">Name</th>
+                                    <th className="py-2 px-3 text-sm font-semibold whitespace-nowrap text-center">Email</th>
+                                    <th className="py-2 px-3 text-sm font-semibold whitespace-nowrap text-center">Contact</th>
+                                    <th className="py-2 px-3 text-sm font-semibold whitespace-nowrap text-center">Gender</th>
+                                    <th className="py-2 px-3 text-sm font-semibold whitespace-nowrap text-center">Age</th>
+                                    <th className="py-2 px-3 text-sm font-semibold whitespace-nowrap text-center">Country</th>
+                                    <th className="py-2 px-3 text-sm font-semibold whitespace-nowrap text-center">Position</th>
+                                    <th className="py-2 px-3 text-sm font-semibold whitespace-nowrap text-center">Hire Status</th>
+                                    <th className="py-2 px-3 text-sm font-semibold whitespace-nowrap text-center">Hired At</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {paginatedEmployeeRows.map((employee, index) => (
+                                    <tr
+                                      key={`employee-${employee.id}`}
+                                      className={`border-b border-castleton/10 transition-colors ${
+                                        index % 2 === 0 ? 'bg-white/45' : 'bg-castleton/[0.04]'
+                                      } hover:bg-castleton/[0.08]`}
+                                    >
+                                      <td className="py-2 px-3 text-sm font-medium text-black whitespace-nowrap text-center">{employee.firstName} {employee.lastName}</td>
+                                      <td className="py-2 px-3 text-sm text-black/80 whitespace-nowrap text-center">{employee.email}</td>
+                                      <td className="py-2 px-3 text-sm text-black/80 whitespace-nowrap text-center">{`${employee.phoneCode} ${employee.phoneNumber}`.trim() || '-'}</td>
+                                      <td className="py-2 px-3 text-sm text-black/80 whitespace-nowrap text-center">{employee.gender || '-'}</td>
+                                      <td className="py-2 px-3 text-sm text-black/80 whitespace-nowrap text-center">{employee.age || '-'}</td>
+                                      <td className="py-2 px-3 text-sm text-black/80 whitespace-nowrap text-center">{employee.country || '-'}</td>
+                                      <td className="py-2 px-3 text-sm text-black/80 whitespace-nowrap text-center">{(employee.positions || []).join(', ') || '-'}</td>
+                                      <td className="py-2 px-3 whitespace-nowrap text-center">
+                                        <span className="rounded-full px-2 py-0.5 text-xs font-semibold bg-emerald-50 text-emerald-700">
+                                          {hireStatusLabel(employee.hireStatus)}
+                                        </span>
+                                      </td>
+                                      <td className="py-2 px-3 text-sm text-black/80 whitespace-nowrap text-center">
+                                        {employee.hiredAt ? new Date(employee.hiredAt).toLocaleDateString() : '-'}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                            <p className="text-sm text-black/65">
+                              {filteredEmployeeRows.length
+                                ? `Showing ${(employeePage - 1) * employeePageSize + 1} - ${Math.min(employeePage * employeePageSize, filteredEmployeeRows.length)} of ${filteredEmployeeRows.length} employees`
+                                : 'No employee records yet'}
+                            </p>
+                            {employeeTotalPages > 1 ? (
+                              <div className="flex items-center gap-2">
+                                {employeePageButtons.map((item, index) => (
+                                  typeof item === 'string' ? (
+                                    <span key={`employee-page-gap-${index}`} className="px-1 text-black/40">…</span>
+                                  ) : (
+                                    <button
+                                      key={`employee-page-${item}`}
+                                      type="button"
+                                      onClick={() => dashboardActionRegistry.setPage('Manage Employee', item)}
+                                      className={`focus-brand h-9 min-w-[36px] rounded-full border px-3 text-sm font-semibold transition-colors ${
+                                        employeePage === item
+                                          ? 'border-castleton bg-castleton text-white'
+                                          : 'border-castleton/15 bg-white text-castleton hover:bg-[#f4f7f5]'
+                                      }`}
+                                    >
+                                      {item}
+                                    </button>
+                                  )
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
                     ) : (
                       <>
                         <motion.article
@@ -9568,6 +10058,11 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                             >
                               {applicationStatusLabel(selectedApplication.status)}
                             </span>
+                            {canSetHireStatus(selectedApplication) ? (
+                              <p className="mt-2 text-xs font-semibold text-black/65">
+                                {hireStatusLabel(selectedApplication.hireStatus)}
+                              </p>
+                            ) : null}
                           </div>
                             <div className="rounded-xl border border-castleton/12 bg-[#f8faf9] px-3 py-2.5">
                             <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Gender</p>
@@ -9688,6 +10183,26 @@ const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label =
                             <CheckCircle2 className="h-4 w-4" />
                             Approve
                           </button>
+                          {canSetHireStatus(selectedApplication) ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleApplicationHireStatus(selectedApplication.id, 'hired')}
+                                disabled={selectedApplication.hireStatus === 'hired'}
+                                className="focus-brand inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 transition-colors enabled:hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-45"
+                              >
+                                Hired
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleApplicationHireStatus(selectedApplication.id, 'not_hired')}
+                                disabled={selectedApplication.hireStatus === 'not_hired'}
+                                className="focus-brand inline-flex items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition-colors enabled:hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-45"
+                              >
+                                Not Hired
+                              </button>
+                            </>
+                          ) : null}
                         </div>
                       </motion.div>
                   </motion.div>
