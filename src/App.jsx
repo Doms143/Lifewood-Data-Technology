@@ -102,6 +102,7 @@ const HomePage = lazy(() => import('./components/HomePage'))
 const OfficesPage = lazy(() => import('./components/OfficesPage'))
 const ApplicationFormPage = lazy(() => import('./components/ApplicationFormPage'))
 const AdminDashboardShell = lazy(() => import('./components/AdminDashboardShell'))
+const OfficesMap = lazy(() => import('./components/OfficesMap'))
 
 function CountUpStat({ end = 0, suffix = '', duration = 1200, useGrouping = false, start = false }) {
   const [value, setValue] = useState(0)
