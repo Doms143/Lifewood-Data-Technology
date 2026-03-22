@@ -3929,7 +3929,7 @@ function App() {
 
   const chatWidget = (
     <div
-      className="fixed bottom-6 right-6 z-[95] pointer-events-none"
+      className="fixed bottom-6 right-6 z-[120] pointer-events-none"
       style={{
         transform: `translate(${chatWidgetOffset.x}px, ${chatWidgetOffset.y}px)`,
         transition: isChatWidgetReturning ? 'transform 420ms cubic-bezier(0.22, 1, 0.36, 1)' : 'none',
