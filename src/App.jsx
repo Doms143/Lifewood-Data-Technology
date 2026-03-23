@@ -4068,7 +4068,7 @@ function App() {
                   value={chatbotInput}
                   onChange={(event) => setChatbotInput(event.target.value)}
                   placeholder="Ask about this dashboard..."
-                  className="focus-brand flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/45"
+                  className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/45"
                 />
                 <button
                   type="submit"
