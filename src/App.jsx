@@ -8225,7 +8225,7 @@ function App() {
                                 <option value="name-asc">A-Z</option>
                               </select>
                             </label>
-                            <div className="rounded-3xl border border-castleton/15 bg-white/80 px-2 py-2 flex items-center justify-between gap-2 shadow-sm">
+                            <div className="rounded-3xl border border-castleton/15 bg-white/80 px-2 py-2 flex items-center justify-between gap-2">
                               <button
                                 type="button"
                                 onClick={() => dashboardActionRegistry.setView('Applications', 'cards')}
@@ -8289,7 +8289,7 @@ function App() {
                                 {paginatedApplications.map((application) => (
                                   <div key={application.id}>
                                     <div
-                                      className={`md:hidden rounded-2xl border p-3 shadow-sm ${
+                                      className={`md:hidden rounded-2xl border p-3 ${
                                         application.hireStatus === 'hired'
                                           ? 'bg-[#f3fbf6] border-emerald-200'
                                           : application.hireStatus === 'not_hired'
@@ -8415,7 +8415,7 @@ function App() {
                                     </div>
 
                                     <div
-                                      className={`hidden md:grid grid-cols-[1.2fr_1fr_0.8fr_0.6fr_320px] gap-3 px-4 py-3 rounded-2xl border shadow-sm ${
+                                      className={`hidden md:grid grid-cols-[1.2fr_1fr_0.8fr_0.6fr_320px] gap-3 px-4 py-3 rounded-2xl border ${
                                         application.hireStatus === 'hired'
                                           ? 'bg-[#f3fbf6] border-emerald-200'
                                           : application.hireStatus === 'not_hired'
@@ -8535,60 +8535,64 @@ function App() {
                               paginatedApplications.map((application, index) => (
                                 <motion.article
                                   key={application.id}
-                                  className={`rounded-[18px] border bg-white p-3.5 transition-colors ${
+                                  className={`relative rounded-[22px] border p-4 transition-colors ${
                                     application.hireStatus === 'hired'
-                                      ? 'border-emerald-200 bg-[#f3fbf6] shadow-[0_16px_40px_-30px_rgba(16,185,129,0.28)]'
+                                      ? 'border-emerald-200 bg-[linear-gradient(180deg,#fbfffc,#f3fbf6)]'
                                       : application.hireStatus === 'not_hired'
-                                        ? 'border-rose-200 bg-[#fff8f8] shadow-[0_16px_40px_-30px_rgba(244,63,94,0.18)]'
+                                        ? 'border-rose-200 bg-[linear-gradient(180deg,#fffdfd,#fff8f8)]'
                                         : application.status === 'pending'
-                                          ? 'border-[#e2c676] shadow-[0_16px_40px_-30px_rgba(138,90,20,0.45)]'
+                                          ? 'border-[#e2c676] bg-[linear-gradient(180deg,#fffef9,#fffaf0)]'
                                           : isHrInterviewStatus(application.status)
-                                            ? 'border-castleton/20'
-                                            : 'border-[#dfc1bb]'
+                                            ? 'border-castleton/20 bg-[linear-gradient(180deg,#fbfdfb,#f6faf7)]'
+                                            : 'border-[#dfc1bb] bg-[linear-gradient(180deg,#ffffff,#fbfcfb)]'
                                   }`}
                                   initial={{ opacity: 0, y: 10 }}
                                   animate={{ opacity: 1, y: 0 }}
                                   transition={{ duration: 0.22, delay: Math.min(index * 0.03, 0.18) }}
                                   whileHover={{ y: -2 }}
                                 >
-                                  <div className="grid gap-4 xl:grid-cols-[minmax(0,1.12fr)_minmax(280px,0.88fr)]">
-                                    <div className="space-y-3">
-                                      <div className="rounded-[18px] border border-castleton/12 bg-white/80 p-4 shadow-[0_16px_32px_-28px_rgba(19,48,32,0.35)]">
-                                        <div className="flex flex-wrap items-start justify-between gap-3">
+                                  <div className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-white/90 to-transparent" />
+                                  <div className="grid gap-3 xl:grid-cols-[minmax(0,1.12fr)_minmax(280px,0.88fr)]">
+                                    <div className="space-y-2.5">
+                                      <div className="rounded-2xl border border-castleton/20 bg-white p-3.5">
+                                        <div className="flex flex-wrap items-start justify-between gap-2.5">
                                         <div>
                                           <p className="text-xs uppercase tracking-[0.12em] text-castleton mb-1">Applicant</p>
-                                          <h3 className="text-xl font-semibold text-black inline-flex items-center gap-2">
+                                          <h3 className="text-lg font-semibold text-black inline-flex items-center gap-2">
                                             <span>{application.firstName} {application.lastName}</span>
                                             {isApplicationUnreviewed(application) ? <UnreadPulseDot size="md" /> : null}
                                           </h3>
-                                          <p className="text-sm text-black/65 mt-1">{application.email}</p>
+                                          <p className="mt-1 text-sm text-black/65">{application.email}</p>
                                         </div>
                                         <div className="text-right">
-                                          <p className="text-xs uppercase tracking-[0.12em] text-black/45 mb-2">Submitted</p>
-                                          <p className="text-sm text-black/65">{new Date(application.createdAt).toLocaleString()}</p>
+                                          <p className="mb-1 text-[11px] uppercase tracking-[0.12em] text-black/45">Submitted</p>
+                                          <p className="text-xs text-black/65">{new Date(application.createdAt).toLocaleString()}</p>
                                         </div>
                                       </div>
                                       </div>
 
-                                      <div className="rounded-[18px] border border-castleton/12 bg-[#fbfcfb] p-4 shadow-[0_16px_32px_-28px_rgba(19,48,32,0.2)]">
-                                      <p className="mb-3 text-[11px] uppercase tracking-[0.12em] text-castleton/70">Core Details</p>
-                                      <div className="grid gap-2.5 sm:grid-cols-3">
-                                        <div className="rounded-xl border border-castleton/12 bg-white px-3 py-2.5">
+                                      <div className="rounded-2xl border border-castleton/18 bg-[#f6faf7] p-3.5">
+                                      <div className="mb-2.5 flex items-center gap-2 border-b border-castleton/10 pb-2">
+                                      <span className="inline-flex h-2 w-2 rounded-full bg-castleton/45" />
+                                      <p className="text-[11px] uppercase tracking-[0.12em] text-castleton/70">Core Details</p>
+                                      </div>
+                                      <div className="grid gap-2 sm:grid-cols-3">
+                                        <div className="rounded-xl border border-castleton/14 bg-white px-3 py-2">
                                           <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Phone</p>
-                                          <p className="mt-1.5 text-sm font-medium text-black">
+                                          <p className="mt-1 text-sm font-medium text-black">
                                             {application.phoneCode} {application.phoneNumber}
                                           </p>
                                         </div>
-                                        <div className="rounded-xl border border-castleton/12 bg-white px-3 py-2.5">
+                                        <div className="rounded-xl border border-castleton/14 bg-white px-3 py-2">
                                           <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Position</p>
-                                          <p className="mt-1.5 text-sm font-medium text-black">
+                                          <p className="mt-1 text-sm font-medium text-black">
                                             {(application.positions || []).join(', ') || 'Not specified'}
                                           </p>
                                         </div>
-                                      <div className="rounded-xl border border-castleton/12 bg-white px-3 py-2.5">
+                                      <div className="rounded-xl border border-castleton/14 bg-white px-3 py-2">
                                         <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Status</p>
                                         <span
-                                          className={`mt-1.5 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-semibold ${
+                                          className={`mt-1 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
                                             application.hireStatus === 'hired'
                                               ? 'bg-emerald-50 text-emerald-700'
                                               : application.hireStatus === 'not_hired'
@@ -8613,10 +8617,10 @@ function App() {
                                           )}
                                           {applicationDisplayStatusLabel(application)}
                                         </span>
-                                        <div className="mt-2">
+                                        <div className="mt-1.5">
                                           {application.cvScore !== null && application.cvScore !== undefined ? (
                                             <span
-                                              className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                                              className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                                                 application.cvScore >= 85
                                                   ? 'bg-[#e9f3ee] text-castleton'
                                                   : application.cvScore >= 70
@@ -8635,8 +8639,12 @@ function App() {
                                       </div>
                                     </div>
 
-                                    <div className="space-y-3">
-                                    <div className="rounded-[18px] border border-castleton/12 bg-[#fbfcfb] p-4 shadow-[0_16px_32px_-28px_rgba(19,48,32,0.2)]">
+                                    <div className="space-y-2.5">
+                                    <div className="rounded-2xl border border-castleton/18 bg-[#f6faf7] p-3.5">
+                                      <div className="mb-2.5 flex items-center gap-2 border-b border-castleton/10 pb-2">
+                                        <span className="inline-flex h-2 w-2 rounded-full bg-castleton/45" />
+                                        <p className="text-[11px] uppercase tracking-[0.12em] text-castleton/70">Summary</p>
+                                      </div>
                                       <span
                                         className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.12em] ${
                                           application.hireStatus === 'hired'
@@ -8656,37 +8664,43 @@ function App() {
                                             ? 'Needs Review'
                                             : `Status: ${applicationStatusLabel(application.status)}`}
                                       </span>
-                                      <p className="mt-3 text-sm text-black/65">
+                                      <p className="mt-2 text-sm text-black/65">
                                         {application.reviewedAt
                                           ? `Reviewed ${new Date(application.reviewedAt).toLocaleString()}`
                                           : 'Awaiting admin review'}
                                       </p>
                                       {isHrInterviewStatus(application.status) && application.hireStatus !== 'hired' ? (
-                                        <div className="mt-3 rounded-xl border border-castleton/12 bg-white px-3 py-2.5 text-sm text-black/65">
+                                        <div className="mt-2 rounded-xl border border-castleton/14 bg-white px-3 py-2 text-sm text-black/65">
                                           {formatInterviewSchedule(application)}
                                         </div>
                                       ) : null}
                                     </div>
-                                    <div className="rounded-[18px] border border-castleton/12 bg-[#fbfcfb] p-4 shadow-[0_16px_32px_-28px_rgba(19,48,32,0.2)]">
-                                      <p className="mb-3 text-[11px] uppercase tracking-[0.12em] text-castleton/70">Internal Note</p>
+                                    <div className="rounded-2xl border border-castleton/18 bg-[#f9fbfa] p-3.5">
+                                      <div className="mb-2.5 flex items-center gap-2 border-b border-castleton/10 pb-2">
+                                        <span className="inline-flex h-2 w-2 rounded-full bg-castleton/45" />
+                                        <p className="text-[11px] uppercase tracking-[0.12em] text-castleton/70">Internal Note</p>
+                                      </div>
                                       <textarea
                                         value={applicationNoteDrafts[application.id] ?? application.adminNote}
                                         onChange={(event) =>
                                           setApplicationNoteDrafts((prev) => ({ ...prev, [application.id]: event.target.value }))
                                         }
                                         placeholder="Add an internal note for this application"
-                                        rows={4}
+                                        rows={3}
                                         className="focus-brand w-full rounded-xl border border-castleton/20 bg-white px-3 py-2 text-black outline-none resize-y"
                                       />
                                     </div>
-                                    <div className="rounded-[18px] border border-castleton/12 bg-white p-4 shadow-[0_16px_32px_-28px_rgba(19,48,32,0.2)]">
-                                      <p className="mb-3 text-[11px] uppercase tracking-[0.12em] text-castleton/70">Actions</p>
+                                    <div className="rounded-2xl border border-castleton/20 bg-white p-3.5">
+                                      <div className="mb-2.5 flex items-center gap-2 border-b border-castleton/10 pb-2">
+                                        <span className="inline-flex h-2 w-2 rounded-full bg-castleton/45" />
+                                        <p className="text-[11px] uppercase tracking-[0.12em] text-castleton/70">Actions</p>
+                                      </div>
                                       <div className="flex flex-wrap gap-2">
                                         {!isFinalHireDecision(application) && isHrInterviewStatus(application.status) ? (
                                           <button
                                             type="button"
                                             onClick={() => openInterviewScheduleModal(application)}
-                                            className="focus-brand rounded-full border border-castleton/20 bg-[#f4f7f5] px-4 py-2 text-sm font-semibold text-castleton transition-colors hover:bg-[#e7efe9]"
+                                            className="focus-brand rounded-full border border-castleton/20 bg-[#f4f7f5] px-3.5 py-1.5 text-sm font-semibold text-castleton transition-colors hover:bg-[#e7efe9]"
                                           >
                                             {application.interviewScheduledAt ? 'Reschedule Interview' : 'Schedule Interview'}
                                           </button>
@@ -8695,7 +8709,7 @@ function App() {
                                           <button
                                             type="button"
                                             onClick={() => openApplicationDetails(application)}
-                                            className="focus-brand rounded-full border border-castleton/20 bg-castleton px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_24px_-14px_rgba(4,98,65,0.7)] transition-colors hover:bg-serpent"
+                                            className="focus-brand rounded-full border border-castleton/20 bg-castleton px-3.5 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-serpent"
                                           >
                                             Review Applicant
                                           </button>
@@ -8706,7 +8720,7 @@ function App() {
                                               type="button"
                                               onClick={() => handleApplicationHireStatus(application.id, 'hired')}
                                               disabled={application.hireStatus === 'hired'}
-                                              className="focus-brand rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 transition-colors enabled:hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-45"
+                                                className="focus-brand rounded-full border border-emerald-200 bg-emerald-50 px-3.5 py-1.5 text-sm font-semibold text-emerald-700 transition-colors enabled:hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-45"
                                             >
                                               Hired
                                             </button>
@@ -8714,7 +8728,7 @@ function App() {
                                               type="button"
                                               onClick={() => handleApplicationHireStatus(application.id, 'not_hired')}
                                               disabled={application.hireStatus === 'not_hired'}
-                                              className="focus-brand rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition-colors enabled:hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-45"
+                                                className="focus-brand rounded-full border border-rose-200 bg-rose-50 px-3.5 py-1.5 text-sm font-semibold text-rose-700 transition-colors enabled:hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-45"
                                             >
                                               Not Hired
                                             </button>

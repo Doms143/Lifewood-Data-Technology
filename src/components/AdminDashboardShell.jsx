@@ -209,7 +209,7 @@ export default function AdminDashboardShell({
 
         <main className={`admin-glass p-1 sm:p-2 min-h-screen ${isAdminNavOpen ? 'ml-[60px] sm:ml-[64px] lg:ml-[280px]' : 'ml-[56px] sm:ml-[60px]'}`}>
           <div className="sticky top-0 z-20 -mx-1 sm:-mx-2 px-1 sm:px-2 pt-1 pb-3 bg-gradient-to-b from-[#f7faf8] via-[#f7faf8]/90 to-transparent backdrop-blur">
-            <div className="rounded-[22px] border border-castleton/15 bg-white/90 px-4 py-3 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+            <div className="rounded-[22px] border border-castleton/15 bg-white/90 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
               <div className="space-y-1">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-castleton/70">Admin Dashboard</p>
                 <h1 className="text-3xl sm:text-4xl font-semibold">{activeAdminData.heading}</h1>
@@ -226,7 +226,7 @@ export default function AdminDashboardShell({
                     key={card.label}
                     type="button"
                     onClick={() => onSelectTab(card.targetTab, `${card.label} opened`)}
-                    className={`rounded-2xl border px-4 py-3 bg-white/90 shadow-sm text-left transition-transform ${card.tone}`}
+                    className={`rounded-2xl border px-4 py-3 bg-white/90 text-left transition-transform ${card.tone}`}
                     whileHover={{ y: -2 }}
                     transition={{ duration: 0.15 }}
                   >
