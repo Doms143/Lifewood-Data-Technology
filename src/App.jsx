@@ -75,6 +75,7 @@ import {
   lifewoodWorldwideOffices,
   mapCareerApplicationRowToClient,
   mapHiredEmployeeRowToClient,
+  mapInquiryRowToClient,
   mapInternRowToClient,
   mapSignupRequestRowToClient,
   mapTaskRowToClient,
@@ -309,11 +310,22 @@ function App() {
   const [isAdminDataLoading, setIsAdminDataLoading] = useState(false)
   const [adminDataError, setAdminDataError] = useState('')
   const [signupRequests, setSignupRequests] = useState([])
+  const [contactInquiries, setContactInquiries] = useState([])
   const [approvalNoteDrafts, setApprovalNoteDrafts] = useState({})
   const [careerApplications, setCareerApplications] = useState([])
   const [hiredEmployees, setHiredEmployees] = useState([])
   const [applicationsError, setApplicationsError] = useState('')
+  const [inquiriesError, setInquiriesError] = useState('')
   const [applicationNoteDrafts, setApplicationNoteDrafts] = useState({})
+  const [inquirySearch, setInquirySearch] = useState('')
+  const [inquiryForm, setInquiryForm] = useState({
+    fullName: '',
+    workEmail: '',
+    companyName: '',
+    requirements: '',
+  })
+  const [inquiryFormStatus, setInquiryFormStatus] = useState({ type: '', message: '' })
+  const [isSubmittingInquiry, setIsSubmittingInquiry] = useState(false)
   const [reviewedPendingApplicationIds, setReviewedPendingApplicationIds] = useState([])
   const [selectedApplication, setSelectedApplication] = useState(null)
   const [isInterviewScheduleModalOpen, setIsInterviewScheduleModalOpen] = useState(false)
@@ -351,8 +363,8 @@ function App() {
   ]
   const chatbotCapabilityLines = [
     'I can help with these admin dashboard actions:',
-    '- Open tabs: Dashboard, Applicants, Approvals, Analytics, Evaluation, Reports, Manage Interns, Manage Employee',
-    '- Search across Applicants, Approvals, Analytics, Evaluation, Reports, Manage Interns, and Manage Employee',
+    '- Open tabs: Dashboard, Applicants, Approvals, Inquiries, Analytics, Evaluation, Reports, Manage Interns, Manage Employee',
+    '- Search across Applicants, Approvals, Inquiries, Analytics, Evaluation, Reports, Manage Interns, and Manage Employee',
     '- Change sort order for Applicants, Approvals, Analytics, Evaluation, and Reports',
     '- Switch view mode for Applicants, Analytics, Evaluation, and Reports',
     '- Open selected applications, interns, report details, or the latest report',
@@ -385,6 +397,7 @@ function App() {
   const [evaluationViewMode, setEvaluationViewMode] = useState('tiles')
   const [reportsViewMode, setReportsViewMode] = useState('tiles')
   const [applicationViewMode, setApplicationViewMode] = useState('cards')
+  const [applicationRecordScope, setApplicationRecordScope] = useState('active')
   const [isAdminProfileModalOpen, setIsAdminProfileModalOpen] = useState(false)
   const [adminProfileForm, setAdminProfileForm] = useState({
     firstName: 'Lifewood',
@@ -528,10 +541,11 @@ function App() {
   const applicationFilterChips = useMemo(() => {
     const chips = []
     if (applicationSearch.trim()) chips.push(`Search: ${applicationSearch.trim()}`)
+    chips.push(`Scope: ${applicationRecordScope === 'archived' ? 'Archive' : 'Active'}`)
     chips.push(`Sort: ${applicationSortLabels[applicationSortBy] || 'Newest'}`)
     chips.push(`View: ${applicationViewMode === 'cards' ? 'Cards' : 'List'}`)
     return chips
-  }, [applicationSearch, applicationSortBy, applicationViewMode])
+  }, [applicationRecordScope, applicationSearch, applicationSortBy, applicationViewMode])
   const approvalFilterChips = useMemo(() => {
     const chips = []
     if (approvalSearch.trim()) chips.push(`Search: ${approvalSearch.trim()}`)
@@ -613,6 +627,7 @@ function App() {
   const approvalSearchRef = useRef(null)
   const settingsSearchRef = useRef(null)
   const employeeSearchRef = useRef(null)
+  const inquirySearchRef = useRef(null)
   const isSyncingManageInternsScrollRef = useRef(false)
   const isSyncingEmployeeScrollRef = useRef(false)
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false)
@@ -726,7 +741,9 @@ function App() {
         setInternAnalyticsData([])
         setAnalyticsTaskEntries([])
         setHiredEmployees([])
+        setContactInquiries([])
         setAdminDataError('')
+        setInquiriesError('')
         setIsAdminDataLoading(false)
       }
       return
@@ -743,17 +760,26 @@ function App() {
         { data: taskRows, error: taskError },
         { data: signupRequestRows, error: signupRequestError },
         { data: hiredEmployeeRows, error: hiredEmployeeError },
+        { data: inquiryRows, error: inquiryError },
       ] = await Promise.all([
         supabase.from('admin_interns').select('*').order('name'),
         supabase.from('admin_task_entries').select('*').order('created_at', { ascending: false }),
         supabase.from('signup_requests').select('*').order('created_at', { ascending: false }),
         supabase.from('hired_employees').select('*').order('hired_at', { ascending: false }),
+        supabase.from('contact_inquiries').select('*').order('created_at', { ascending: false }),
       ])
 
       if (!isMounted) return
 
-      if (internError || taskError || signupRequestError || hiredEmployeeError) {
-        setAdminDataError(internError?.message || taskError?.message || signupRequestError?.message || hiredEmployeeError?.message || 'Failed to load admin data.')
+      if (internError || taskError || signupRequestError || hiredEmployeeError || inquiryError) {
+        setAdminDataError(
+          internError?.message ||
+            taskError?.message ||
+            signupRequestError?.message ||
+            hiredEmployeeError?.message ||
+            inquiryError?.message ||
+            'Failed to load admin data.'
+        )
         setIsAdminDataLoading(false)
         return
       }
@@ -827,6 +853,7 @@ function App() {
       setAnalyticsTaskEntries(resolvedTaskRows.map(mapTaskRowToClient).slice(0, 80))
       setSignupRequests((signupRequestRows || []).map(mapSignupRequestRowToClient))
       setHiredEmployees((hiredEmployeeRows || []).map(mapHiredEmployeeRowToClient))
+      setContactInquiries((inquiryRows || []).map(mapInquiryRowToClient))
       setIsAdminDataLoading(false)
     }
 
@@ -908,6 +935,39 @@ function App() {
       window.clearInterval(intervalId)
     }
   }, [activeAdminTab, canManageApprovals])
+
+  useEffect(() => {
+    if (!supabase || !hasAdminAccess || activeAdminTab !== 'Inquiries') return undefined
+
+    let isMounted = true
+
+    const refreshContactInquiries = async () => {
+      const { data, error } = await supabase
+        .from('contact_inquiries')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (!isMounted || error) {
+        if (isMounted && error) {
+          setInquiriesError(error.message)
+        }
+        return
+      }
+
+      setInquiriesError('')
+      setContactInquiries((data || []).map(mapInquiryRowToClient))
+    }
+
+    void refreshContactInquiries()
+    const intervalId = window.setInterval(() => {
+      void refreshContactInquiries()
+    }, 5000)
+
+    return () => {
+      isMounted = false
+      window.clearInterval(intervalId)
+    }
+  }, [activeAdminTab, hasAdminAccess])
 
   useEffect(() => {
     setReviewedPendingApplicationIds((prev) => {
@@ -1249,9 +1309,34 @@ function App() {
       return (approvalStatusOrder[left.status] ?? 99) - (approvalStatusOrder[right.status] ?? 99) || nameCompare
     })
   }, [approvalSearch, approvalSortBy, signupRequests])
+  const filteredContactInquiries = useMemo(() => {
+    const query = inquirySearch.trim().toLowerCase()
+    return contactInquiries.filter((inquiry) => {
+      if (!query) return true
+      const source = [
+        inquiry.fullName,
+        inquiry.workEmail,
+        inquiry.companyName,
+        inquiry.requirements,
+        inquiry.status,
+      ]
+        .join(' ')
+        .toLowerCase()
+      return source.includes(query)
+    })
+  }, [contactInquiries, inquirySearch])
+  const archivedApplications = useMemo(
+    () => careerApplications.filter((application) => isFinalHireDecision(application)),
+    [careerApplications]
+  )
+  const activePipelineApplications = useMemo(
+    () => careerApplications.filter((application) => !isFinalHireDecision(application)),
+    [careerApplications]
+  )
   const filteredApplications = useMemo(() => {
     const query = applicationSearch.trim().toLowerCase()
-    const visibleApplications = careerApplications.filter((application) => {
+    const sourceApplications = applicationRecordScope === 'archived' ? archivedApplications : activePipelineApplications
+    const visibleApplications = sourceApplications.filter((application) => {
       if (!query) return true
       const source = [
         application.firstName,
@@ -1260,6 +1345,7 @@ function App() {
         application.phoneNumber,
         application.country,
         application.status,
+        application.hireStatus,
         ...(application.positions || []),
       ]
         .join(' ')
@@ -1302,7 +1388,7 @@ function App() {
 
       return rightDate - leftDate || nameCompare
     })
-  }, [applicationSearch, applicationSortBy, careerApplications])
+  }, [activePipelineApplications, applicationRecordScope, applicationSearch, applicationSortBy, archivedApplications])
   const totalApplicationPages = useMemo(
     () => Math.max(1, Math.ceil(filteredApplications.length / applicationPageSize)),
     [filteredApplications.length, applicationPageSize]
@@ -1321,7 +1407,7 @@ function App() {
 
   useEffect(() => {
     setApplicationPage(1)
-  }, [applicationSearch, applicationSortBy, applicationViewMode])
+  }, [applicationRecordScope, applicationSearch, applicationSortBy, applicationViewMode])
   const settingsInternRows = useMemo(() => {
     const query = settingsSearch.trim().toLowerCase()
     return internAnalyticsData
@@ -1508,6 +1594,63 @@ function App() {
 
       setSignInError('Sign in failed. No active session was created.')
       setIsAuthLoading(false)
+    })()
+  }
+
+  const handleInquirySubmit = (event) => {
+    event.preventDefault()
+
+    void (async () => {
+      const payload = {
+        full_name: inquiryForm.fullName.trim(),
+        work_email: inquiryForm.workEmail.trim().toLowerCase(),
+        company_name: inquiryForm.companyName.trim(),
+        requirements: inquiryForm.requirements.trim(),
+      }
+
+      if (!payload.full_name || !payload.work_email || !payload.requirements) {
+        setInquiryFormStatus({
+          type: 'error',
+          message: 'Full name, work email, and inquiry details are required.',
+        })
+        return
+      }
+
+      if (!supabase) {
+        setInquiryFormStatus({
+          type: 'error',
+          message: 'Supabase is not configured. Add your environment variables before submitting inquiries.',
+        })
+        return
+      }
+
+      setIsSubmittingInquiry(true)
+      setInquiryFormStatus({ type: '', message: '' })
+
+      const { error } = await supabase
+        .from('contact_inquiries')
+        .insert(payload)
+
+      if (error) {
+        setInquiryFormStatus({
+          type: 'error',
+          message: error.message,
+        })
+        setIsSubmittingInquiry(false)
+        return
+      }
+
+      setInquiryForm({
+        fullName: '',
+        workEmail: '',
+        companyName: '',
+        requirements: '',
+      })
+      setInquiryFormStatus({
+        type: 'success',
+        message: 'Inquiry sent successfully. Our team will review your message and get back to you soon.',
+      })
+      setIsSubmittingInquiry(false)
     })()
   }
 
@@ -2174,6 +2317,7 @@ function App() {
     if (activeAdminTab === 'Analytics') return focus(analyticsSearchRef)
     if (activeAdminTab === 'Evaluation') return focus(evaluationSearchRef)
     if (activeAdminTab === 'Reports') return focus(reportsSearchRef)
+    if (activeAdminTab === 'Inquiries') return focus(inquirySearchRef)
     if (activeAdminTab === 'Manage Interns') return focus(settingsSearchRef)
     if (activeAdminTab === 'Manage Employee') return focus(employeeSearchRef)
     return undefined
@@ -2189,6 +2333,10 @@ function App() {
       return
     }
     if (activeAdminTab === 'Manage Employee') {
+      focusAdminSearchInput()
+      return
+    }
+    if (activeAdminTab === 'Inquiries') {
       focusAdminSearchInput()
       return
     }
@@ -2934,6 +3082,28 @@ function App() {
     })()
   }
 
+  const handleInquiryDelete = (inquiry) => {
+    void (async () => {
+      if (!supabase || !inquiry?.id) return
+
+      confirmAdminAction({
+        message: `Delete inquiry from ${inquiry.fullName || inquiry.workEmail || 'this contact'}?`,
+        confirmLabel: 'Delete',
+        tone: 'danger',
+        onConfirm: async () => {
+          const { error } = await supabase.from('contact_inquiries').delete().eq('id', inquiry.id)
+          if (error) {
+            setInquiriesError(error.message)
+            runAdminAction('Inquiry delete failed')
+            return
+          }
+          setContactInquiries((prev) => prev.filter((item) => item.id !== inquiry.id))
+          runAdminAction(`Deleted inquiry from ${inquiry.fullName || inquiry.workEmail || 'contact'}`)
+        },
+      })
+    })()
+  }
+
   const handleApplicationHireStatus = (applicationId, hireStatus) => {
     void (async () => {
       if (!supabase || !authUser?.id) {
@@ -3462,6 +3632,7 @@ function App() {
     setSearch: (tab, value) => {
       if (tab === 'Applications') setApplicationSearch(value)
       if (tab === 'Approvals') setApprovalSearch(value)
+      if (tab === 'Inquiries') setInquirySearch(value)
       if (tab === 'Analytics') setAnalyticsSearch(value)
       if (tab === 'Evaluation') setEvaluationSearch(value)
       if (tab === 'Reports') setReportsSearch(value)
@@ -3531,10 +3702,13 @@ function App() {
       if (tab === 'Applications') {
         setApplicationSearch('')
         setApplicationSortBy('newest-first')
+        setApplicationRecordScope('active')
         setApplicationViewMode('cards')
       } else if (tab === 'Approvals') {
         setApprovalSearch('')
         setApprovalSortBy('pending-first')
+      } else if (tab === 'Inquiries') {
+        setInquirySearch('')
       } else if (tab === 'Analytics') {
         setAnalyticsSearch('')
         setAnalyticsSortBy('name-asc')
@@ -3591,6 +3765,8 @@ function App() {
         setActiveAdminTab('Evaluation')
       } else if (tab === 'Reports') {
         setActiveAdminTab('Reports')
+      } else if (tab === 'Inquiries') {
+        setActiveAdminTab('Inquiries')
       } else if (tab === 'Manage Interns') {
         setActiveAdminTab('Manage Interns')
       } else if (tab === 'Manage Employee') {
@@ -6146,19 +6322,61 @@ function App() {
                       <h2 className="text-2xl sm:text-3xl font-medium">Send inquiry</h2>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                      <input type="text" placeholder="Full name" className="focus-brand w-full rounded-2xl border border-castleton/20 bg-white px-4 py-3 text-black outline-none" />
-                      <input type="email" placeholder="Work email" className="focus-brand w-full rounded-2xl border border-castleton/20 bg-white px-4 py-3 text-black outline-none" />
-                    </div>
-                    <input type="text" placeholder="Company name" className="focus-brand w-full rounded-2xl border border-castleton/20 bg-white px-4 py-3 text-black outline-none mb-3" />
-                    <textarea placeholder="Tell us about your requirements..." rows={6} className="focus-brand w-full rounded-2xl border border-castleton/20 bg-white px-4 py-3 text-black outline-none resize-y mb-4" />
-                    <a
-                      href="mailto:hr.lifewood@gmail.com?subject=Inquiry%20from%20website"
-                      className="focus-brand inline-flex items-center gap-2 rounded-full border border-serpent/25 bg-serpent px-5 py-2.5 text-white font-semibold hover:bg-castleton transition-colors"
-                    >
-                      Submit Inquiry
-                      <ArrowRight className="w-4 h-4" />
-                    </a>
+                    <form onSubmit={handleInquirySubmit}>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                        <input
+                          type="text"
+                          placeholder="Full name"
+                          value={inquiryForm.fullName}
+                          onChange={(event) => setInquiryForm((prev) => ({ ...prev, fullName: event.target.value }))}
+                          onInput={() => setInquiryFormStatus({ type: '', message: '' })}
+                          className="focus-brand w-full rounded-2xl border border-castleton/20 bg-white px-4 py-3 text-black outline-none"
+                        />
+                        <input
+                          type="email"
+                          placeholder="Work email"
+                          value={inquiryForm.workEmail}
+                          onChange={(event) => setInquiryForm((prev) => ({ ...prev, workEmail: event.target.value }))}
+                          onInput={() => setInquiryFormStatus({ type: '', message: '' })}
+                          className="focus-brand w-full rounded-2xl border border-castleton/20 bg-white px-4 py-3 text-black outline-none"
+                        />
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="Company name"
+                        value={inquiryForm.companyName}
+                        onChange={(event) => setInquiryForm((prev) => ({ ...prev, companyName: event.target.value }))}
+                        onInput={() => setInquiryFormStatus({ type: '', message: '' })}
+                        className="focus-brand mb-3 w-full rounded-2xl border border-castleton/20 bg-white px-4 py-3 text-black outline-none"
+                      />
+                      <textarea
+                        placeholder="Tell us about your inquiry..."
+                        rows={6}
+                        value={inquiryForm.requirements}
+                        onChange={(event) => setInquiryForm((prev) => ({ ...prev, requirements: event.target.value }))}
+                        onInput={() => setInquiryFormStatus({ type: '', message: '' })}
+                        className="focus-brand mb-4 w-full rounded-2xl border border-castleton/20 bg-white px-4 py-3 text-black outline-none resize-y"
+                      />
+                      {inquiryFormStatus.message ? (
+                        <div
+                          className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${
+                            inquiryFormStatus.type === 'error'
+                              ? 'border-rose-200 bg-rose-50 text-rose-700'
+                              : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                          }`}
+                        >
+                          {inquiryFormStatus.message}
+                        </div>
+                      ) : null}
+                      <button
+                        type="submit"
+                        disabled={isSubmittingInquiry}
+                        className="focus-brand inline-flex items-center gap-2 rounded-full border border-serpent/25 bg-serpent px-5 py-2.5 font-semibold text-white transition-colors hover:bg-castleton disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isSubmittingInquiry ? 'Submitting Inquiry...' : 'Submit Inquiry'}
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </form>
                   </motion.div>
                 </div>
               </motion.section>
@@ -7807,40 +8025,77 @@ function App() {
                             <div>
                               <h2 className="text-3xl sm:text-4xl font-semibold text-black mb-1">Career Applications</h2>
                               <p className="text-black/70 text-base sm:text-lg">
-                                Review applicant details, open CVs, and record approval or rejection status.
+                                {applicationRecordScope === 'archived'
+                                  ? 'Review applicants with final hire decisions in the archive.'
+                                  : 'Review applicant details, open CVs, and record approval or rejection status.'}
                               </p>
                             </div>
                             <div className="flex flex-wrap items-center gap-3">
-                              <button
-                                type="button"
-                                onClick={handleScoreAllPending}
-                                disabled={isBatchScoring}
-                                className="focus-brand rounded-full border border-castleton/20 bg-white px-3 py-1.5 text-sm font-semibold text-castleton transition-colors hover:bg-[#eef3ef] disabled:cursor-not-allowed disabled:opacity-60"
-                              >
-                                {isBatchScoring ? 'Scoring Pending...' : 'Score All Pending'}
-                              </button>
-                              {isBatchScoring ? (
-                                <span className="text-xs text-black/60">
-                                  {batchScoreProgress.done}/{batchScoreProgress.total} scored
-                                </span>
+                              {applicationRecordScope === 'active' ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={handleScoreAllPending}
+                                    disabled={isBatchScoring}
+                                    className="focus-brand rounded-full border border-castleton/20 bg-white px-3 py-1.5 text-sm font-semibold text-castleton transition-colors hover:bg-[#eef3ef] disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    {isBatchScoring ? 'Scoring Pending...' : 'Score All Pending'}
+                                  </button>
+                                  {isBatchScoring ? (
+                                    <span className="text-xs text-black/60">
+                                      {batchScoreProgress.done}/{batchScoreProgress.total} scored
+                                    </span>
+                                  ) : null}
+                                </>
                               ) : null}
                             </div>
                             <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 min-w-[240px]">
-                              {[
-                                ['Pending', careerApplications.filter((item) => item.status === 'pending').length, 'bg-[#fff6e4] text-[#8a5a14]'],
-                              [
-                                'Proceeding to HR Interview',
-                                careerApplications.filter((item) => isHrInterviewStatus(item.status)).length,
-                                'bg-[#e9f3ee] text-castleton',
-                              ],
-                              ['Rejected', careerApplications.filter((item) => item.status === 'rejected').length, 'bg-[#fde8e8] text-[#8a3528]'],
-                              ].map(([label, value, tone]) => (
+                              {(applicationRecordScope === 'archived'
+                                ? [
+                                    ['Archived', archivedApplications.length, 'bg-[#f4f7f5] text-black/70'],
+                                    ['Hired', archivedApplications.filter((item) => item.hireStatus === 'hired').length, 'bg-emerald-50 text-emerald-700'],
+                                    ['Not Hired', archivedApplications.filter((item) => item.hireStatus === 'not_hired').length, 'bg-rose-50 text-rose-700'],
+                                  ]
+                                : [
+                                    ['Pending', activePipelineApplications.filter((item) => item.status === 'pending').length, 'bg-[#fff6e4] text-[#8a5a14]'],
+                                    [
+                                      'Proceeding to HR Interview',
+                                      activePipelineApplications.filter((item) => isHrInterviewStatus(item.status)).length,
+                                      'bg-[#e9f3ee] text-castleton',
+                                    ],
+                                    ['Rejected', activePipelineApplications.filter((item) => item.status === 'rejected').length, 'bg-[#fde8e8] text-[#8a3528]'],
+                                  ]).map(([label, value, tone]) => (
                                 <div key={label} className="rounded-2xl border border-castleton/15 bg-[#f7faf8] p-3">
                                   <p className="text-xs uppercase tracking-[0.12em] text-castleton">{label}</p>
                                   <p className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-sm font-semibold ${tone}`}>{value}</p>
                                 </div>
                               ))}
                             </div>
+                          </div>
+
+                          <div className="mb-3 flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setApplicationRecordScope('active')}
+                              className={`focus-brand rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                                applicationRecordScope === 'active'
+                                  ? 'bg-castleton text-white'
+                                  : 'border border-castleton/15 bg-white text-castleton hover:bg-[#eef3ef]'
+                              }`}
+                            >
+                              Active Applicants ({activePipelineApplications.length})
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setApplicationRecordScope('archived')}
+                              className={`focus-brand rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                                applicationRecordScope === 'archived'
+                                  ? 'bg-castleton text-white'
+                                  : 'border border-castleton/15 bg-white text-castleton hover:bg-[#eef3ef]'
+                              }`}
+                            >
+                              View Archive ({archivedApplications.length})
+                            </button>
                           </div>
 
                           <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_200px] mb-5">
@@ -7851,7 +8106,7 @@ function App() {
                                 ref={applicationSearchRef}
                                 value={applicationSearch}
                                 onChange={(event) => dashboardActionRegistry.setSearch('Applications', event.target.value)}
-                                placeholder="Search name, email, position, status"
+                                placeholder={applicationRecordScope === 'archived' ? 'Search archived applicants' : 'Search name, email, position, status'}
                                 className="w-full bg-transparent text-sm text-black outline-none placeholder:text-black/40"
                               />
                             </label>
@@ -8373,17 +8628,21 @@ function App() {
                                 </span>
                                 <div>
                                   <h3 className="text-xl font-semibold text-black">
-                                    {careerApplications.length ? 'No matching applications' : 'No applications yet'}
+                                    {filteredApplications.length || careerApplications.length
+                                      ? `No matching ${applicationRecordScope === 'archived' ? 'archived applicants' : 'applications'}`
+                                      : 'No applications yet'}
                                   </h3>
                                   <p className="text-black/70 text-sm">
                                     {careerApplications.length
-                                      ? 'Try a different search term or sort order.'
+                                      ? `Try a different search term, scope, or sort order.`
                                       : 'Applications submitted from the application form will appear here.'}
                                   </p>
                                 </div>
                               </div>
                               <p className="text-black/60 text-sm">
-                                Tip: Share the application form link to start collecting applicants.
+                                {applicationRecordScope === 'archived'
+                                  ? 'Final hire decisions appear here automatically once an applicant is marked Hired or Not Hired.'
+                                  : 'Tip: Share the application form link to start collecting applicants.'}
                               </p>
                             </motion.article>
                           )}
@@ -8627,6 +8886,126 @@ function App() {
                                   : 'Requests submitted from the sign-up form will appear here for admin review.'}
                               </p>
                             </motion.article>
+                          )}
+                        </div>
+                      </div>
+                    ) : activeAdminTab === 'Inquiries' ? (
+                      <div className="space-y-5 rounded-[28px] bg-[#f8faf7] p-4 sm:p-5 border border-castleton/10">
+                        <motion.div
+                          className="rounded-[24px] border border-castleton/20 bg-white p-5 sm:p-6"
+                          initial={{ opacity: 0, y: 12 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.25 }}
+                        >
+                          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                            <div>
+                              <h2 className="text-3xl sm:text-4xl font-semibold text-black">Website Inquiries</h2>
+                              <p className="text-black/70 text-base sm:text-lg">
+                                Every inquiry submitted from the website contact form appears here automatically in one inbox.
+                              </p>
+                            </div>
+                            <div className="inline-flex items-center gap-2 rounded-full border border-castleton/15 bg-[#f7faf8] px-4 py-2 text-sm font-semibold text-castleton">
+                              <MessageCircle className="h-4 w-4" />
+                              {filteredContactInquiries.length} {filteredContactInquiries.length === 1 ? 'inquiry' : 'inquiries'}
+                            </div>
+                          </div>
+
+                          <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px]">
+                            <label className="flex items-center gap-3 rounded-2xl border border-castleton/15 bg-[#f7faf8] px-4 py-3">
+                              <Search size={18} className="text-castleton/60" />
+                              <input
+                                type="search"
+                                ref={inquirySearchRef}
+                                value={inquirySearch}
+                                onChange={(event) => dashboardActionRegistry.setSearch('Inquiries', event.target.value)}
+                                placeholder="Search name, email, company, inquiry details"
+                                className="w-full bg-transparent text-sm text-black outline-none placeholder:text-black/40"
+                              />
+                            </label>
+                            <div className="rounded-2xl border border-castleton/15 bg-[#f7faf8] px-4 py-3 text-sm text-black/70">
+                              <span className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-castleton/70 mb-2">
+                                Inbox
+                              </span>
+                              Newest inquiries appear first and refresh automatically while this tab is open.
+                            </div>
+                          </div>
+
+                          {inquiriesError ? (
+                            <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                              {inquiriesError}
+                            </div>
+                          ) : null}
+                        </motion.div>
+
+                        <div className="space-y-4">
+                          {filteredContactInquiries.length ? (
+                            filteredContactInquiries.map((inquiry, index) => (
+                              <motion.article
+                                key={inquiry.id}
+                                className="rounded-[24px] border border-castleton/15 bg-white p-5 sm:p-6 shadow-[0_18px_50px_-36px_rgba(19,48,32,0.5)]"
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.2, delay: Math.min(index * 0.03, 0.18) }}
+                              >
+                                <div className="flex flex-col gap-4 xl:grid xl:grid-cols-[minmax(0,260px)_1fr_auto] xl:items-start">
+                                  <div className="min-w-0">
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-castleton/70">
+                                      Inquirer
+                                    </p>
+                                    <h3 className="mt-2 text-xl font-semibold text-black break-words">{inquiry.fullName || 'Unnamed inquiry'}</h3>
+                                    <p className="mt-1 break-all text-sm text-black/65">{inquiry.workEmail || 'No email provided'}</p>
+                                    {inquiry.companyName ? (
+                                      <p className="mt-2 inline-flex rounded-full border border-castleton/15 bg-[#f7faf8] px-3 py-1 text-xs font-medium text-castleton">
+                                        {inquiry.companyName}
+                                      </p>
+                                    ) : null}
+                                  </div>
+                                  <div className="rounded-[22px] border border-castleton/15 bg-[#f7faf8] p-4 sm:p-5">
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-castleton/70">Message</p>
+                                    <p className="mt-2 whitespace-pre-line text-sm leading-7 text-black/75">
+                                      {inquiry.requirements || 'No inquiry details provided.'}
+                                    </p>
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-2 xl:flex-col xl:items-end">
+                                    <span
+                                      className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                                        inquiry.status === 'reviewed'
+                                          ? 'bg-[#e9f3ee] text-castleton'
+                                          : inquiry.status === 'archived'
+                                            ? 'bg-[#f4f7f5] text-black/60'
+                                            : 'bg-[#fff6e4] text-[#8a5a14]'
+                                      }`}
+                                    >
+                                      {inquiry.status === 'archived'
+                                        ? 'Archived'
+                                        : inquiry.status === 'reviewed'
+                                          ? 'Reviewed'
+                                          : 'New'}
+                                    </span>
+                                    <p className="text-sm text-black/55">
+                                      {inquiry.createdAt ? new Date(inquiry.createdAt).toLocaleString() : 'Just now'}
+                                    </p>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleInquiryDelete(inquiry)}
+                                      className="focus-brand inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 transition-colors hover:bg-rose-100"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                      Delete
+                                    </button>
+                                  </div>
+                                </div>
+                              </motion.article>
+                            ))
+                          ) : (
+                            <motion.div
+                              className="rounded-[24px] border border-dashed border-castleton/20 bg-white/80 p-8 text-center text-black/65"
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ duration: 0.2 }}
+                            >
+                              No inquiries found yet.
+                            </motion.div>
                           )}
                         </div>
                       </div>

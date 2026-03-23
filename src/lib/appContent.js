@@ -10,6 +10,7 @@ import {
   LayoutGrid,
   Mail,
   MapPin,
+  MessageCircle,
   Phone,
   ShieldCheck,
   Sparkles,
@@ -359,6 +360,7 @@ export const adminMenuItems = [
   { label: 'Reports', icon: FileText },
   { label: 'Applications', icon: FileText },
   { label: 'Approvals', icon: UserCheck2 },
+  { label: 'Inquiries', icon: MessageCircle },
   { label: 'Manage Interns', icon: UserSquare2 },
   { label: 'Manage Employee', icon: UserCheck2 },
 ]
@@ -467,6 +469,27 @@ export const adminPanelContent = {
       ['New', 'Incoming Requests', 'Awaiting admin review'],
       ['Queue', 'Approval Status', 'Track approved and rejected requests'],
       ['Next', 'Provision Accounts', 'Backend function can automate final auth creation'],
+    ],
+  },
+  Inquiries: {
+    heading: 'Inquiries',
+    badge: 'Inbound Leads',
+    status: 'Inbox',
+    titleA: 'Client',
+    titleB: 'Inquiry',
+    titleC: '& Details',
+    module: 'Website inquiries',
+    completion: '100%',
+    spent: '4h',
+    grade: 'A',
+    efficiency: '96%',
+    level: '05',
+    levelLabel: 'Business Ops',
+    weekly: 'Review inbound inquiries',
+    activity: [
+      ['New', 'Incoming Inquiries', 'Submitted through the website contact form'],
+      ['Lead', 'Inquiry Review', 'Check company context and message details'],
+      ['Reply', 'Follow-up Queue', 'Prepare outreach and next steps'],
     ],
   },
   Applications: {
@@ -838,7 +861,7 @@ export const routeContent = {
   },
   '/contact-us': {
     title: 'Contact Us',
-    description: 'Speak with our team about your data operations, AI services, and delivery requirements.',
+    description: 'Speak with our team about your data operations, AI services, and business inquiries.',
   },
   '/sign-in': {
     title: 'Sign In',
@@ -970,6 +993,18 @@ export const mapHiredEmployeeRowToClient = (row) => ({
   applicationStatus: row.application_status || '',
   hireStatus: row.hire_status || 'hired',
   hiredAt: row.hired_at || row.created_at || '',
+  reviewedBy: row.reviewed_by || '',
+  createdAt: row.created_at || '',
+  updatedAt: row.updated_at || '',
+})
+
+export const mapInquiryRowToClient = (row) => ({
+  id: row.id,
+  fullName: row.full_name || '',
+  workEmail: row.work_email || '',
+  companyName: row.company_name || '',
+  requirements: row.requirements || '',
+  status: row.status || 'new',
   reviewedBy: row.reviewed_by || '',
   createdAt: row.created_at || '',
   updatedAt: row.updated_at || '',
