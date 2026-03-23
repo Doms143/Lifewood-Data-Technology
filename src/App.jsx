@@ -8551,9 +8551,10 @@ function App() {
                                   transition={{ duration: 0.22, delay: Math.min(index * 0.03, 0.18) }}
                                   whileHover={{ y: -2 }}
                                 >
-                                  <div className="grid gap-3 xl:grid-cols-[minmax(0,1.1fr)_minmax(260px,0.9fr)]">
-                                    <div>
-                                      <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+                                  <div className="grid gap-4 xl:grid-cols-[minmax(0,1.12fr)_minmax(280px,0.88fr)]">
+                                    <div className="space-y-3">
+                                      <div className="rounded-[18px] border border-castleton/12 bg-white/80 p-4 shadow-[0_16px_32px_-28px_rgba(19,48,32,0.35)]">
+                                        <div className="flex flex-wrap items-start justify-between gap-3">
                                         <div>
                                           <p className="text-xs uppercase tracking-[0.12em] text-castleton mb-1">Applicant</p>
                                           <h3 className="text-xl font-semibold text-black inline-flex items-center gap-2">
@@ -8567,21 +8568,24 @@ function App() {
                                           <p className="text-sm text-black/65">{new Date(application.createdAt).toLocaleString()}</p>
                                         </div>
                                       </div>
+                                      </div>
 
+                                      <div className="rounded-[18px] border border-castleton/12 bg-[#fbfcfb] p-4 shadow-[0_16px_32px_-28px_rgba(19,48,32,0.2)]">
+                                      <p className="mb-3 text-[11px] uppercase tracking-[0.12em] text-castleton/70">Core Details</p>
                                       <div className="grid gap-2.5 sm:grid-cols-3">
-                                        <div className="rounded-xl border border-castleton/12 bg-[#f8faf9] px-3 py-2.5">
+                                        <div className="rounded-xl border border-castleton/12 bg-white px-3 py-2.5">
                                           <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Phone</p>
                                           <p className="mt-1.5 text-sm font-medium text-black">
                                             {application.phoneCode} {application.phoneNumber}
                                           </p>
                                         </div>
-                                        <div className="rounded-xl border border-castleton/12 bg-[#f8faf9] px-3 py-2.5">
+                                        <div className="rounded-xl border border-castleton/12 bg-white px-3 py-2.5">
                                           <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Position</p>
                                           <p className="mt-1.5 text-sm font-medium text-black">
                                             {(application.positions || []).join(', ') || 'Not specified'}
                                           </p>
                                         </div>
-                                      <div className="rounded-xl border border-castleton/12 bg-[#f8faf9] px-3 py-2.5">
+                                      <div className="rounded-xl border border-castleton/12 bg-white px-3 py-2.5">
                                         <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">Status</p>
                                         <span
                                           className={`mt-1.5 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-semibold ${
@@ -8628,9 +8632,11 @@ function App() {
                                         </div>
                                       </div>
                                       </div>
+                                      </div>
                                     </div>
 
-                                    <div className="rounded-[16px] border border-castleton/12 bg-[#fbfcfb] p-3">
+                                    <div className="space-y-3">
+                                    <div className="rounded-[18px] border border-castleton/12 bg-[#fbfcfb] p-4 shadow-[0_16px_32px_-28px_rgba(19,48,32,0.2)]">
                                       <span
                                         className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.12em] ${
                                           application.hireStatus === 'hired'
@@ -8656,8 +8662,13 @@ function App() {
                                           : 'Awaiting admin review'}
                                       </p>
                                       {isHrInterviewStatus(application.status) && application.hireStatus !== 'hired' ? (
-                                        <p className="mt-2 text-sm text-black/65">{formatInterviewSchedule(application)}</p>
+                                        <div className="mt-3 rounded-xl border border-castleton/12 bg-white px-3 py-2.5 text-sm text-black/65">
+                                          {formatInterviewSchedule(application)}
+                                        </div>
                                       ) : null}
+                                    </div>
+                                    <div className="rounded-[18px] border border-castleton/12 bg-[#fbfcfb] p-4 shadow-[0_16px_32px_-28px_rgba(19,48,32,0.2)]">
+                                      <p className="mb-3 text-[11px] uppercase tracking-[0.12em] text-castleton/70">Internal Note</p>
                                       <textarea
                                         value={applicationNoteDrafts[application.id] ?? application.adminNote}
                                         onChange={(event) =>
@@ -8665,10 +8676,12 @@ function App() {
                                         }
                                         placeholder="Add an internal note for this application"
                                         rows={4}
-                                        className="focus-brand mt-3 w-full rounded-xl border border-castleton/20 bg-white px-3 py-2 text-black outline-none resize-y"
+                                        className="focus-brand w-full rounded-xl border border-castleton/20 bg-white px-3 py-2 text-black outline-none resize-y"
                                       />
-
-                                      <div className="mt-3 flex flex-wrap gap-2">
+                                    </div>
+                                    <div className="rounded-[18px] border border-castleton/12 bg-white p-4 shadow-[0_16px_32px_-28px_rgba(19,48,32,0.2)]">
+                                      <p className="mb-3 text-[11px] uppercase tracking-[0.12em] text-castleton/70">Actions</p>
+                                      <div className="flex flex-wrap gap-2">
                                         {!isFinalHireDecision(application) && isHrInterviewStatus(application.status) ? (
                                           <button
                                             type="button"
@@ -8708,6 +8721,7 @@ function App() {
                                           </>
                                         ) : null}
                                       </div>
+                                    </div>
                                     </div>
                                   </div>
                                 </motion.article>
