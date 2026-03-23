@@ -1,3 +1,8 @@
+const MAX_HISTORY_ITEMS = 8
+const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash'
+const DEFAULT_GROQ_MODEL = 'llama-3.3-70b-versatile'
+const DASHBOARD_ONLY_RESPONSE = 'I can only answer questions about the dashboard data shown here.'
+
 const chatbotGeminiApiKey =
   process.env.CHATBOT_GEMINI_API_KEY ||
   process.env.GEMINI_CHATBOT_API_KEY ||
@@ -15,12 +20,12 @@ const chatbotGeminiModel =
   process.env.CHATBOT_GEMINI_MODEL ||
   process.env.GEMINI_CHATBOT_MODEL ||
   process.env.VITE_CHATBOT_GEMINI_MODEL ||
-  'gemini-2.5-flash'
+  DEFAULT_GEMINI_MODEL
 
 const chatbotGroqModel =
   process.env.CHATBOT_GROQ_MODEL ||
   process.env.GROQ_CHATBOT_MODEL ||
-  'llama-3.3-70b-versatile'
+  DEFAULT_GROQ_MODEL
 
 const readRequestBody = (req) => {
   const body = req.body
@@ -36,21 +41,30 @@ const readRequestBody = (req) => {
   return {}
 }
 
+const formatHistory = (history) => {
+  if (!Array.isArray(history)) return ''
+
+  return history
+    .slice(-MAX_HISTORY_ITEMS)
+    .map((item) => {
+      const content = String(item?.content || '').trim()
+      if (!content) return ''
+      const role = item?.role === 'user' ? 'User' : 'Assistant'
+      return `${role}: ${content}`
+    })
+    .filter(Boolean)
+    .join('\n')
+}
+
 const buildPrompt = ({ message, context, history }) => {
-  const historyText = Array.isArray(history)
-    ? history
-        .slice(-8)
-        .map((item) => `${item.role === 'user' ? 'User' : 'Assistant'}: ${String(item.content || '').trim()}`)
-        .filter(Boolean)
-        .join('\n')
-    : ''
+  const historyText = formatHistory(history)
 
   return `
 You are Dashboard AI for Lifewood.
 
 Rules:
 - Answer only using the provided dashboard context.
-- If the answer is not present in the context, reply exactly: I can only answer questions about the dashboard data shown here.
+- If the answer is not present in the context, reply exactly: ${DASHBOARD_ONLY_RESPONSE}
 - Do not invent numbers, names, statuses, or actions.
 - Do not give general advice, and do not discuss anything outside the dashboard.
 - Keep the answer concise and practical.
@@ -159,28 +173,28 @@ export default async function handler(req, res) {
 
     const prompt = buildPrompt({ message, context, history })
 
-    let answer = ''
-    let provider = 'gemini'
-    let model = chatbotGeminiModel
+    if (!chatbotGeminiApiKey && !chatbotGroqApiKey) {
+      res.status(500).json({ error: 'Chatbot API key is not configured' })
+      return
+    }
 
-    if (chatbotGeminiApiKey) {
-      try {
-        answer = await callGemini(chatbotGeminiApiKey, chatbotGeminiModel, prompt)
-      } catch (error) {
-        if (!isQuotaLikeError(error) || !chatbotGroqApiKey) {
-          throw error
-        }
-        provider = 'groq'
-        model = chatbotGroqModel
-        answer = await callGroq(chatbotGroqApiKey, chatbotGroqModel, prompt)
+    let provider = chatbotGeminiApiKey ? 'gemini' : 'groq'
+    let model = provider === 'gemini' ? chatbotGeminiModel : chatbotGroqModel
+    let answer = ''
+
+    try {
+      answer =
+        provider === 'gemini'
+          ? await callGemini(chatbotGeminiApiKey, chatbotGeminiModel, prompt)
+          : await callGroq(chatbotGroqApiKey, chatbotGroqModel, prompt)
+    } catch (error) {
+      if (provider !== 'gemini' || !isQuotaLikeError(error) || !chatbotGroqApiKey) {
+        throw error
       }
-    } else if (chatbotGroqApiKey) {
+
       provider = 'groq'
       model = chatbotGroqModel
       answer = await callGroq(chatbotGroqApiKey, chatbotGroqModel, prompt)
-    } else {
-      res.status(500).json({ error: 'Chatbot API key is not configured' })
-      return
     }
 
     const cleaned = String(answer || '').trim()
@@ -199,5 +213,3 @@ export default async function handler(req, res) {
     res.status(500).json({ error: error?.message || 'Unexpected server error' })
   }
 }
-
-
