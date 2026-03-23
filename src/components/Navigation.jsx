@@ -195,7 +195,7 @@ const Navigation = ({ onNavigate, onNavigatePath }) => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: 'easeOut' }}
       >
-        <div className="relative rounded-2xl border border-white/15 bg-white/80 backdrop-blur-xl px-6 py-3.5 sm:px-8 sm:py-4 shadow-[0_8px_32px_rgba(0,0,0,0.1)]">
+        <div className="relative rounded-2xl border border-[#efe6d8] bg-[linear-gradient(90deg,rgba(249,248,246,0.98),rgba(255,251,244,0.96),rgba(248,246,243,0.98))] backdrop-blur-xl px-6 py-3.5 sm:px-8 sm:py-4 shadow-[0_14px_36px_rgba(55,36,12,0.14)]">
           <div ref={headerContentRef} className="flex items-center justify-between gap-4">
             {/* Logo */}
             <button
@@ -214,7 +214,7 @@ const Navigation = ({ onNavigate, onNavigatePath }) => {
             {/* Desktop Navigation */}
             {!useCompactNav && (
               <nav ref={desktopNavRef} className="flex-1">
-                <ul className="flex items-center justify-center gap-1 lg:gap-2">
+                <ul className="flex items-center justify-center gap-1 rounded-full border border-[#e8dcc9] bg-white/62 px-2 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] lg:gap-2">
                   {desktopItems.map((item) => (
                     <li
                       key={`${item.label}-${item.value || item.key || ''}`}
@@ -232,8 +232,8 @@ const Navigation = ({ onNavigate, onNavigatePath }) => {
                             }}
                             className={`focus-brand group relative inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-all duration-200 ${
                               isItemSelected(item)
-                                ? 'text-saffron bg-saffron/10'
-                                : 'text-serpent hover:text-saffron hover:bg-saffron/8'
+                                ? 'bg-[#fff1d6] text-[#c98012] shadow-[inset_0_0_0_1px_rgba(244,179,71,0.22)]'
+                                : 'text-[#1f1f1f] hover:bg-white hover:text-castleton'
                             }`}
                           >
                             <span>{item.label}</span>
@@ -254,7 +254,7 @@ const Navigation = ({ onNavigate, onNavigatePath }) => {
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
                                 exit={{ opacity: 0, y: -8, scale: 0.95 }}
                                 transition={{ duration: 0.2 }}
-                                className="absolute right-0 mt-3 min-w-[280px] rounded-xl border border-white/20 bg-white/95 p-2 backdrop-blur-xl shadow-[0_12px_40px_rgba(0,0,0,0.12)]"
+                                className="absolute right-0 mt-3 min-w-[280px] rounded-xl border border-[#eadfce] bg-[rgba(255,251,245,0.98)] p-2 backdrop-blur-xl shadow-[0_18px_44px_rgba(50,32,10,0.14)]"
                               >
                                 {item.children.map((subItem) => (
                                   <button
@@ -264,10 +264,10 @@ const Navigation = ({ onNavigate, onNavigatePath }) => {
                                       handlePath(subItem.path)
                                       setOpenDesktopMenu(null)
                                     }}
-                                    className={`group w-full rounded-lg px-4 py-2.5 text-left text-xs font-semibold transition-all duration-200 flex items-center justify-between ${
+                                    className={`group flex w-full items-center justify-between rounded-lg px-4 py-2.5 text-left text-xs font-semibold transition-all duration-200 ${
                                       isChildSelected(subItem.path)
-                                        ? 'text-saffron bg-saffron/15'
-                                        : 'text-serpent/85 hover:text-saffron hover:bg-saffron/10'
+                                        ? 'bg-[#fff1d6] text-[#c98012]'
+                                        : 'text-[#2f2f2f] hover:bg-white hover:text-castleton'
                                     }`}
                                   >
                                     <span>{subItem.label}</span>
@@ -286,10 +286,10 @@ const Navigation = ({ onNavigate, onNavigatePath }) => {
                           }
                           className={`focus-brand relative inline-flex items-center rounded-lg px-3 py-2 text-xs font-semibold transition-all duration-200 ${
                             item.label === 'Sign In'
-                              ? 'ml-3 rounded-full border border-saffron bg-saffron px-5 py-2 text-white hover:shadow-[0_8px_24px_rgba(244,179,71,0.3)] hover:scale-105'
+                              ? 'ml-3 rounded-full border border-saffron bg-saffron px-5 py-2 text-white hover:border-[#d98d18] hover:bg-[#d98d18] hover:text-white hover:shadow-[0_8px_24px_rgba(244,179,71,0.3)] hover:scale-105'
                               : isItemSelected(item)
-                                ? 'text-saffron bg-saffron/10'
-                                : 'text-serpent hover:text-saffron hover:bg-saffron/8'
+                                ? 'bg-[#fff1d6] text-[#c98012] shadow-[inset_0_0_0_1px_rgba(244,179,71,0.22)]'
+                                : 'text-[#1f1f1f] hover:bg-white hover:text-castleton'
                           }`}
                         >
                           {item.label}

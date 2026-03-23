@@ -207,7 +207,6 @@ function App() {
   })
   const [inquiryFormStatus, setInquiryFormStatus] = useState({ type: '', message: '' })
   const [isSubmittingInquiry, setIsSubmittingInquiry] = useState(false)
-  const [reviewedPendingApplicationIds, setReviewedPendingApplicationIds] = useState([])
   const [selectedApplication, setSelectedApplication] = useState(null)
   const [isInterviewScheduleModalOpen, setIsInterviewScheduleModalOpen] = useState(false)
   const [interviewScheduleForm, setInterviewScheduleForm] = useState(() => createInitialInterviewScheduleForm())
@@ -328,13 +327,8 @@ function App() {
     () => careerApplications.filter((item) => item.status === 'pending').length,
     [careerApplications]
   )
-  const unreviewedPendingApplicationsCount = useMemo(
-    () => careerApplications.filter((item) => item.status === 'pending' && !reviewedPendingApplicationIds.includes(item.id)).length,
-    [careerApplications, reviewedPendingApplicationIds]
-  )
-  const hasPendingApplications = unreviewedPendingApplicationsCount > 0
-  const isApplicationUnreviewed = (application) =>
-    application.status === 'pending' && !reviewedPendingApplicationIds.includes(application.id)
+  const hasPendingApplications = pendingApplicationsCount > 0
+  const isApplicationUnreviewed = (application) => application.status === 'pending'
   const pendingApprovalsCount = useMemo(
     () => signupRequests.filter((item) => item.status === 'pending').length,
     [signupRequests]
@@ -853,13 +847,6 @@ function App() {
       window.clearInterval(intervalId)
     }
   }, [activeAdminTab, hasAdminAccess])
-
-  useEffect(() => {
-    setReviewedPendingApplicationIds((prev) => {
-      const pendingIds = new Set(careerApplications.filter((item) => item.status === 'pending').map((item) => item.id))
-      return prev.filter((id) => pendingIds.has(id))
-    })
-  }, [careerApplications])
 
   useEffect(() => {
     if (
@@ -3529,9 +3516,6 @@ function App() {
 
   const openApplicationDetails = (application) => {
     if (!application) return false
-    if (application.status === 'pending') {
-      setReviewedPendingApplicationIds((prev) => (prev.includes(application.id) ? prev : [...prev, application.id]))
-    }
     setSelectedApplication(application)
     runAdminAction(`Opened application: ${application.firstName} ${application.lastName}`.trim())
     return true
@@ -4551,7 +4535,7 @@ function App() {
               canManageApprovals={canManageApprovals}
               activeAdminTab={activeAdminTab}
               hasPendingApplications={hasPendingApplications}
-              unreviewedPendingApplicationsCount={unreviewedPendingApplicationsCount}
+              unreviewedPendingApplicationsCount={pendingApplicationsCount}
               onCloseMobileNav={() => {
                 setIsAdminNavOpen(false)
                 setIsAdminNavPinned(false)
