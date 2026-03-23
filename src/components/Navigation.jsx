@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Menu, X, ChevronDown, ChevronUp } from 'lucide-react'
+import { Menu, X, ChevronDown, ArrowRight } from 'lucide-react'
 
 const navItems = [
   { label: 'Home', type: 'section', value: 'hero', highlight: true },
@@ -54,6 +54,8 @@ const Navigation = ({ onNavigate, onNavigatePath }) => {
     aiInitiatives: true,
     whatWeOffer: true,
   })
+  const headerContentRef = useRef(null)
+  const logoRef = useRef(null)
   const navMeasureRef = useRef(null)
   const navRequiredRef = useRef(null)
   const desktopNavRef = useRef(null)
@@ -115,33 +117,41 @@ const Navigation = ({ onNavigate, onNavigatePath }) => {
   const desktopItems = useMemo(() => navItems, [])
 
   useEffect(() => {
-    const measure = () => {
-      const availableEl = navMeasureRef.current
-      const requiredEl = navRequiredRef.current
-      if (!availableEl || !requiredEl) return
-      const requiredWidth = requiredEl.scrollWidth
-      const availableWidth = availableEl.clientWidth
-      const shouldUseCompact = requiredWidth > (availableWidth - 20)
-      setUseCompactNav(shouldUseCompact)
-      if (shouldUseCompact) {
-        setOpenDesktopMenu(null)
-      } else {
+    const updateNavMode = () => {
+      const headerWidth = headerContentRef.current?.clientWidth || 0
+      const logoWidth = logoRef.current?.clientWidth || 0
+      const navWidth = navRequiredRef.current?.scrollWidth || 0
+      const forcedCompact = window.innerWidth < 640
+      const availableNavWidth = Math.max(0, headerWidth - logoWidth - 32)
+      const isCompact = forcedCompact || !headerWidth || !navWidth || navWidth > availableNavWidth
+
+      setUseCompactNav(isCompact)
+      if (!isCompact) {
         setIsOpen(false)
       }
     }
 
-    measure()
-    requestAnimationFrame(measure)
-    window.addEventListener('resize', measure)
-    const viewport = window.visualViewport
-    viewport?.addEventListener('resize', measure)
-    viewport?.addEventListener('scroll', measure)
-    return () => {
-      window.removeEventListener('resize', measure)
-      viewport?.removeEventListener('resize', measure)
-      viewport?.removeEventListener('scroll', measure)
+    updateNavMode()
+
+    const resizeObserver =
+      typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(() => {
+            updateNavMode()
+          })
+        : null
+
+    if (resizeObserver) {
+      if (headerContentRef.current) resizeObserver.observe(headerContentRef.current)
+      if (logoRef.current) resizeObserver.observe(logoRef.current)
+      if (navRequiredRef.current) resizeObserver.observe(navRequiredRef.current)
     }
-  }, [desktopItems.length])
+
+    window.addEventListener('resize', updateNavMode)
+    return () => {
+      resizeObserver?.disconnect()
+      window.removeEventListener('resize', updateNavMode)
+    }
+  }, [desktopItems])
 
   useEffect(() => {
     const onPopState = () => {
@@ -178,205 +188,250 @@ const Navigation = ({ onNavigate, onNavigatePath }) => {
   }, [])
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 px-4 sm:px-6 lg:px-8 py-3">
-      <AnimatePresence>
-        {useCompactNav && isOpen ? (
-          <motion.button
-            type="button"
-            aria-label="Close navigation menu"
-            onClick={closePanel}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.22 }}
-            className="mobile-nav-backdrop fixed inset-0"
-          />
-        ) : null}
-      </AnimatePresence>
+    <header className="fixed top-0 left-0 right-0 z-50 px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
       <motion.div
-        className="max-w-7xl mx-auto relative z-[1]"
-        initial={{ opacity: 0, y: -24 }}
+        className="mx-auto max-w-7xl"
+        initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: 'easeOut' }}
       >
-        <div className={`nav-shell ${useCompactNav && isOpen ? 'nav-shell-open' : ''} ${!useCompactNav ? 'nav-shell-desktop' : ''} rounded-[34px] px-6 sm:px-10 pt-4 pb-3`}>
-          <div className="flex items-center justify-between">
+        <div className="relative rounded-2xl border border-white/15 bg-white/80 backdrop-blur-xl px-6 py-3.5 sm:px-8 sm:py-4 shadow-[0_8px_32px_rgba(0,0,0,0.1)]">
+          <div ref={headerContentRef} className="flex items-center justify-between gap-4">
+            {/* Logo */}
             <button
+              ref={logoRef}
               type="button"
               onClick={() => handleSection('hero')}
-              className="hover:opacity-85 transition-opacity"
+              className="shrink-0 transition-opacity duration-200 hover:opacity-80"
             >
               <img
                 src="https://framerusercontent.com/images/BZSiFYgRc4wDUAuEybhJbZsIBQY.png"
                 alt="Lifewood logo"
-                className="h-10 sm:h-11 w-auto"
+                className="h-9 sm:h-10 w-auto"
               />
             </button>
-            <div ref={navMeasureRef} className="flex-1 min-w-0 pl-4 sm:pl-6">
-              <div className="absolute invisible pointer-events-none h-0 overflow-hidden">
-                <ul ref={navRequiredRef} className="flex items-center gap-3 lg:gap-4 whitespace-nowrap">
+
+            {/* Desktop Navigation */}
+            {!useCompactNav && (
+              <nav ref={desktopNavRef} className="flex-1">
+                <ul className="flex items-center justify-center gap-1 lg:gap-2">
                   {desktopItems.map((item) => (
-                    <li key={`measure-${item.label}`} className="text-[11px] sm:text-xs lg:text-sm font-semibold">
-                      {item.type === 'submenu' ? `${item.label} ▼` : item.label}
+                    <li
+                      key={`${item.label}-${item.value || item.key || ''}`}
+                      className="relative"
+                      onMouseEnter={item.type === 'submenu' ? () => openDesktopSubmenu(item.key) : undefined}
+                      onMouseLeave={item.type === 'submenu' ? scheduleDesktopSubmenuClose : undefined}
+                    >
+                      {item.type === 'submenu' ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              clearDesktopCloseTimer()
+                              setOpenDesktopMenu((prev) => (prev === item.key ? null : item.key))
+                            }}
+                            className={`focus-brand group relative inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-all duration-200 ${
+                              isItemSelected(item)
+                                ? 'text-saffron bg-saffron/10'
+                                : 'text-serpent hover:text-saffron hover:bg-saffron/8'
+                            }`}
+                          >
+                            <span>{item.label}</span>
+                            <motion.div
+                              animate={{ rotate: openDesktopMenu === item.key ? 180 : 0 }}
+                              transition={{ duration: 0.3 }}
+                            >
+                              <ChevronDown className="h-3.5 w-3.5" />
+                            </motion.div>
+                          </button>
+
+                          <AnimatePresence>
+                            {openDesktopMenu === item.key && (
+                              <motion.div
+                                onMouseEnter={() => openDesktopSubmenu(item.key)}
+                                onMouseLeave={scheduleDesktopSubmenuClose}
+                                initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                                transition={{ duration: 0.2 }}
+                                className="absolute right-0 mt-3 min-w-[280px] rounded-xl border border-white/20 bg-white/95 p-2 backdrop-blur-xl shadow-[0_12px_40px_rgba(0,0,0,0.12)]"
+                              >
+                                {item.children.map((subItem) => (
+                                  <button
+                                    key={subItem.path}
+                                    type="button"
+                                    onClick={() => {
+                                      handlePath(subItem.path)
+                                      setOpenDesktopMenu(null)
+                                    }}
+                                    className={`group w-full rounded-lg px-4 py-2.5 text-left text-xs font-semibold transition-all duration-200 flex items-center justify-between ${
+                                      isChildSelected(subItem.path)
+                                        ? 'text-saffron bg-saffron/15'
+                                        : 'text-serpent/85 hover:text-saffron hover:bg-saffron/10'
+                                    }`}
+                                  >
+                                    <span>{subItem.label}</span>
+                                    <ArrowRight className="h-3.5 w-3.5 opacity-0 transition-all duration-200 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0" />
+                                  </button>
+                                ))}
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            item.type === 'section' ? handleSection(item.value) : handlePath(item.value)
+                          }
+                          className={`focus-brand relative inline-flex items-center rounded-lg px-3 py-2 text-xs font-semibold transition-all duration-200 ${
+                            item.label === 'Sign In'
+                              ? 'ml-3 rounded-full border border-saffron bg-saffron px-5 py-2 text-white hover:shadow-[0_8px_24px_rgba(244,179,71,0.3)] hover:scale-105'
+                              : isItemSelected(item)
+                                ? 'text-saffron bg-saffron/10'
+                                : 'text-serpent hover:text-saffron hover:bg-saffron/8'
+                          }`}
+                        >
+                          {item.label}
+                        </button>
+                      )}
                     </li>
                   ))}
                 </ul>
-              </div>
-              {useCompactNav ? (
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setIsOpen((open) => !open)}
-                    className="focus-brand text-serpent hover:text-castleton transition-colors p-1"
-                    aria-label="Toggle navigation menu"
-                    aria-expanded={isOpen}
+              </nav>
+            )}
+
+            {/* Mobile Menu Button */}
+            {useCompactNav && (
+              <button
+                type="button"
+                onClick={() => setIsOpen((open) => !open)}
+                className="focus-brand rounded-lg p-2 text-serpent transition-all duration-200 hover:bg-saffron/10 hover:text-saffron"
+                aria-label="Toggle navigation menu"
+                aria-expanded={isOpen}
+              >
+                <motion.div
+                  animate={{ rotate: isOpen ? 90 : 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+                </motion.div>
+              </button>
+            )}
+          </div>
+
+          <div className="pointer-events-none absolute left-0 top-0 -z-10 opacity-0" aria-hidden="true">
+            <div ref={navMeasureRef} className="px-6 py-3.5 sm:px-8 sm:py-4">
+              <div ref={navRequiredRef} className="flex items-center gap-1 lg:gap-2 whitespace-nowrap">
+                {desktopItems.map((item) => (
+                  <span
+                    key={`measure-${item.label}-${item.value || item.key || ''}`}
+                    className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold ${
+                      item.label === 'Sign In' ? 'ml-3 rounded-full border border-saffron px-5' : ''
+                    }`}
                   >
-                    {isOpen ? <X className="w-8 h-8" /> : <Menu className="w-8 h-8" />}
-                  </button>
-                </div>
-              ) : (
-                <nav className="w-full" ref={desktopNavRef}>
-                  <ul className="flex items-center justify-end gap-3 lg:gap-4 whitespace-nowrap">
-                    {desktopItems.map((item) => (
-                      <li
-                        key={`${item.label}-${item.value || item.key || ''}`}
-                        className="relative"
-                        onMouseEnter={item.type === 'submenu' ? () => openDesktopSubmenu(item.key) : undefined}
-                        onMouseLeave={item.type === 'submenu' ? scheduleDesktopSubmenuClose : undefined}
-                      >
-                        {item.type === 'submenu' ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                clearDesktopCloseTimer()
-                                setOpenDesktopMenu((prev) => (prev === item.key ? null : item.key))
-                              }}
-                              className={`focus-brand inline-flex items-center gap-1 text-[11px] sm:text-xs lg:text-sm font-semibold transition-colors ${
-                                isItemSelected(item) ? 'text-[#D79A44]' : 'text-serpent hover:text-castleton'
-                              }`}
-                            >
-                              <span>{item.label}</span>
-                              {openDesktopMenu === item.key ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                            </button>
-                            <AnimatePresence>
-                              {openDesktopMenu === item.key ? (
-                                <motion.ul
-                                  onMouseEnter={() => openDesktopSubmenu(item.key)}
-                                  onMouseLeave={scheduleDesktopSubmenuClose}
-                                  initial={{ opacity: 0, y: -8 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  exit={{ opacity: 0, y: -8 }}
-                                  transition={{ duration: 0.18 }}
-                                  className="nav-dropdown-glass absolute right-0 mt-2 min-w-[260px] rounded-2xl p-2 z-30"
-                                >
-                                  {item.children.map((subItem) => (
-                                    <li key={subItem.path}>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          handlePath(subItem.path)
-                                          setOpenDesktopMenu(null)
-                                        }}
-                                        className={`focus-brand w-full text-left px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold hover:bg-[#f6f8f4] transition-colors ${
-                                          isChildSelected(subItem.path) ? 'text-[#D79A44]' : 'text-serpent hover:text-castleton'
-                                        }`}
-                                      >
-                                        {subItem.label}
-                                      </button>
-                                    </li>
-                                  ))}
-                                </motion.ul>
-                              ) : null}
-                            </AnimatePresence>
-                          </>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => (item.type === 'section' ? handleSection(item.value) : handlePath(item.value))}
-                            className={`focus-brand text-[11px] sm:text-xs lg:text-sm font-semibold transition-colors ${
-                              item.label === 'Sign In'
-                                ? 'ml-1 rounded-full border border-[#133020] px-3 py-1.5 bg-[#133020] text-[#f5eedb] transition-all duration-200 hover:-translate-y-0.5 hover:scale-[1.02] hover:shadow-[0_10px_24px_-14px_rgba(19,48,32,0.75)] hover:bg-[#ffb347] hover:border-[#ffb347] hover:text-[#133020]'
-                                : isItemSelected(item)
-                                  ? 'text-[#D79A44]'
-                                  : 'text-serpent hover:text-castleton'
-                            }`}
-                          >
-                            {item.label}
-                          </button>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </nav>
-              )}
+                    <span>{item.label}</span>
+                    {item.type === 'submenu' ? <ChevronDown className="h-3.5 w-3.5" /> : null}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
 
+          {/* Mobile Navigation Drawer */}
           <AnimatePresence>
-            {useCompactNav && isOpen ? (
+            {useCompactNav && isOpen && (
               <motion.nav
-                initial={{ opacity: 0, y: -12, scale: 0.985 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -10, scale: 0.99 }}
-                transition={{ duration: 0.24, ease: 'easeOut' }}
-                className="mobile-nav-panel pt-6 pb-2"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3, ease: 'easeOut' }}
+                className="overflow-hidden"
               >
-                <ul className="mobile-nav-list space-y-4 sm:space-y-5">
+                <ul className="space-y-2 border-t border-white/20 pt-4 mt-4">
                   {navItems.map((item) => (
                     <li key={item.label}>
-                      <button
-                        type="button"
-                        onClick={() => handleItemClick(item)}
-                        className={`focus-brand mobile-nav-item flex items-center justify-between gap-3 text-left text-sm sm:text-base leading-tight font-medium transition-colors ${
-                          item.label === 'Sign In'
-                            ? 'mobile-nav-signin inline-flex rounded-full border border-[#133020] px-4 py-2 bg-[#133020] text-[#f5eedb] transition-all duration-200 hover:-translate-y-0.5 hover:scale-[1.02] hover:shadow-[0_10px_24px_-14px_rgba(19,48,32,0.75)] hover:bg-[#ffb347] hover:border-[#ffb347] hover:text-[#133020]'
-                            : isItemSelected(item)
-                              ? 'text-[#D79A44]'
-                              : 'text-serpent hover:text-castleton'
-                        }`}
+                      <motion.div
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.2 }}
                       >
-                        <span>{item.label}</span>
-                        {item.type === 'submenu' ? (
-                          openSubmenus[item.key] ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />
-                        ) : null}
-                      </button>
-
-                      {item.type === 'submenu' ? (
-                        <AnimatePresence>
-                          {openSubmenus[item.key] ? (
-                            <motion.ul
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: 'auto' }}
-                              exit={{ opacity: 0, height: 0 }}
-                              transition={{ duration: 0.2, ease: 'easeOut' }}
-                              className="mobile-nav-submenu pl-4 sm:pl-6 pt-3 space-y-3 overflow-hidden"
+                        <button
+                          type="button"
+                          onClick={() => handleItemClick(item)}
+                          className={`focus-brand w-full rounded-lg px-4 py-3 text-left text-sm font-semibold transition-all duration-200 flex items-center justify-between ${
+                            item.label === 'Sign In'
+                              ? 'text-white bg-gradient-to-r from-saffron to-saffron/85 hover:shadow-[0_8px_24px_rgba(244,179,71,0.3)]'
+                              : isItemSelected(item)
+                                ? 'text-saffron bg-saffron/15'
+                                : 'text-serpent hover:text-saffron hover:bg-saffron/8'
+                          }`}
+                        >
+                          <span>{item.label}</span>
+                          {item.type === 'submenu' && (
+                            <motion.div
+                              animate={{ rotate: openSubmenus[item.key] ? 180 : 0 }}
+                              transition={{ duration: 0.3 }}
                             >
-                              {item.children.map((subItem) => (
-                                <li key={subItem.path}>
-                                  <button
-                                    type="button"
-                                    onClick={() => handlePath(subItem.path)}
-                                    className={`focus-brand text-left text-xs sm:text-sm font-semibold transition-colors ${
-                                      isChildSelected(subItem.path) ? 'text-[#D79A44]' : 'text-serpent/80 hover:text-castleton'
-                                    }`}
-                                  >
-                                    {subItem.label}
-                                  </button>
-                                </li>
-                              ))}
-                            </motion.ul>
-                          ) : null}
-                        </AnimatePresence>
-                      ) : null}
+                              <ChevronDown className="h-4 w-4" />
+                            </motion.div>
+                          )}
+                        </button>
+
+                        {/* Mobile Submenu */}
+                        {item.type === 'submenu' && (
+                          <AnimatePresence>
+                            {openSubmenus[item.key] && (
+                              <motion.ul
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="overflow-hidden mt-2 space-y-2 pl-4"
+                              >
+                                {item.children.map((subItem) => (
+                                  <li key={subItem.path}>
+                                    <button
+                                      type="button"
+                                      onClick={() => handlePath(subItem.path)}
+                                      className={`focus-brand w-full rounded-lg px-3 py-2 text-left text-xs font-semibold transition-all duration-200 flex items-center justify-between ${
+                                        isChildSelected(subItem.path)
+                                          ? 'text-saffron bg-saffron/15'
+                                          : 'text-serpent/80 hover:text-saffron hover:bg-saffron/10'
+                                      }`}
+                                    >
+                                      <span>{subItem.label}</span>
+                                      <ArrowRight className="h-3 w-3 opacity-0 transition-all duration-200 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0" />
+                                    </button>
+                                  </li>
+                                ))}
+                              </motion.ul>
+                            )}
+                          </AnimatePresence>
+                        )}
+                      </motion.div>
                     </li>
                   ))}
                 </ul>
               </motion.nav>
-            ) : null}
+            )}
           </AnimatePresence>
         </div>
       </motion.div>
+
+      {/* Mobile Menu Backdrop */}
+      <AnimatePresence>
+        {useCompactNav && isOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={closePanel}
+            className="fixed inset-0 z-[-1] bg-black/20 backdrop-blur-sm"
+          />
+        )}
+      </AnimatePresence>
     </header>
   )
 }

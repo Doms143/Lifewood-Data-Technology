@@ -34,6 +34,7 @@ import {
   LayoutGrid,
   FileText,
   UserSquare2,
+  Plus,
 } from 'lucide-react'
 
 export default function AppRouteContent(props) {
@@ -1721,63 +1722,108 @@ export default function AppRouteContent(props) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: 0.08 }}
               >
-                <div className="text-center mb-6 sm:mb-8">
+                <div className="text-center mb-8 sm:mb-12">
                   <span className="inline-flex text-black/80 text-xs sm:text-sm font-semibold mb-3">
                     Projects
                   </span>
                   <h2 className="text-3xl sm:text-5xl font-medium text-black">What we currently handle</h2>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.1fr] gap-6 lg:gap-8 items-start">
-                  <motion.div
-                    key={aiProjectTracks[activeProjectIndex]?.image}
-                    initial={{ opacity: 0.65 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.25 }}
-                    className="rounded-xl overflow-hidden border border-castleton/15"
-                  >
-                    <img
-                      src={aiProjectTracks[activeProjectIndex]?.image}
-                      alt={aiProjectTracks[activeProjectIndex]?.title}
-                      className="w-full h-[360px] sm:h-[440px] object-cover"
-                    />
-                  </motion.div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-6">
+                  {aiProjectTracks.map((item, index) => {
+                    const isActive = activeProjectIndex === index
+                    return (
+                      <motion.div
+                        key={item.title}
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: index * 0.05 }}
+                        onClick={() => setActiveProjectIndex((prev) => (prev === index ? -1 : index))}
+                        className="relative group cursor-pointer overflow-hidden rounded-2xl"
+                      >
+                        {/* Background image with overlay */}
+                        <img
+                          src={item.image}
+                          alt={item.title}
+                          className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                        
+                        {/* Dark overlay */}
+                        <div className={`absolute inset-0 transition-colors duration-300 ${isActive ? 'bg-black/70' : 'bg-black/50 group-hover:bg-black/60'}`} />
 
-                  <div>
-                    <ul className="border-b border-black/15">
-                      {aiProjectTracks.map((item, index) => {
-                        const isActive = activeProjectIndex === index
-                        return (
-                          <li key={item.title} className="border-t border-black/15">
-                            <button
-                              type="button"
-                              onClick={() => setActiveProjectIndex((prev) => (prev === index ? -1 : index))}
-                              className="w-full flex items-center gap-3 py-4 text-left"
+                        {/* Content */}
+                        <div className="relative h-72 sm:h-80 flex flex-col justify-between p-5 sm:p-6 text-white">
+                          {/* Header with number and icon */}
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-3">
+                              <span className="text-saffron text-xl sm:text-2xl font-bold">2.{index + 1}</span>
+                              <div className="text-white/90 group-hover:text-saffron transition-colors duration-200">
+                                {projectListIcon(item.title)}
+                              </div>
+                            </div>
+                            <motion.div
+                              animate={{ rotate: isActive ? 45 : 0 }}
+                              transition={{ duration: 0.2 }}
+                              className="text-white/80"
                             >
-                              <span className="text-black/80">{projectListIcon(item.title)}</span>
-                              <span className="text-black text-base sm:text-xl font-medium">{`2.${index + 1} ${item.title}`}</span>
-                              <span className="ml-auto text-black/70 text-xl leading-none">{isActive ? <X className="w-4 h-4" /> : '+'}</span>
-                            </button>
+                              {isActive ? <X className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                            </motion.div>
+                          </div>
+
+                          {/* Title */}
+                          <div>
+                            <h3 className="text-lg sm:text-xl font-semibold text-white mb-3 leading-tight">
+                              {item.title}
+                            </h3>
+                            
+                            {/* Description - expanding */}
                             <AnimatePresence>
-                              {isActive ? (
+                              {isActive && (
                                 <motion.div
                                   initial={{ opacity: 0, height: 0 }}
                                   animate={{ opacity: 1, height: 'auto' }}
                                   exit={{ opacity: 0, height: 0 }}
-                                  transition={{ duration: 0.24 }}
-                                  className="overflow-hidden pb-4"
+                                  transition={{ duration: 0.25 }}
+                                  className="overflow-hidden"
                                 >
-                                  <p className="text-black/80 text-sm sm:text-base leading-relaxed pl-7 pr-2 whitespace-pre-line">
+                                  <p className="text-white/85 text-sm leading-relaxed whitespace-pre-line">
                                     {item.details}
                                   </p>
                                 </motion.div>
-                          ) : null}
+                              )}
                             </AnimatePresence>
-                          </li>
-                        )
-                      })}
-                    </ul>
-                  </div>
+
+                            {/* Collapsed preview text */}
+                            {!isActive && (
+                              <motion.p
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="text-white/70 text-sm line-clamp-2 group-hover:text-white/85 transition-colors"
+                              >
+                                {item.details.split('\n')[0]}
+                              </motion.p>
+                            )}
+                          </div>
+
+                          {/* Footer hint */}
+                          <div className="flex items-center justify-between pt-2">
+                            <span className="text-white/60 text-xs font-medium uppercase tracking-wide">
+                              {isActive ? 'Close' : 'Explore'}
+                            </span>
+                            <motion.div
+                              animate={{ x: isActive ? -4 : 0 }}
+                              transition={{ duration: 0.2 }}
+                              className="text-saffron group-hover:translate-x-1 transition-transform"
+                            >
+                              <ArrowRight className="w-4 h-4" />
+                            </motion.div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )
+                  })}
                 </div>
               </motion.section>
 

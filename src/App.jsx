@@ -646,7 +646,11 @@ function App() {
         supabase.from('admin_interns').select('*').order('name'),
         supabase.from('admin_task_entries').select('*').order('created_at', { ascending: false }),
         supabase.from('signup_requests').select('*').order('created_at', { ascending: false }),
-        supabase.from('hired_employees').select('*').order('hired_at', { ascending: false }),
+        supabase
+          .from('hired_employees')
+          .select('*')
+          .eq('record_status', 'active')
+          .order('hired_at', { ascending: false }),
         supabase.from('contact_inquiries').select('*').order('created_at', { ascending: false }),
       ])
 
@@ -2919,6 +2923,7 @@ function App() {
           ...payload,
           application_status: createdApplication.status || hrInterviewStatus,
           hire_status: 'hired',
+          record_status: 'active',
           hired_at: reviewTimestamp,
           reviewed_by: authUser.id,
         })
@@ -2947,9 +2952,19 @@ function App() {
         confirmLabel: 'Delete',
         tone: 'danger',
         onConfirm: async () => {
-          const { error } = await supabase.from('hired_employees').delete().eq('id', employee.id)
+          const { data, error } = await supabase
+            .from('hired_employees')
+            .update({ record_status: 'deleted' })
+            .eq('id', employee.id)
+            .select('id')
+            .maybeSingle()
           if (error) {
             setApplicationsError(error.message)
+            runAdminAction('Employee delete failed')
+            return
+          }
+          if (!data) {
+            setApplicationsError('Employee record was not updated.')
             runAdminAction('Employee delete failed')
             return
           }
@@ -2957,7 +2972,7 @@ function App() {
           if (editingEmployeeId === employee.id) {
             resetEmployeeForm()
           }
-          runAdminAction(`Deleted employee ${employee.firstName} ${employee.lastName}`.trim())
+          runAdminAction(`Removed employee ${employee.firstName} ${employee.lastName} from the roster`.trim())
         },
       })
     })()
@@ -3034,6 +3049,7 @@ function App() {
             cv_path: currentApplication.cvPath || null,
             application_status: currentApplication.status || null,
             hire_status: 'hired',
+            record_status: 'active',
             hired_at: new Date().toISOString(),
             reviewed_by: authUser.id,
           }
@@ -3086,7 +3102,7 @@ function App() {
           } else {
             const { error: employeeDeleteError } = await supabase
               .from('hired_employees')
-              .delete()
+              .update({ record_status: 'deleted' })
               .eq('application_id', currentApplication.id)
 
             if (employeeDeleteError) {
@@ -5808,7 +5824,7 @@ function App() {
                                   : 'border border-castleton/15 bg-white text-castleton hover:bg-[#eef3ef]'
                               }`}
                             >
-                              Active Applicants ({activePipelineApplications.length})
+                              Scope: Active
                             </button>
                             <button
                               type="button"
@@ -5819,79 +5835,89 @@ function App() {
                                   : 'border border-castleton/15 bg-white text-castleton hover:bg-[#eef3ef]'
                               }`}
                             >
-                              View Archive ({archivedApplications.length})
+                              Scope: Archived
                             </button>
                           </div>
 
-                          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_200px] mb-5">
-                            <label className="flex items-center gap-3 rounded-2xl border border-castleton/15 bg-[#f7faf8] px-4 py-3">
-                              <Search size={18} className="text-castleton/60" />
-                              <input
-                                type="search"
-                                ref={applicationSearchRef}
-                                value={applicationSearch}
-                                onChange={(event) => dashboardActionRegistry.setSearch('Applications', event.target.value)}
-                                placeholder={applicationRecordScope === 'archived' ? 'Search archived applicants' : 'Search name, email, position, status'}
-                                className="w-full bg-transparent text-sm text-black outline-none placeholder:text-black/40"
-                              />
-                            </label>
-                            <label className="rounded-2xl border border-castleton/15 bg-[#f7faf8] px-4 py-3">
-                              <span className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-castleton/70 mb-2">
-                                Sort By
-                              </span>
-                              <select
-                                value={applicationSortBy}
-                                onChange={(event) => setSortMode('Applications', event.target.value)}
-                                className="w-full bg-transparent text-sm text-black outline-none"
-                              >
-                                <option value="newest-first">Newest First</option>
-                                <option value="oldest-first">Oldest First</option>
-                                <option value="pending-first">Pending First</option>
-                                <option value="approved-first">HR Interview First</option>
-                                <option value="rejected-first">Rejected First</option>
-                                <option value="name-asc">A-Z</option>
-                              </select>
-                            </label>
-                            <div className="rounded-3xl border border-castleton/15 bg-white/80 px-2 py-2 flex items-center justify-between gap-2">
-                              <button
-                                type="button"
-                                onClick={() => dashboardActionRegistry.setView('Applications', 'cards')}
-                                className={`flex-1 rounded-2xl px-3 py-2 text-sm font-semibold transition-colors ${
-                                  applicationViewMode === 'cards'
-                                    ? 'bg-castleton text-white'
-                                    : 'text-castleton hover:bg-[#eef3ef]'
-                                }`}
-                              >
-                                <span className="inline-flex items-center justify-center gap-2">
-                                  <LayoutGrid className="h-4 w-4" />
-                                  Card View
-                                </span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => dashboardActionRegistry.setView('Applications', 'list')}
-                                className={`flex-1 rounded-2xl px-3 py-2 text-sm font-semibold transition-colors ${
-                                  applicationViewMode === 'list'
-                                    ? 'bg-castleton text-white'
-                                    : 'text-castleton hover:bg-[#eef3ef]'
-                                }`}
-                              >
-                                <span className="inline-flex items-center justify-center gap-2">
-                                  <AlignJustify className="h-4 w-4" />
-                                  List View
-                                </span>
-                              </button>
+                          <div className="border-t border-castleton/20 pt-4 pb-4">
+                            <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
+                              {/* Search */}
+                              <label className="flex-1 flex items-center gap-3 px-3 py-2.5 border-r border-castleton/20 lg:border-r lg:border-castleton/20">
+                                <Search size={18} className="text-castleton/60 shrink-0" />
+                                <input
+                                  type="search"
+                                  ref={applicationSearchRef}
+                                  value={applicationSearch}
+                                  onChange={(event) => dashboardActionRegistry.setSearch('Applications', event.target.value)}
+                                  placeholder={applicationRecordScope === 'archived' ? 'Search archived applicants' : 'Search name, email, position, status'}
+                                  className="flex-1 bg-transparent text-sm text-black outline-none placeholder:text-black/40"
+                                />
+                              </label>
+
+                              {/* Sort By */}
+                              <label className="flex items-center gap-2 px-3 py-2.5 border-r border-castleton/20 lg:border-r lg:border-castleton/20 shrink-0">
+                                <Filter size={16} className="text-castleton/60" />
+                                <select
+                                  value={applicationSortBy}
+                                  onChange={(event) => setSortMode('Applications', event.target.value)}
+                                  className="bg-transparent text-sm text-black outline-none font-medium"
+                                >
+                                  <option value="newest-first">Sort: Newest</option>
+                                  <option value="oldest-first">Sort: Oldest</option>
+                                  <option value="pending-first">Sort: Pending First</option>
+                                  <option value="approved-first">Sort: HR Interview First</option>
+                                  <option value="rejected-first">Sort: Rejected First</option>
+                                  <option value="name-asc">Sort: A-Z</option>
+                                </select>
+                              </label>
+
+                              {/* View Toggle */}
+                              <div className="lg:ml-auto flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => dashboardActionRegistry.setView('Applications', 'list')}
+                                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors shrink-0 ${
+                                    applicationViewMode === 'list'
+                                      ? 'bg-castleton text-white'
+                                      : 'text-castleton hover:bg-castleton/8'
+                                  }`}
+                                >
+                                  <span className="inline-flex items-center justify-center gap-1.5">
+                                    <AlignJustify className="h-3.5 w-3.5" />
+                                    View: List
+                                  </span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => dashboardActionRegistry.setView('Applications', 'cards')}
+                                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors shrink-0 ${
+                                    applicationViewMode === 'cards'
+                                      ? 'bg-castleton text-white'
+                                      : 'text-castleton hover:bg-castleton/8'
+                                  }`}
+                                >
+                                  <span className="inline-flex items-center justify-center gap-1.5">
+                                    <LayoutGrid className="h-3.5 w-3.5" />
+                                    Card
+                                  </span>
+                                </button>
+                              </div>
                             </div>
                           </div>
 
                           {applicationFilterChips.length ? (
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              {applicationFilterChips.map((chip) => (
-                                <span key={chip} className="inline-flex items-center gap-2 rounded-full border border-castleton/15 bg-white px-3 py-1 text-xs font-semibold text-castleton">
-                                  <Filter className="h-3 w-3" />
-                                  {chip}
-                                </span>
-                              ))}
+                            <div className="mt-4 border-t border-castleton/10 pt-4">
+                              <div className="flex flex-wrap items-center gap-2">
+                                {applicationFilterChips.map((chip, index) => (
+                                  <div key={chip} className="inline-flex items-center gap-2">
+                                    {index > 0 ? <span className="h-3.5 w-px bg-castleton/15" aria-hidden="true" /> : null}
+                                    <span className="inline-flex items-center gap-2 px-1 py-1 text-xs font-semibold text-castleton">
+                                      <Filter className="h-3 w-3" />
+                                      {chip}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           ) : null}
 

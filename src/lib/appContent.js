@@ -1008,6 +1008,7 @@ export const mapInquiryRowToClient = (row) => ({
   reviewedBy: row.reviewed_by || '',
   createdAt: row.created_at || '',
   updatedAt: row.updated_at || '',
+  recordStatus: row.record_status || 'active',
 })
 
 export const approvalStatusOrder = {
