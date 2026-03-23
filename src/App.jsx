@@ -2759,11 +2759,30 @@ function App() {
     runAdminAction(`Editing employee ${employee.firstName} ${employee.lastName}`.trim())
   }
 
+  const handleEmployeeCreate = () => {
+    setEditingEmployeeId(null)
+    setEmployeeFormError('')
+    setEmployeeForm({
+      firstName: '',
+      lastName: '',
+      email: '',
+      phoneCode: '+63 (Philippines)',
+      phoneNumber: '',
+      gender: '',
+      age: '',
+      country: '',
+      address: '',
+      positions: '',
+    })
+    setIsEmployeeModalOpen(true)
+    runAdminAction('Creating employee record')
+  }
+
   const handleEmployeeSave = (event) => {
     event.preventDefault()
     void (async () => {
-      if (!supabase || !editingEmployeeId) {
-        setEmployeeFormError('Employee editing is not ready.')
+      if (!supabase || !authUser?.id) {
+        setEmployeeFormError('Employee save is not ready.')
         return
       }
 
@@ -2791,40 +2810,102 @@ function App() {
           .filter(Boolean),
       }
 
-      const { data, error } = await supabase
-        .from('hired_employees')
-        .update(payload)
-        .eq('id', editingEmployeeId)
-        .select('*')
-        .maybeSingle()
-
-      if (error || !data) {
-        setEmployeeFormError(error?.message || 'Failed to update employee record.')
+      if (!payload.positions.length) {
+        setEmployeeFormError('At least one assigned position is required.')
         return
       }
 
-      const updatedEmployee = mapHiredEmployeeRowToClient(data)
-      setHiredEmployees((prev) => prev.map((item) => (item.id === updatedEmployee.id ? updatedEmployee : item)))
-      setCareerApplications((prev) =>
-        prev.map((item) =>
-          item.id === updatedEmployee.applicationId
-            ? {
-                ...item,
-                firstName: updatedEmployee.firstName,
-                lastName: updatedEmployee.lastName,
-                email: updatedEmployee.email,
-                phoneCode: updatedEmployee.phoneCode,
-                phoneNumber: updatedEmployee.phoneNumber,
-                gender: updatedEmployee.gender,
-                age: updatedEmployee.age,
-                country: updatedEmployee.country,
-                address: updatedEmployee.address,
-                positions: updatedEmployee.positions,
-              }
-            : item
+      if (editingEmployeeId) {
+        const { data, error } = await supabase
+          .from('hired_employees')
+          .update(payload)
+          .eq('id', editingEmployeeId)
+          .select('*')
+          .maybeSingle()
+
+        if (error || !data) {
+          setEmployeeFormError(error?.message || 'Failed to update employee record.')
+          return
+        }
+
+        const updatedEmployee = mapHiredEmployeeRowToClient(data)
+        setHiredEmployees((prev) => prev.map((item) => (item.id === updatedEmployee.id ? updatedEmployee : item)))
+        setCareerApplications((prev) =>
+          prev.map((item) =>
+            item.id === updatedEmployee.applicationId
+              ? {
+                  ...item,
+                  firstName: updatedEmployee.firstName,
+                  lastName: updatedEmployee.lastName,
+                  email: updatedEmployee.email,
+                  phoneCode: updatedEmployee.phoneCode,
+                  phoneNumber: updatedEmployee.phoneNumber,
+                  gender: updatedEmployee.gender,
+                  age: updatedEmployee.age,
+                  country: updatedEmployee.country,
+                  address: updatedEmployee.address,
+                  positions: updatedEmployee.positions,
+                }
+              : item
+          )
         )
-      )
-      runAdminAction(`Updated employee ${updatedEmployee.firstName} ${updatedEmployee.lastName}`.trim())
+        runAdminAction(`Updated employee ${updatedEmployee.firstName} ${updatedEmployee.lastName}`.trim())
+        resetEmployeeForm()
+        return
+      }
+
+      const reviewTimestamp = new Date().toISOString()
+      const { data: createdApplication, error: applicationError } = await supabase
+        .from('career_applications')
+        .insert({
+          created_at: reviewTimestamp,
+          first_name: payload.first_name,
+          last_name: payload.last_name,
+          email: payload.email,
+          phone_code: payload.phone_code,
+          phone_number: payload.phone_number,
+          gender: payload.gender,
+          age: payload.age,
+          country: payload.country,
+          address: payload.address,
+          positions: payload.positions,
+          status: hrInterviewStatus,
+          hire_status: 'hired',
+          reviewed_by: authUser.id,
+          reviewed_at: reviewTimestamp,
+        })
+        .select('*')
+        .maybeSingle()
+
+      if (applicationError || !createdApplication) {
+        setEmployeeFormError(applicationError?.message || 'Failed to create linked application record.')
+        return
+      }
+
+      const { data: createdEmployee, error: employeeError } = await supabase
+        .from('hired_employees')
+        .insert({
+          owner_user_id: authUser.id,
+          application_id: createdApplication.id,
+          ...payload,
+          application_status: createdApplication.status || hrInterviewStatus,
+          hire_status: 'hired',
+          hired_at: reviewTimestamp,
+          reviewed_by: authUser.id,
+        })
+        .select('*')
+        .maybeSingle()
+
+      if (employeeError || !createdEmployee) {
+        setEmployeeFormError(employeeError?.message || 'Failed to create employee record.')
+        return
+      }
+
+      const mappedApplication = mapCareerApplicationRowToClient(createdApplication)
+      const mappedEmployee = mapHiredEmployeeRowToClient(createdEmployee)
+      setCareerApplications((prev) => [mappedApplication, ...prev])
+      setHiredEmployees((prev) => [mappedEmployee, ...prev])
+      runAdminAction(`Added employee ${mappedEmployee.firstName} ${mappedEmployee.lastName}`.trim())
       resetEmployeeForm()
     })()
   }
@@ -7959,17 +8040,21 @@ function App() {
                                               type="button"
                                               onClick={() => handleApplicationHireStatus(application.id, 'hired')}
                                               disabled={application.hireStatus === 'hired'}
-                                              className="focus-brand w-full rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-center text-xs font-semibold text-emerald-700 transition-colors enabled:hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-45"
+                                              title="Hired"
+                                              aria-label="Hired"
+                                              className="focus-brand inline-flex w-full items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-700 transition-colors enabled:hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-45"
                                             >
-                                              Hired
+                                              <CheckCircle2 className="h-4 w-4" />
                                             </button>
                                             <button
                                               type="button"
                                               onClick={() => handleApplicationHireStatus(application.id, 'not_hired')}
                                               disabled={application.hireStatus === 'not_hired'}
-                                              className="focus-brand w-full rounded-full border border-rose-200 bg-rose-50 px-3 py-2 text-center text-xs font-semibold text-rose-700 transition-colors enabled:hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-45"
+                                              title="Not Hired"
+                                              aria-label="Not Hired"
+                                              className="focus-brand inline-flex w-full items-center justify-center rounded-full border border-rose-200 bg-rose-50 px-3 py-2 text-rose-700 transition-colors enabled:hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-45"
                                             >
-                                              Not Hired
+                                              <XCircle className="h-4 w-4" />
                                             </button>
                                           </div>
                                         ) : null}
@@ -8070,17 +8155,21 @@ function App() {
                                               type="button"
                                               onClick={() => handleApplicationHireStatus(application.id, 'hired')}
                                               disabled={application.hireStatus === 'hired'}
-                                              className="focus-brand w-full rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-center text-xs font-semibold text-emerald-700 transition-colors enabled:hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-45"
+                                              title="Hired"
+                                              aria-label="Hired"
+                                              className="focus-brand inline-flex w-full items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-emerald-700 transition-colors enabled:hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-45"
                                             >
-                                              Hired
+                                              <CheckCircle2 className="h-4 w-4" />
                                             </button>
                                             <button
                                               type="button"
                                               onClick={() => handleApplicationHireStatus(application.id, 'not_hired')}
                                               disabled={application.hireStatus === 'not_hired'}
-                                              className="focus-brand w-full rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-center text-xs font-semibold text-rose-700 transition-colors enabled:hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-45"
+                                              title="Not Hired"
+                                              aria-label="Not Hired"
+                                              className="focus-brand inline-flex w-full items-center justify-center rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-rose-700 transition-colors enabled:hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-45"
                                             >
-                                              Not Hired
+                                              <XCircle className="h-4 w-4" />
                                             </button>
                                           </>
                                         ) : null}
@@ -9117,10 +9206,21 @@ function App() {
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.25 }}
                         >
-                          <h2 className="text-3xl sm:text-4xl font-semibold text-black">Manage Employee</h2>
-                          <p className="text-black/70 text-base sm:text-lg">
-                            Hired applicants are synced here automatically from the Applicants tab. Review employee records using the same management flow.
-                          </p>
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                              <h2 className="text-3xl sm:text-4xl font-semibold text-black">Manage Employee</h2>
+                              <p className="text-black/70 text-base sm:text-lg">
+                                Hired applicants are synced here automatically from the Applicants tab. You can also add employee records manually.
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={handleEmployeeCreate}
+                              className="focus-brand inline-flex items-center justify-center rounded-full border border-castleton/20 bg-castleton px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-serpent"
+                            >
+                              Add Employee
+                            </button>
+                          </div>
                         </motion.div>
 
                         <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-4 items-stretch">
@@ -9871,8 +9971,14 @@ function App() {
                         <div className="mb-5 flex items-start justify-between gap-3 sm:gap-4">
                           <div>
                             <p className="text-xs uppercase tracking-[0.12em] text-castleton mb-1">Manage Employee</p>
-                            <h2 className="text-xl sm:text-3xl font-semibold text-black">Edit Employee Record</h2>
-                            <p className="mt-2 text-sm text-black/65">Update the employee profile and role details from a single record.</p>
+                            <h2 className="text-xl sm:text-3xl font-semibold text-black">
+                              {editingEmployeeId ? 'Edit Employee Record' : 'Add Employee Record'}
+                            </h2>
+                            <p className="mt-2 text-sm text-black/65">
+                              {editingEmployeeId
+                                ? 'Update the employee profile and role details from a single record.'
+                                : 'Create an employee record manually and sync it into the employee roster.'}
+                            </p>
                           </div>
                           <button
                             type="button"
@@ -10024,7 +10130,7 @@ function App() {
                             type="submit"
                             className="focus-brand w-full rounded-full bg-castleton px-4 py-2 text-sm font-semibold text-white hover:bg-serpent transition-colors sm:w-auto"
                           >
-                            Update Employee Record
+                            {editingEmployeeId ? 'Update Employee Record' : 'Add Employee Record'}
                           </button>
                         </div>
                       </motion.form>
