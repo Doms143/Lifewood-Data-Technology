@@ -541,6 +541,36 @@ p, body {
     background: linear-gradient(180deg, #138459, #0d5d42);
   }
 
+  .admin-sidebar-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(244, 247, 245, 0.48) transparent;
+  }
+
+  .admin-sidebar-scroll::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .admin-sidebar-scroll::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  .admin-sidebar-scroll::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 999px;
+  }
+
+  .admin-sidebar-scroll::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(244, 247, 245, 0.58), rgba(223, 232, 227, 0.34));
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  .admin-sidebar-scroll::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.74), rgba(231, 239, 235, 0.42));
+  }
+
   .hide-x-scrollbar {
     scrollbar-width: none;
   }

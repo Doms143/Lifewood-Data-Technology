@@ -73,7 +73,7 @@ export default function AdminDashboardShell({
         ) : null}
         <div
           ref={adminNavRef}
-          className={`space-y-3 flex flex-col items-center fixed left-0 top-0 inset-y-0 z-50 justify-start pt-5 pb-4 transition-[width] duration-300 ${
+          className={`admin-sidebar-scroll space-y-3 flex flex-col items-center fixed left-0 top-0 inset-y-0 z-50 justify-start overflow-y-auto overscroll-contain pt-5 pb-4 transition-[width] duration-300 ${
             isAdminNavOpen
               ? 'w-[240px] sm:w-[260px] lg:w-[280px] px-3 sm:px-4 bg-[linear-gradient(165deg,#0f5a3f,#0d4d38_52%,#0a3f31)] border-r border-castleton/30'
               : 'w-[56px] sm:w-[60px] px-2 bg-[linear-gradient(165deg,#0f5a3f,#0d4d38_52%,#0a3f31)] border-r border-castleton/30'
@@ -104,8 +104,8 @@ export default function AdminDashboardShell({
             </div>
           </div>
           {isAdminNavOpen ? (
-            <aside className="w-full h-full rounded-[26px] lg:rounded-[18px] border border-castleton/25 bg-transparent text-[#eef4e9] overflow-hidden shadow-soft lg:shadow-none">
-              <div className="h-full flex flex-col">
+            <aside className="w-full min-h-0 flex-1 rounded-[26px] lg:rounded-[18px] border border-castleton/25 bg-transparent text-[#eef4e9] overflow-hidden shadow-soft lg:shadow-none">
+              <div className="flex h-full min-h-0 flex-col">
                 <div className="p-3 mt-2 space-y-3">
                   <button
                     type="button"
@@ -125,36 +125,38 @@ export default function AdminDashboardShell({
                     </div>
                   </button>
                 </div>
-                <nav className="px-3 pb-4 space-y-2">
-                  {adminMenuItems
-                    .filter((item) => item.label !== 'Approvals' || canManageApprovals)
-                    .map((item) => {
-                      const Icon = item.icon
-                      const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label === 'Approvals' ? 'Admin Approval' : item.label
-                      return (
-                        <button
-                          key={item.label}
-                          type="button"
-                          onClick={() => onSelectTab(item.label, `${item.label} panel opened`)}
-                          className={`w-full text-left px-3 py-2.5 rounded-xl transition-colors ${
-                            activeAdminTab === item.label
-                              ? 'bg-saffron/20 border border-saffron/45 text-saffron font-semibold'
-                              : 'hover:bg-white/10 text-white/90'
-                          }`}
-                        >
-                          <span className="flex items-center justify-between gap-2">
-                            <span className="flex items-center gap-2">
-                              <Icon className="h-4 w-4" />
-                              {displayLabel}
+                <div className="admin-sidebar-scroll min-h-0 flex-1 overflow-y-auto px-3 pb-4">
+                  <nav className="space-y-2 pr-1">
+                    {adminMenuItems
+                      .filter((item) => item.label !== 'Approvals' || canManageApprovals)
+                      .map((item) => {
+                        const Icon = item.icon
+                        const displayLabel = item.label === 'Applications' ? 'Applicants' : item.label === 'Approvals' ? 'Admin Approval' : item.label
+                        return (
+                          <button
+                            key={item.label}
+                            type="button"
+                            onClick={() => onSelectTab(item.label, `${item.label} panel opened`)}
+                            className={`w-full text-left px-3 py-2.5 rounded-xl transition-colors ${
+                              activeAdminTab === item.label
+                                ? 'bg-saffron/20 border border-saffron/45 text-saffron font-semibold'
+                                : 'hover:bg-white/10 text-white/90'
+                            }`}
+                          >
+                            <span className="flex items-center justify-between gap-2">
+                              <span className="flex items-center gap-2">
+                                <Icon className="h-4 w-4" />
+                                {displayLabel}
+                              </span>
+                              {item.label === 'Applications' && hasPendingApplications ? (
+                                <UnreadNotificationBadgeComponent count={unreviewedPendingApplicationsCount} />
+                              ) : null}
                             </span>
-                            {item.label === 'Applications' && hasPendingApplications ? (
-                              <UnreadNotificationBadgeComponent count={unreviewedPendingApplicationsCount} />
-                            ) : null}
-                          </span>
-                        </button>
-                      )
-                    })}
-                </nav>
+                          </button>
+                        )
+                      })}
+                  </nav>
+                </div>
                 <div className="mt-auto px-3 pb-3">
                   <button
                     type="button"
@@ -167,8 +169,8 @@ export default function AdminDashboardShell({
               </div>
             </aside>
           ) : (
-            <div className="mt-2 w-full flex-1 flex flex-col items-center justify-between pb-3">
-              <nav className="w-full flex flex-col items-center gap-2">
+            <div className="mt-2 w-full min-h-0 flex-1 flex flex-col items-center justify-between pb-3">
+              <nav className="admin-sidebar-scroll w-full min-h-0 flex-1 overflow-y-auto flex flex-col items-center gap-2 pr-0.5">
                 {adminMenuItems
                   .filter((item) => item.label !== 'Approvals' || canManageApprovals)
                   .map((item) => {

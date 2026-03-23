@@ -54,9 +54,12 @@ Rules:
 - Do not invent numbers, names, statuses, or actions.
 - Do not give general advice, and do not discuss anything outside the dashboard.
 - Keep the answer concise and practical.
+- Use the full dashboard context payload, not only the currently active or rendered tab view.
 - For application lifecycle questions, treat final hire decisions from hire_status as higher priority than status.
 - The hiring flow is: pending -> approved / Proceeding to HR Interview -> interview scheduled -> hired or not hired.
 - If an application has hire_status of hired or not_hired, describe it using that final state instead of the intermediate status.
+- Applications are split into active and archived scopes. Archived applications are those with hire_status of hired or not_hired.
+- The dashboard also includes a website inquiry inbox under the Inquiries tab.
 
 Dashboard context:
 ${JSON.stringify(context || {}, null, 2)}
@@ -196,4 +199,5 @@ export default async function handler(req, res) {
     res.status(500).json({ error: error?.message || 'Unexpected server error' })
   }
 }
+
 

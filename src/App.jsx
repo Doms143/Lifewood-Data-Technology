@@ -3270,12 +3270,15 @@ function App() {
       Applications: {
         counts: {
           total: careerApplications.length,
+          active: activePipelineApplications.length,
+          archived: archivedApplications.length,
           pending: pendingApplicationsCount,
           proceedingToHr: careerApplications.filter((item) => isHrInterviewStatus(item.status)).length,
           interviewsScheduled: careerApplications.filter((item) => hasInterviewSchedule(item)).length,
           hired: careerApplications.filter((item) => item.hireStatus === 'hired').length,
           notHired: careerApplications.filter((item) => item.hireStatus === 'not_hired').length,
         },
+        scope: applicationRecordScope,
         search: applicationSearch,
         sort: applicationSortBy,
         view: applicationViewMode,
@@ -3297,6 +3300,22 @@ function App() {
           score: item.cvScore ?? null,
           interviewScheduled: hasInterviewSchedule(item),
           hireStatus: item.hireStatus || null,
+        })),
+      },
+      Inquiries: {
+        counts: {
+          total: contactInquiries.length,
+          filtered: filteredContactInquiries.length,
+          new: contactInquiries.filter((item) => item.status === 'new').length,
+          reviewed: contactInquiries.filter((item) => item.status === 'reviewed').length,
+          archived: contactInquiries.filter((item) => item.status === 'archived').length,
+        },
+        search: inquirySearch,
+        recent: contactInquiries.slice(0, 5).map((item) => ({
+          name: item.fullName,
+          email: item.workEmail,
+          company: item.companyName || null,
+          status: item.status,
         })),
       },
       Approvals: {
@@ -3373,12 +3392,38 @@ function App() {
       tabs: {
         Dashboard: summaries.Dashboard,
         Applications: summaries.Applications,
+        Inquiries: summaries.Inquiries,
         Approvals: summaries.Approvals,
         Analytics: summaries.Analytics,
         Evaluation: summaries.Evaluation,
         Reports: summaries.Reports,
         'Manage Interns': summaries['Manage Interns'],
         'Manage Employee': summaries['Manage Employee'],
+      },
+      catalogs: {
+        applications: careerApplications.slice(0, 50).map((item) => ({
+          name: `${item.firstName} ${item.lastName}`.trim(),
+          email: item.email,
+          status: applicationDisplayStatusLabel(item),
+          scope: isFinalHireDecision(item) ? 'archived' : 'active',
+          hireStatus: item.hireStatus || null,
+        })),
+        inquiries: contactInquiries.slice(0, 50).map((item) => ({
+          name: item.fullName,
+          email: item.workEmail,
+          company: item.companyName || null,
+          status: item.status,
+        })),
+        employees: hiredEmployees.slice(0, 50).map((item) => ({
+          name: `${item.firstName} ${item.lastName}`.trim(),
+          email: item.email,
+          country: item.country || null,
+        })),
+        approvals: signupRequests.slice(0, 50).map((item) => ({
+          name: item.fullName,
+          email: item.email,
+          status: item.status,
+        })),
       },
       selection: {
         application: selectedApplication
@@ -3515,6 +3560,12 @@ function App() {
       icon: ShieldCheck,
     },
     {
+      title: 'Inquiries',
+      description: 'Check the website inquiry inbox and new business messages.',
+      prompt: 'How many new inquiries do we have?',
+      icon: MessageCircle,
+    },
+    {
       title: 'Activity',
       description: 'Ask about hiring actions, interview schedules, and recent dashboard activity.',
       prompt: 'What changed most recently in applications and hiring?',
@@ -3527,9 +3578,9 @@ function App() {
       icon: Sparkles,
     },
   ]
-  const dashboardPromptCards = chatbotSuggestions.slice(0, 4)
+  const dashboardPromptCards = chatbotSuggestions.slice(0, 5)
 
-  const chatbotScopes = ['Applicants', 'Interns', 'Reports', 'Approvals']
+  const chatbotScopes = ['Applicants', 'Inquiries', 'Interns', 'Reports', 'Approvals']
 
   const clearChatbotConversation = () => {
     setChatbotInput('')
@@ -3560,6 +3611,14 @@ function App() {
     return careerApplications.find((item) => {
       const fullName = `${item.firstName} ${item.lastName}`.trim().toLowerCase()
       return fullName.includes(query) || item.email?.toLowerCase().includes(query)
+    })
+  }
+
+  const findInquiryByQuery = (nameQuery) => {
+    const query = nameQuery.toLowerCase()
+    return contactInquiries.find((item) => {
+      const source = `${item.fullName || ''} ${item.workEmail || ''} ${item.companyName || ''}`.toLowerCase()
+      return source.includes(query)
     })
   }
 
@@ -3609,6 +3668,14 @@ function App() {
     const applicationMatch = findApplicationByName(query)
     if (applicationMatch) return openApplicationDetails(applicationMatch)
 
+    const inquiryMatch = findInquiryByQuery(query)
+    if (inquiryMatch) {
+      setActiveAdminTab('Inquiries')
+      setInquirySearch(`${inquiryMatch.fullName || inquiryMatch.workEmail || ''}`.trim())
+      runAdminAction(`Opened inquiry search: ${inquiryMatch.fullName || inquiryMatch.workEmail}`)
+      return true
+    }
+
     const internMatch =
       findInternByName(query, filteredAnalyticsRows) ||
       findInternByName(query, filteredEvaluationInsights) ||
@@ -3653,16 +3720,31 @@ function App() {
       runAdminAction('Manage Interns status filter changed')
       return 'Changed intern status filter.'
     },
+    setApplicationScope: (scope) => {
+      setActiveAdminTab('Applications')
+      setApplicationRecordScope(scope)
+      runAdminAction(`Applications scope changed to ${scope}`)
+      return scope === 'archived' ? 'Opened archived applicants.' : 'Opened active applicants.'
+    },
     openApplicationByQuery: (query) => {
       const match = findApplicationByName(query)
       if (!match) return 'I could not find that application.'
       setActiveAdminTab('Applications')
+      setApplicationRecordScope(isFinalHireDecision(match) ? 'archived' : 'active')
       openApplicationDetails(match)
       return `Opened ${match.firstName} ${match.lastName} in Applicants.`
+    },
+    openInquiryByQuery: (query) => {
+      const match = findInquiryByQuery(query)
+      if (!match) return 'I could not find that inquiry.'
+      setActiveAdminTab('Inquiries')
+      setInquirySearch(`${match.fullName || match.workEmail || ''}`.trim())
+      return `Opened the inquiry list for ${match.fullName || match.workEmail}.`
     },
     openSelectedApplication: () => {
       if (!selectedApplication) return 'No application is selected right now.'
       setActiveAdminTab('Applications')
+      setApplicationRecordScope(isFinalHireDecision(selectedApplication) ? 'archived' : 'active')
       openApplicationDetails(selectedApplication)
       return `Opened ${selectedApplication.firstName} ${selectedApplication.lastName}.`
     },
@@ -3851,10 +3933,12 @@ function App() {
     const resolveTabFromQuery = () => {
       if (/\b(applicants?|applications?)\b/.test(query)) return 'Applications'
       if (/\bapprovals?\b/.test(query)) return 'Approvals'
+      if (/\binquiries?\b/.test(query)) return 'Inquiries'
       if (/\banalytics?\b/.test(query)) return 'Analytics'
       if (/\bevaluation\b/.test(query)) return 'Evaluation'
       if (/\breports?\b/.test(query)) return 'Reports'
       if (/\b(interns?|manage interns)\b/.test(query)) return 'Manage Interns'
+      if (/\b(employees?|manage employee)\b/.test(query)) return 'Manage Employee'
       if (/\bdashboard\b/.test(query)) return 'Dashboard'
       return null
     }
@@ -3871,8 +3955,18 @@ function App() {
       return { id: 'clearChat' }
     }
 
+    if (/\b(archive|archived)\b/.test(query) && /\b(applicants?|applications?)\b/.test(query)) {
+      return { id: 'setApplicationScope', scope: 'archived' }
+    }
+    if (/\b(active|current)\b/.test(query) && /\b(applicants?|applications?)\b/.test(query)) {
+      return { id: 'setApplicationScope', scope: 'active' }
+    }
+
     if (/\b(open|show|review|view|select)\b/.test(query) && /\bapplication\b/.test(query) && nameAfterVerb) {
       return { id: 'openApplicationByQuery', query: nameAfterVerb }
+    }
+    if (/\b(open|show|review|view|select)\b/.test(query) && /\binquir(y|ies)\b/.test(query) && nameAfterVerb) {
+      return { id: 'openInquiryByQuery', query: nameAfterVerb }
     }
     if (/\b(open|show|review|view|select)\b/.test(query) && /\bselected application\b/.test(query)) {
       return { id: 'openSelectedApplication' }
@@ -3902,10 +3996,12 @@ function App() {
     if (/clear\s+(the\s+)?(filters?|search|searches)\b/.test(query) || /\breset\s+(the\s+)?filters?\b/.test(query)) {
       if (/\bapplicants?|applications?\b/.test(query)) return { id: 'clearFilters', tab: 'Applications' }
       if (/\bapprovals?\b/.test(query)) return { id: 'clearFilters', tab: 'Approvals' }
+      if (/\binquiries?\b/.test(query)) return { id: 'clearFilters', tab: 'Inquiries' }
       if (/\banalytics?\b/.test(query)) return { id: 'clearFilters', tab: 'Analytics' }
       if (/\bevaluation\b/.test(query)) return { id: 'clearFilters', tab: 'Evaluation' }
       if (/\breports?\b/.test(query)) return { id: 'clearFilters', tab: 'Reports' }
       if (/\binterns?|manage interns\b/.test(query)) return { id: 'clearFilters', tab: 'Manage Interns' }
+      if (/\bemployees?|manage employee\b/.test(query)) return { id: 'clearFilters', tab: 'Manage Employee' }
     }
 
     if (/\b(cards?|list|tiles?)\s+view\b/.test(query) || /\bview\s+(cards?|list|tiles?)\b/.test(query)) {
@@ -3947,10 +4043,12 @@ function App() {
     if (/\bsearch\b/.test(query)) {
       if (/\bapplicants?|applications?\b/.test(query)) return { id: 'focusSearch', tab: 'Applications' }
       if (/\bapprovals?\b/.test(query)) return { id: 'focusSearch', tab: 'Approvals' }
+      if (/\binquiries?\b/.test(query)) return { id: 'focusSearch', tab: 'Inquiries' }
       if (/\banalytics?\b/.test(query)) return { id: 'focusSearch', tab: 'Analytics' }
       if (/\bevaluation\b/.test(query)) return { id: 'focusSearch', tab: 'Evaluation' }
       if (/\breports?\b/.test(query)) return { id: 'focusSearch', tab: 'Reports' }
       if (/\binterns?|manage interns\b/.test(query)) return { id: 'focusSearch', tab: 'Manage Interns' }
+      if (/\bemployees?|manage employee\b/.test(query)) return { id: 'focusSearch', tab: 'Manage Employee' }
     }
 
     if (/\b(task|activity)\b/.test(query) && /\bopen\b/.test(query) && /\banalytics?\b/.test(query)) {
