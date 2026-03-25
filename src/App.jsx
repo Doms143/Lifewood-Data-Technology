@@ -1499,6 +1499,28 @@ function App() {
       setIsSubmittingInquiry(true)
       setInquiryFormStatus({ type: '', message: '' })
 
+      const { data: canAcceptContactInquiry, error: contactRateLimitError } = await supabase.rpc(
+        'can_accept_contact_inquiry'
+      )
+
+      if (contactRateLimitError) {
+        setInquiryFormStatus({
+          type: 'error',
+          message: 'Unable to validate inquiry traffic right now. Please try again.',
+        })
+        setIsSubmittingInquiry(false)
+        return
+      }
+
+      if (!canAcceptContactInquiry) {
+        setInquiryFormStatus({
+          type: 'error',
+          message: 'Too many inquiries are being submitted right now. Please try again in a minute.',
+        })
+        setIsSubmittingInquiry(false)
+        return
+      }
+
       const { error } = await supabase
         .from('contact_inquiries')
         .insert(payload)
@@ -1506,7 +1528,9 @@ function App() {
       if (error) {
         setInquiryFormStatus({
           type: 'error',
-          message: error.message,
+          message: error.message?.includes('Too many contact inquiries')
+            ? 'Too many inquiries are being submitted right now. Please try again in a minute.'
+            : error.message,
         })
         setIsSubmittingInquiry(false)
         return
