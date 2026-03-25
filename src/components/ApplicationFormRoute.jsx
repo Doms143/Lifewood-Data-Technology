@@ -321,10 +321,8 @@ export default function ApplicationFormRoute() {
 
       if (insertedApplication?.id) {
         try {
-          await fetch('/api/score-cv', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ applicationId: insertedApplication.id }),
+          await supabase.functions.invoke('score-cv', {
+            body: { applicationId: insertedApplication.id },
           })
         } catch {
           // scoring is best-effort; ignore failures here

@@ -2174,21 +2174,11 @@ function App() {
     setIsScoringCv(true)
     setCvScoreError('')
     try {
-      const response = await fetch('/api/score-cv', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ applicationId: application.id }),
+      const { data: payload, error } = await supabase.functions.invoke('score-cv', {
+        body: { applicationId: application.id },
       })
-      const rawText = await response.text()
-      let payload = {}
-      try {
-        payload = rawText ? JSON.parse(rawText) : {}
-      } catch {
-        payload = { error: rawText }
-      }
-      if (!response.ok) {
-        const message = typeof payload?.error === 'string' ? payload.error : rawText
-        throw new Error(message || `Failed to score CV (HTTP ${response.status})`)
+      if (error) {
+        throw new Error(payload?.error || error.message || 'Failed to score CV')
       }
       const updated = mapCareerApplicationRowToClient(payload.application)
       setCareerApplications((prev) => prev.map((item) => (item.id === updated.id ? updated : item)))
@@ -2213,17 +2203,14 @@ function App() {
     try {
       let completed = 0
       for (const application of pendingApps) {
-        const response = await fetch('/api/score-cv', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ applicationId: application.id }),
+        const { data: payload, error } = await supabase.functions.invoke('score-cv', {
+          body: { applicationId: application.id },
         })
-        const payload = await response.json()
-        if (response.ok) {
+        if (!error) {
           const updated = mapCareerApplicationRowToClient(payload.application)
           setCareerApplications((prev) => prev.map((item) => (item.id === updated.id ? updated : item)))
         } else {
-          setCvScoreError(payload?.error || 'Failed to score one or more CVs')
+          setCvScoreError(payload?.error || error.message || 'Failed to score one or more CVs')
         }
         completed += 1
         setBatchScoreProgress({ done: completed, total: pendingApps.length })
@@ -3426,26 +3413,20 @@ function App() {
 
     void (async () => {
       try {
-        const response = await fetch('/api/chatbot', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
+        const { data: payload, error } = await supabase.functions.invoke('chatbot', {
+          body: {
             message: trimmed,
             history,
             context,
-          }),
+          },
         })
 
-        const payload = await response.json().catch(() => ({}))
-        if (!response.ok) {
-          console.error('[Dashboard AI] /api/chatbot failed', {
-            status: response.status,
-            statusText: response.statusText,
+        if (error) {
+          console.error('[Dashboard AI] chatbot invoke failed', {
+            error,
             payload,
           })
-          throw new Error(payload?.error || `Chatbot request failed (${response.status})`)
+          throw new Error(payload?.error || error.message || 'Chatbot request failed')
         }
 
         const replyText = payload?.answer || payload?.message || 'I could not generate a response.'

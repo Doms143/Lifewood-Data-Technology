@@ -1,13 +1,15 @@
-import { createClient } from '@supabase/supabase-js'
-import pdf from 'pdf-parse'
+import { Buffer } from 'node:buffer'
+import { createClient } from 'npm:@supabase/supabase-js@2.57.4'
+import pdf from 'npm:pdf-parse@1.1.1'
+import { corsHeaders, jsonResponse } from '../_shared/http.ts'
 
 const DEFAULT_GEMINI_MODEL = 'gemini-1.5-flash-latest'
 const MAX_CV_TEXT_LENGTH = 12000
 const RETRY_CV_TEXT_LENGTH = 6000
 
-const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-const geminiApiKey = process.env.GEMINI_API_KEY
+const supabaseUrl = Deno.env.get('PROJECT_URL') || ''
+const supabaseServiceKey = Deno.env.get('SERVICE_ROLE_KEY') || ''
+const geminiApiKey = Deno.env.get('GEMINI_API_KEY') || ''
 
 const supabase =
   supabaseUrl && supabaseServiceKey
@@ -22,10 +24,10 @@ const preferredGeminiModels = [
   'gemini-2.0-flash',
 ]
 
-const supportsGenerateContent = (model) =>
+const supportsGenerateContent = (model: { supportedGenerationMethods?: string[] }) =>
   (model.supportedGenerationMethods || []).includes('generateContent')
 
-const resolveModelName = async (apiKey) => {
+const resolveModelName = async (apiKey: string) => {
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`)
   if (!response.ok) {
     return DEFAULT_GEMINI_MODEL
@@ -35,18 +37,21 @@ const resolveModelName = async (apiKey) => {
   const models = data.models || []
 
   for (const name of preferredGeminiModels) {
-    const found = models.find((model) => model.name === `models/${name}` && supportsGenerateContent(model))
+    const found = models.find((model: { name?: string; supportedGenerationMethods?: string[] }) =>
+      model.name === `models/${name}` && supportsGenerateContent(model)
+    )
     if (found) return name
   }
 
   const fallbackFlashModel = models.find(
-    (model) => model.name.includes('gemini-1.5-flash') && supportsGenerateContent(model)
+    (model: { name?: string; supportedGenerationMethods?: string[] }) =>
+      model.name?.includes('gemini-1.5-flash') && supportsGenerateContent(model)
   )
 
   return fallbackFlashModel?.name?.replace('models/', '') || DEFAULT_GEMINI_MODEL
 }
 
-const buildPrompt = (cvText) => `
+const buildPrompt = (cvText: string) => `
 You are a hiring analyst. Score the following CV text from 1-100 using this weighted rubric.
 Be slightly lenient: if the CV is reasonably relevant and competent, avoid very low scores.
 Use the full range only when clearly warranted; average/typical CVs should land around 55-75.
@@ -65,7 +70,7 @@ CV TEXT:
 ${cvText}
 `
 
-const extractCvText = async (signedUrl) => {
+const extractCvText = async (signedUrl: string) => {
   const pdfResponse = await fetch(signedUrl)
   if (!pdfResponse.ok) {
     throw new Error(`Failed to download CV (${pdfResponse.status})`)
@@ -76,7 +81,7 @@ const extractCvText = async (signedUrl) => {
   return (parsed.text || '').replace(/\s+/g, ' ').trim().slice(0, MAX_CV_TEXT_LENGTH)
 }
 
-const callGemini = async ({ apiKey, modelName, prompt }) => {
+const callGemini = async ({ apiKey, modelName, prompt }: { apiKey: string; modelName: string; prompt: string }) => {
   const geminiResponse = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`,
     {
@@ -104,7 +109,7 @@ const callGemini = async ({ apiKey, modelName, prompt }) => {
   return geminiJson?.candidates?.[0]?.content?.parts?.[0]?.text || ''
 }
 
-const extractScoreAndReason = (text) => {
+const extractScoreAndReason = (text: string) => {
   const raw = String(text || '').trim()
   const match = raw.match(/\b(\d{1,3})\b/)
   if (!match) return { score: null, reason: '' }
@@ -129,22 +134,23 @@ const extractScoreAndReason = (text) => {
   return { score, reason }
 }
 
-export default async function handler(req, res) {
+Deno.serve(async (req) => {
   try {
+    if (req.method === 'OPTIONS') {
+      return new Response('ok', { headers: corsHeaders })
+    }
+
     if (req.method !== 'POST') {
-      res.status(405).json({ error: 'Method not allowed' })
-      return
+      return jsonResponse({ error: 'Method not allowed' }, 405)
     }
 
     if (!supabase || !geminiApiKey) {
-      res.status(500).json({ error: 'Server is not configured' })
-      return
+      return jsonResponse({ error: 'Server is not configured' }, 500)
     }
 
-    const { applicationId } = req.body || {}
+    const { applicationId } = await req.json().catch(() => ({}))
     if (!applicationId) {
-      res.status(400).json({ error: 'applicationId is required' })
-      return
+      return jsonResponse({ error: 'applicationId is required' }, 400)
     }
 
     const { data: application, error: fetchError } = await supabase
@@ -154,19 +160,16 @@ export default async function handler(req, res) {
       .single()
 
     if (fetchError || !application) {
-      res.status(404).json({ error: 'Application not found' })
-      return
+      return jsonResponse({ error: 'Application not found' }, 404)
     }
 
     if (application.cv_score !== null && application.cv_score !== undefined) {
-      res.status(200).json({ application })
-      return
+      return jsonResponse({ application })
     }
 
     const cvPath = application.cv_path || ''
     if (!cvPath) {
-      res.status(400).json({ error: 'CV path missing' })
-      return
+      return jsonResponse({ error: 'CV path missing' }, 400)
     }
 
     const normalizedPath = cvPath.replace(/^career-cv\//, '').replace(/^CAREER-CV\//, '')
@@ -176,14 +179,12 @@ export default async function handler(req, res) {
       .createSignedUrl(normalizedPath, 60 * 10)
 
     if (signedError || !signedData?.signedUrl) {
-      res.status(500).json({ error: 'Unable to access CV file', details: signedError?.message })
-      return
+      return jsonResponse({ error: 'Unable to access CV file', details: signedError?.message }, 500)
     }
 
     const cvText = await extractCvText(signedData.signedUrl)
     if (!cvText) {
-      res.status(500).json({ error: 'Unable to extract text from CV' })
-      return
+      return jsonResponse({ error: 'Unable to extract text from CV' }, 500)
     }
 
     const modelName = await resolveModelName(geminiApiKey)
@@ -208,8 +209,7 @@ export default async function handler(req, res) {
       summary = retry.reason
 
       if (overallScore === null) {
-        res.status(500).json({ error: 'Invalid Gemini response', details: rawText })
-        return
+        return jsonResponse({ error: 'Invalid Gemini response', details: rawText }, 500)
       }
     }
 
@@ -226,11 +226,10 @@ export default async function handler(req, res) {
       .single()
 
     if (updateError || !updated) {
-      res.status(500).json({ error: 'Failed to save score' })
-      return
+      return jsonResponse({ error: 'Failed to save score' }, 500)
     }
 
-    res.status(200).json({
+    return jsonResponse({
       application: {
         ...updated,
         cv_score: updated.cv_score,
@@ -240,6 +239,6 @@ export default async function handler(req, res) {
       },
     })
   } catch (error) {
-    res.status(500).json({ error: error?.message || 'Unexpected server error' })
+    return jsonResponse({ error: (error as { message?: string })?.message || 'Unexpected server error' }, 500)
   }
-}
+})

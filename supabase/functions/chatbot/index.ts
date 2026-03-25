@@ -1,62 +1,56 @@
+import { corsHeaders, jsonResponse } from '../_shared/http.ts'
+
 const MAX_HISTORY_ITEMS = 8
 const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash'
 const DEFAULT_GROQ_MODEL = 'llama-3.3-70b-versatile'
 const DASHBOARD_ONLY_RESPONSE = 'I can only answer questions about the dashboard data shown here.'
 
 const chatbotGeminiApiKey =
-  process.env.CHATBOT_GEMINI_API_KEY ||
-  process.env.GEMINI_CHATBOT_API_KEY ||
-  process.env.VITE_CHATBOT_GEMINI_API_KEY ||
-  process.env.GEMINI_API_KEY ||
+  Deno.env.get('CHATBOT_GEMINI_API_KEY') ||
+  Deno.env.get('GEMINI_CHATBOT_API_KEY') ||
+  Deno.env.get('GEMINI_API_KEY') ||
   ''
 
 const chatbotGroqApiKey =
-  process.env.CHATBOT_GROQ_API_KEY ||
-  process.env.GROQ_CHATBOT_API_KEY ||
-  process.env.GROQ_API_KEY ||
+  Deno.env.get('CHATBOT_GROQ_API_KEY') ||
+  Deno.env.get('GROQ_CHATBOT_API_KEY') ||
+  Deno.env.get('GROQ_API_KEY') ||
   ''
 
 const chatbotGeminiModel =
-  process.env.CHATBOT_GEMINI_MODEL ||
-  process.env.GEMINI_CHATBOT_MODEL ||
-  process.env.VITE_CHATBOT_GEMINI_MODEL ||
+  Deno.env.get('CHATBOT_GEMINI_MODEL') ||
+  Deno.env.get('GEMINI_CHATBOT_MODEL') ||
   DEFAULT_GEMINI_MODEL
 
 const chatbotGroqModel =
-  process.env.CHATBOT_GROQ_MODEL ||
-  process.env.GROQ_CHATBOT_MODEL ||
+  Deno.env.get('CHATBOT_GROQ_MODEL') ||
+  Deno.env.get('GROQ_CHATBOT_MODEL') ||
   DEFAULT_GROQ_MODEL
 
-const readRequestBody = (req) => {
-  const body = req.body
-  if (!body) return {}
-  if (typeof body === 'object') return body
-  if (typeof body === 'string') {
-    try {
-      return JSON.parse(body)
-    } catch {
-      return {}
-    }
-  }
-  return {}
-}
-
-const formatHistory = (history) => {
+const formatHistory = (history: unknown) => {
   if (!Array.isArray(history)) return ''
 
   return history
     .slice(-MAX_HISTORY_ITEMS)
     .map((item) => {
-      const content = String(item?.content || '').trim()
+      const content = String((item as { content?: string })?.content || '').trim()
       if (!content) return ''
-      const role = item?.role === 'user' ? 'User' : 'Assistant'
+      const role = (item as { role?: string })?.role === 'user' ? 'User' : 'Assistant'
       return `${role}: ${content}`
     })
     .filter(Boolean)
     .join('\n')
 }
 
-const buildPrompt = ({ message, context, history }) => {
+const buildPrompt = ({
+  message,
+  context,
+  history,
+}: {
+  message: string
+  context: unknown
+  history: unknown
+}) => {
   const historyText = formatHistory(history)
 
   return `
@@ -86,7 +80,7 @@ ${String(message || '').trim()}
 `
 }
 
-const parseTextResponse = async (response, providerName) => {
+const parseTextResponse = async (response: Response, providerName: string) => {
   const responseText = await response.text()
   if (!response.ok) {
     throw new Error(`${providerName} error (${response.status}): ${responseText || 'empty response'}`)
@@ -99,7 +93,7 @@ const parseTextResponse = async (response, providerName) => {
   }
 }
 
-const callGemini = async (apiKey, modelName, prompt) => {
+const callGemini = async (apiKey: string, modelName: string, prompt: string) => {
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`,
     {
@@ -122,7 +116,7 @@ const callGemini = async (apiKey, modelName, prompt) => {
   return json?.candidates?.[0]?.content?.parts?.[0]?.text || ''
 }
 
-const callGroq = async (apiKey, modelName, prompt) => {
+const callGroq = async (apiKey: string, modelName: string, prompt: string) => {
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -146,8 +140,8 @@ const callGroq = async (apiKey, modelName, prompt) => {
   return json?.choices?.[0]?.message?.content || ''
 }
 
-const isQuotaLikeError = (error) => {
-  const message = String(error?.message || error || '').toLowerCase()
+const isQuotaLikeError = (error: unknown) => {
+  const message = String((error as { message?: string })?.message || error || '').toLowerCase()
   return (
     message.includes('429') ||
     message.includes('quota') ||
@@ -158,24 +152,25 @@ const isQuotaLikeError = (error) => {
   )
 }
 
-export default async function handler(req, res) {
+Deno.serve(async (req) => {
   try {
-    if (req.method !== 'POST') {
-      res.status(405).json({ error: 'Method not allowed' })
-      return
+    if (req.method === 'OPTIONS') {
+      return new Response('ok', { headers: corsHeaders })
     }
 
-    const { message, context, history } = readRequestBody(req)
+    if (req.method !== 'POST') {
+      return jsonResponse({ error: 'Method not allowed' }, 405)
+    }
+
+    const { message, context, history } = await req.json().catch(() => ({}))
     if (!message || !String(message).trim()) {
-      res.status(400).json({ error: 'message is required' })
-      return
+      return jsonResponse({ error: 'message is required' }, 400)
     }
 
     const prompt = buildPrompt({ message, context, history })
 
     if (!chatbotGeminiApiKey && !chatbotGroqApiKey) {
-      res.status(500).json({ error: 'Chatbot API key is not configured' })
-      return
+      return jsonResponse({ error: 'Chatbot API key is not configured' }, 500)
     }
 
     let provider = chatbotGeminiApiKey ? 'gemini' : 'groq'
@@ -199,17 +194,16 @@ export default async function handler(req, res) {
 
     const cleaned = String(answer || '').trim()
     if (!cleaned) {
-      res.status(500).json({ error: `Empty ${provider} response` })
-      return
+      return jsonResponse({ error: `Empty ${provider} response` }, 500)
     }
 
-    res.status(200).json({
+    return jsonResponse({
       answer: cleaned,
       provider,
       model,
     })
   } catch (error) {
     console.error('chatbot handler failed:', error)
-    res.status(500).json({ error: error?.message || 'Unexpected server error' })
+    return jsonResponse({ error: (error as { message?: string })?.message || 'Unexpected server error' }, 500)
   }
-}
+})
