@@ -1561,6 +1561,39 @@ function App() {
     setSignUpError('')
     setSignUpSuccess('')
 
+    const { data: isSignupEmailAvailable, error: emailAvailabilityError } = await supabase.rpc(
+      'is_signup_email_available',
+      { candidate_email: email }
+    )
+
+    if (emailAvailabilityError) {
+      setSignUpError('Unable to validate the sign-up email right now. Please try again.')
+      setIsAuthLoading(false)
+      return
+    }
+
+    if (!isSignupEmailAvailable) {
+      setSignUpError('This email address has already been used for sign-up. Please use a different Gmail account.')
+      setIsAuthLoading(false)
+      return
+    }
+
+    const { data: canAcceptSignupRequest, error: signupRateLimitError } = await supabase.rpc(
+      'can_accept_signup_request'
+    )
+
+    if (signupRateLimitError) {
+      setSignUpError('Unable to validate sign-up traffic right now. Please try again.')
+      setIsAuthLoading(false)
+      return
+    }
+
+    if (!canAcceptSignupRequest) {
+      setSignUpError('Too many sign-up requests right now. Please try again in a minute.')
+      setIsAuthLoading(false)
+      return
+    }
+
     const { data: signUpData, error: signUpErrorResult } = await supabase.auth.signUp({
       email,
       password,
@@ -1593,7 +1626,13 @@ function App() {
       })
 
     if (error) {
-      setSignUpError(error.message)
+      setSignUpError(
+        error.code === '23505'
+          ? 'This email address has already been used for sign-up. Please use a different Gmail account.'
+          : error.message?.includes('Too many signup requests')
+            ? 'Too many sign-up requests right now. Please try again in a minute.'
+          : error.message
+      )
       setIsAuthLoading(false)
       return
     }
