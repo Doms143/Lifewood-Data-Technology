@@ -7,9 +7,20 @@ const DEFAULT_GEMINI_MODEL = 'gemini-1.5-flash-latest'
 const MAX_CV_TEXT_LENGTH = 12000
 const RETRY_CV_TEXT_LENGTH = 6000
 
-const supabaseUrl = Deno.env.get('PROJECT_URL') || ''
-const supabaseServiceKey = Deno.env.get('SERVICE_ROLE_KEY') || ''
-const geminiApiKey = Deno.env.get('GEMINI_API_KEY') || ''
+const supabaseUrl =
+  Deno.env.get('SUPABASE_URL') ||
+  Deno.env.get('PROJECT_URL') ||
+  ''
+
+const supabaseServiceKey =
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ||
+  Deno.env.get('SERVICE_ROLE_KEY') ||
+  ''
+
+const geminiApiKey =
+  Deno.env.get('GEMINI_API_KEY') ||
+  Deno.env.get('CHATBOT_GEMINI_API_KEY') ||
+  ''
 
 const supabase =
   supabaseUrl && supabaseServiceKey
@@ -144,8 +155,24 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'Method not allowed' }, 405)
     }
 
+    if (!supabaseUrl || !supabaseServiceKey) {
+      return jsonResponse(
+        {
+          error:
+            'Supabase Edge Function secrets are missing. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.',
+        },
+        500
+      )
+    }
+
     if (!supabase || !geminiApiKey) {
-      return jsonResponse({ error: 'Server is not configured' }, 500)
+      return jsonResponse(
+        {
+          error:
+            'Gemini API key is missing. Set GEMINI_API_KEY in Supabase Edge Function secrets.',
+        },
+        500
+      )
     }
 
     const { applicationId } = await req.json().catch(() => ({}))
